@@ -27,3 +27,17 @@ width: 100%;
 left: 0;
 }
   
+.subcat {
+  background-color: transparent;
+  color: #5a50a0;
+  margin-top: 5px;
+  text-align: left;
+  border: none;
+  font-size: medium;
+  padding: 12px;
+}
+
+.subcat:hover {
+  background-color:#93dee1;
+  transition: 0.4s;
+}
