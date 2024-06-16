@@ -10,6 +10,15 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { Button } from '@mui/material';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
+import EqualizerIcon from '@mui/icons-material/Equalizer';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import SettingsIcon from '@mui/icons-material/Settings';
+import LocalAtmIcon from '@mui/icons-material/LocalAtm';
+import DvrIcon from '@mui/icons-material/Dvr';
+import PersonIcon from '@mui/icons-material/Person';
 
 const Navbar: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
@@ -27,6 +36,7 @@ const Navbar: React.FC = () => {
 
   return (
     <div>
+      {/* The main navbar at the top */}
       <AppBar position="fixed" style={{ backgroundColor: '#5a50a0', zIndex: 1201, padding: '8px' }}>
         <Toolbar>
           <img src={logo} alt="Logo" className='logo' />
@@ -37,19 +47,23 @@ const Navbar: React.FC = () => {
           <Button className="navButton" color="inherit" data-submenu="admin" onClick={handleClick}>Admin</Button>
         </Toolbar>
       </AppBar>
+
       <Toolbar /> {/* This is to offset the content below the AppBar */}
+
+      {/* The drawer for the subcategories */}
       <Drawer
         anchor="top"
         open={drawerOpen}
         onClose={handleDrawerClose}
         PaperProps={{ style: { width: 'auto', top: 64, position: 'absolute', zIndex: 1200 } }}
       >
+
         <Box p={3} display="flex" justifyContent="flex-start" flexWrap="wrap" marginTop='20px' marginLeft='20px' marginBottom='20px'>
           {submenu === 'planEvents' && (
             <>
               <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
                 <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
-                  <EventNoteIcon sx={{ marginRight: '8px' }} />
+                  <EventNoteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                   View Events
                 </Typography>
                 <button className="subcat" style={{ width: '100%' }}>List View</button>
@@ -59,7 +73,7 @@ const Navbar: React.FC = () => {
               </Box>
               <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
                 <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
-                  <CalendarTodayIcon sx={{ marginRight: '8px' }} />
+                  <CalendarTodayIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                   Create Single Event
                 </Typography>
                 <button className="subcat" style={{ width: '100%' }}>By Date or Range</button>
@@ -70,7 +84,7 @@ const Navbar: React.FC = () => {
               </Box>
               <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
-                  <CalendarMonthIcon sx={{ marginRight: '8px' }} />
+                  <CalendarMonthIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                   Create Multiple Events
                 </Typography>
                 <button className="subcat" style={{ width: '100%' }}>By Specific Date</button>
@@ -81,34 +95,126 @@ const Navbar: React.FC = () => {
               </Box>
             </>
           )}
+
           {submenu === 'approvePay' && (
+            <>
             <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
-              <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '0 8px', whiteSpace: 'nowrap' }}>Approve Invoices</Typography>
-              <button className="subcat" style={{ width: '100%' }}>Approve Invoices</button>
-              <button className="subcat" style={{ width: '100%' }}>Pay Bills</button>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <EditNoteIcon sx={{ marginRight: '8px' }} fontSize='large'/>
+                    Approvals
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Approve Submitted Events</button>
             </Box>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '10px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <CreditCardIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Accounting
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Manage Payroll</button>
+                <button className="subcat" style={{ width: '100%' }}>Payment History</button>
+            </Box>
+            </>
           )}
+
           {submenu === 'reportAnalyze' && (
+            <>
             <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
-              <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '0 8px', whiteSpace: 'nowrap' }}>Report & Analyze</Typography>
-              <button className="subcat" style={{ width: '100%' }}>Generate Reports</button>
-              <button className="subcat" style={{ width: '100%' }}>Analyze Data</button>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <ContentPasteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Reporting
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Completed Reports</button>
+                <button className="subcat" style={{ width: '100%' }}>Photo Gallery</button>
             </Box>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '10px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <EqualizerIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Analysis
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Sales Results</button>
+                <button className="subcat" style={{ width: '100%' }}>Q&A Numerical Results</button>
+                <button className="subcat" style={{ width: '100%' }}>Q&A Written Answers</button>
+                <button className="subcat" style={{ width: '100%' }}>Raw Data</button>
+            </Box>
+            </>
           )}
+
           {submenu === 'setUp' && (
-            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
-              <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '0 8px', whiteSpace: 'nowrap' }}>Set Up</Typography>
-              <button className="subcat" style={{ width: '100%' }}>User Settings</button>
-              <button className="subcat" style={{ width: '100%' }}>Preferences</button>
+            <>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '15px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <ContentPasteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Templates
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Campaigns</button>
+                <button className="subcat" style={{ width: '100%' }}>Inventory Report</button>
+                <button className="subcat" style={{ width: '100%' }}>Post-Event Questions</button>
+                <button className="subcat" style={{ width: '100%' }}>Exporting Templates</button>
             </Box>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '15px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <FormatListBulletedIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Lists
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Brand Ambassadors</button>
+                <button className="subcat" style={{ width: '100%' }}>Venues</button>
+                <button className="subcat" style={{ width: '100%' }}>Products</button>
+            </Box>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '15px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <ContentPasteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Assets
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Training Materials</button>
+                <button className="subcat" style={{ width: '100%' }}>Required Docs</button>
+            </Box>
+            </>
           )}
+
           {submenu === 'admin' && (
-            <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-              <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '0 8px', whiteSpace: 'nowrap' }}>Admin</Typography>
-              <button className="subcat" style={{ width: '100%' }}>Manage Users</button>
-              <button className="subcat" style={{ width: '100%' }}>System Settings</button>
+            <>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <SettingsIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    General
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Company Settings</button>
+                <button className="subcat" style={{ width: '100%' }}>Teams</button>
+                <button className="subcat" style={{ width: '100%' }}>Regions</button>
+                <button className="subcat" style={{ width: '100%' }}>Integrations</button>
             </Box>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <LocalAtmIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Expenses
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>General Settings</button>
+                <button className="subcat" style={{ width: '100%' }}>Expense Categories</button>
+                <button className="subcat" style={{ width: '100%' }}>Payment Methods</button>
+                <button className="subcat" style={{ width: '100%' }}>Mileage Calculations</button>
+                <button className="subcat" style={{ width: '100%' }}>Time Presets</button>
+            </Box>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', borderRight: '1px solid gray', paddingRight: '10px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '20px', color: '#6f65ac'}}>
+                    <DvrIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Custom Fields
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Campaigns</button>
+                <button className="subcat" style={{ width: '100%' }}>Events</button>
+                <button className="subcat" style={{ width: '100%' }}>Venues</button>
+                <button className="subcat" style={{ width: '100%' }}>Products</button>
+                <button className="subcat" style={{ width: '100%' }}>Contacts</button>
+            </Box>
+            <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '10px' }}>
+                <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>
+                    <PersonIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
+                    Rights & Roles
+                </Typography>
+                <button className="subcat" style={{ width: '100%' }}>Brand Managers</button>
+            </Box>
+            </>
           )}
+          
         </Box>
       </Drawer>
     </div>

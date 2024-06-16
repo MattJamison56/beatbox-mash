@@ -1,14 +1,24 @@
-//import { useState } from 'react'
-import './App.css'
-import Navbar from './components/navbar/navbar'
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import HomePage from './pages/home/home';
+import LoginPage from './pages/login/login';
 
-function App() {
+const App: React.FC = () => {
 
   return (
-    <>
-      <Navbar></Navbar>
-    </>
-  )
-}
+    <div>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<HomePage />} />
+      </Routes>
+    </div>
+  );
+};
 
-export default App
+const RootApp: React.FC = () => (
+  <Router>
+    <App />
+  </Router>
+);
+
+export default RootApp;
