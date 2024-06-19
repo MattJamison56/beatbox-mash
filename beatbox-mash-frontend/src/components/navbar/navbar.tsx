@@ -20,7 +20,11 @@ import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import DvrIcon from '@mui/icons-material/Dvr';
 import PersonIcon from '@mui/icons-material/Person';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  onSubcategoryChange: (subcategory: string | null) => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [submenu, setSubmenu] = useState<string | null>(null);
 
@@ -34,12 +38,19 @@ const Navbar: React.FC = () => {
     setSubmenu(null);
   };
 
+  const handleSubcatClick = (subcategory: string) => {
+    onSubcategoryChange(subcategory);
+    setDrawerOpen(false);
+  };
+
   return (
     <div>
       {/* The main navbar at the top */}
       <AppBar position="fixed" style={{ backgroundColor: '#5a50a0', zIndex: 1201, padding: '8px' }}>
         <Toolbar>
-          <img src={logo} alt="Logo" className='logo' />
+          <Button onClick={() => handleSubcatClick('')}>
+            <img src={logo} alt="Logo" className='logo' />
+          </Button>
           <Button className="navButton" color="inherit" data-submenu="planEvents" onClick={handleClick}>Plan Events</Button>
           <Button className="navButton" color="inherit" data-submenu="approvePay" onClick={handleClick}>Approve & Pay</Button>
           <Button className="navButton" color="inherit" data-submenu="reportAnalyze" onClick={handleClick}>Report & Analyze</Button>
@@ -156,7 +167,7 @@ const Navbar: React.FC = () => {
                     <FormatListBulletedIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                     Lists
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Brand Ambassadors</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Brand Ambassadors')}>Brand Ambassadors</button>
                 <button className="subcat" style={{ width: '100%' }}>Venues</button>
                 <button className="subcat" style={{ width: '100%' }}>Products</button>
             </Box>
