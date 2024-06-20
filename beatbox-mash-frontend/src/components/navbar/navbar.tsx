@@ -190,7 +190,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     General
                 </Typography>
                 <button className="subcat" style={{ width: '100%' }}>Company Settings</button>
-                <button className="subcat" style={{ width: '100%' }}>Teams</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Teams')}>Teams</button>
                 <button className="subcat" style={{ width: '100%' }}>Regions</button>
                 <button className="subcat" style={{ width: '100%' }}>Integrations</button>
             </Box>

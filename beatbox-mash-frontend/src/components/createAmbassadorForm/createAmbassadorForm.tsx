@@ -1,17 +1,44 @@
-import React, { useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem, Select, FormControl, InputLabel, Checkbox, FormControlLabel } from '@mui/material';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Checkbox, FormControlLabel, IconButton } from '@mui/material';
+import { Autocomplete } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 
-const dummyTeams = ['CHICAGO', 'Austin', 'Beats Training Deck', 'BEATS Training NY 2024'];
+type Ambassador = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  wage: string;
+  teams: string[];
+  certificateExpirationDate: string;
+};
 
 const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = ({ open, onClose }) => {
-  const [ambassadors, setAmbassadors] = useState([{ firstName: '', lastName: '', email: '', wage: '', teams: '', certificateExpirationDate: '' }]);
+  const [ambassadors, setAmbassadors] = useState<Ambassador[]>([{ firstName: '', lastName: '', email: '', wage: '', teams: [], certificateExpirationDate: '' }]);
   const [requiredDocs, setRequiredDocs] = useState({ alcohol: false, license: false, w9: false });
+  const [teams, setTeams] = useState<string[]>([]);
 
-  const handleAddMore = () => {
-    setAmbassadors([...ambassadors, { firstName: '', lastName: '', email: '', wage: '', teams: '', certificateExpirationDate: '' }]);
+  useEffect(() => {
+    if (open) {
+      fetchTeams();
+    }
+  }, [open]);
+
+  const fetchTeams = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/teams');
+      const data = await response.json();
+      setTeams(data.map((team: any) => team.name));
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+    }
   };
 
-  const handleInputChange = (index: number, field: string, value: any) => {
+  const handleAddMore = () => {
+    setAmbassadors([...ambassadors, { firstName: '', lastName: '', email: '', wage: '', teams: [], certificateExpirationDate: '' }]);
+  };
+
+  const handleInputChange = (index: number, field: keyof Ambassador, value: any) => {
     const newAmbassadors = [...ambassadors];
     newAmbassadors[index][field] = value;
     setAmbassadors(newAmbassadors);
@@ -23,10 +50,30 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
     setAmbassadors(newAmbassadors);
   };
 
-  const handleCreate = () => {
-    // Placeholder for create logic
-    console.log('Creating ambassadors:', ambassadors);
-    onClose();
+  const handleDeleteRow = (index: number) => {
+    const newAmbassadors = ambassadors.filter((_, i) => i !== index);
+    setAmbassadors(newAmbassadors);
+  };
+
+  const handleCreate = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/ambassadors/createba', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ambassadors }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      // Handle success, e.g., show a success message, refresh data, etc.
+      onClose();
+    } catch (error) {
+      // Handle error, e.g., show an error message
+      console.error('Error creating ambassadors:', error);
+    }
   };
 
   return (
@@ -34,7 +81,7 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
       <DialogTitle>Create Ambassadors</DialogTitle>
       <DialogContent>
         {ambassadors.map((ambassador, index) => (
-          <div key={index} style={{ marginBottom: 16 }}>
+          <div key={index} style={{ marginBottom: 16, display: 'flex', alignItems: 'center' }}>
             <TextField
               label="First Name"
               value={ambassador.firstName}
@@ -59,19 +106,19 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
               onChange={(e) => handleInputChange(index, 'wage', e.target.value)}
               style={{ marginRight: 8 }}
             />
-            <FormControl style={{ marginRight: 8 }}>
-              <InputLabel>Teams</InputLabel>
-              <Select
-                value={ambassador.teams}
-                onChange={(e) => handleInputChange(index, 'teams', e.target.value)}
-              >
-                {dummyTeams.map((team) => (
-                  <MenuItem key={team} value={team}>
-                    {team}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              multiple
+              options={teams}
+              value={ambassador.teams}
+              onChange={(_e, value) => handleInputChange(index, 'teams', value)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Teams"
+                  style={{ marginRight: 8, minWidth: 200 }}
+                />
+              )}
+            />
             <TextField
               label="Certificate Expiration Date"
               type="date"
@@ -80,17 +127,20 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
               InputLabelProps={{ shrink: true }}
               style={{ marginRight: 8 }}
             />
+            {ambassadors.length > 1 && (
+              <IconButton onClick={() => handleDeleteRow(index)}>
+                <DeleteIcon />
+              </IconButton>
+            )}
           </div>
         ))}
         <Button onClick={handleAddMore}>Add More</Button>
         <div style={{ marginTop: 16 }}>
-          <h4>Share Files</h4>
+          <h4>Assign Trainings</h4>
           {/* Placeholder checkboxes for share files */}
-          <FormControlLabel control={<Checkbox />} label="Public" />
-          <FormControlLabel control={<Checkbox />} label="CHICAGO" />
-          <FormControlLabel control={<Checkbox />} label="Austin" />
-          <FormControlLabel control={<Checkbox />} label="Beats Training Deck" />
-          <FormControlLabel control={<Checkbox />} label="BEATS Training NY 2024" />
+          <FormControlLabel control={<Checkbox />} label="Training1" />
+          <FormControlLabel control={<Checkbox />} label="Training2" />
+          <FormControlLabel control={<Checkbox />} label="Training3" />
         </div>
         <div style={{ marginTop: 16 }}>
           <h4>Require Documents</h4>

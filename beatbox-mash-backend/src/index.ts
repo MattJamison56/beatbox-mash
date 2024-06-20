@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { poolPromise } from './database';
+import ambassadorRoutes from './routes/ambassadorRoutes';
+import teamRoutes from './routes/teamRoutes'
+import bodyParser from 'body-parser';
 
 dotenv.config();
 
@@ -15,6 +18,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/', userRoutes);
+
+app.use(bodyParser.json());
+app.use('/ambassadors', ambassadorRoutes);
+
+app.use('/teams', teamRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 
