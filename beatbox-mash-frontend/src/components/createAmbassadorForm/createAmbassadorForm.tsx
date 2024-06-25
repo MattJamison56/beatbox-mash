@@ -13,7 +13,7 @@ type Ambassador = {
   certificateExpirationDate: string;
 };
 
-const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = ({ open, onClose }) => {
+const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void, fetchUsers: () => void }> = ({ open, onClose, fetchUsers }) => {
   const [ambassadors, setAmbassadors] = useState<Ambassador[]>([{ firstName: '', lastName: '', email: '', wage: '', teams: [], certificateExpirationDate: '' }]);
   const [requiredDocs, setRequiredDocs] = useState({ alcohol: false, license: false, w9: false });
   const [teams, setTeams] = useState<string[]>([]);
@@ -69,6 +69,7 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
         throw new Error('Network response was not ok');
       }
       // Handle success, e.g., show a success message, refresh data, etc.
+      fetchUsers(); // updates table
       onClose();
     } catch (error) {
       // Handle error, e.g., show an error message
@@ -86,25 +87,25 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
               label="First Name"
               value={ambassador.firstName}
               onChange={(e) => handleInputChange(index, 'firstName', e.target.value)}
-              style={{ marginRight: 8 }}
+              style={{ marginRight: 8, marginTop: 5}}
             />
             <TextField
               label="Last Name"
               value={ambassador.lastName}
               onChange={(e) => handleInputChange(index, 'lastName', e.target.value)}
-              style={{ marginRight: 8 }}
+              style={{ marginRight: 8, marginTop: 5 }}
             />
             <TextField
               label="Email"
               value={ambassador.email}
               onChange={(e) => handleInputChange(index, 'email', e.target.value)}
-              style={{ marginRight: 8 }}
+              style={{ marginRight: 8, marginTop: 5 }}
             />
             <TextField
               label="Wage per Hour"
               value={ambassador.wage}
               onChange={(e) => handleInputChange(index, 'wage', e.target.value)}
-              style={{ marginRight: 8 }}
+              style={{ marginRight: 8, marginTop: 5 }}
             />
             <Autocomplete
               multiple
@@ -115,7 +116,7 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
                 <TextField
                   {...params}
                   label="Teams"
-                  style={{ marginRight: 8, minWidth: 200 }}
+                  style={{ marginRight: 8, minWidth: 200, marginTop: 5 }}
                 />
               )}
             />
@@ -125,7 +126,7 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void }> = (
               value={ambassador.certificateExpirationDate}
               onChange={(e) => handleDateChange(index, e.target.value)}
               InputLabelProps={{ shrink: true }}
-              style={{ marginRight: 8 }}
+              style={{ marginRight: 8, marginTop: 5, marginLeft: 8 }}
             />
             {ambassadors.length > 1 && (
               <IconButton onClick={() => handleDeleteRow(index)}>

@@ -4,12 +4,56 @@ import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import './bapage.css';
 import CreateAmbassadorForm from '../../components/createAmbassadorForm/createAmbassadorForm';
+import EditIcon from '@mui/icons-material/Edit';
+import { EditTeamsForm } from '../../components/editTeamsForm/editTeamsForm';
+
 
 const BrandAmbassadorsPage: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [openForm, setOpenForm] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<null | any>(null);
+
+  const [editTeamsOpen, setEditTeamsOpen] = useState(false);
+  const [currentTeams, setCurrentTeams] = useState<string[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [teams, setTeams] = useState<string[]>([]);
+
+  const handleEditTeams = (user: any) => {
+    setCurrentTeams(user.teams || []);
+    setCurrentUserId(user.id);
+    setEditTeamsOpen(true);
+  };
+
+  const handleCloseEditTeams = () => {
+    setEditTeamsOpen(false);
+    setCurrentTeams([]);
+    setCurrentUserId(null);
+  };
+
+  const handleSaveTeams = async (userId: string | null, newTeams: string[]) => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/ambassadors/updateBATeams`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: userId, teams: newTeams }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      // Update the user teams in the state
+      setUsers(users.map(user => user.id === userId ? { ...user, teams: newTeams } : user));
+      await fetchUsers(); // reload table
+    } catch (error) {
+      console.error('Error updating teams:', error);
+    }
+  };
 
   const handleOpenForm = () => {
     setOpenForm(true);
@@ -19,11 +63,25 @@ const BrandAmbassadorsPage: React.FC = () => {
     setOpenForm(false);
   };
 
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/users');
+      const data = await response.json();
+      setUsers(data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
   useEffect(() => {
-    fetch('http://localhost:5000/users')
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/teams')
       .then(response => response.json())
-      .then(data => setUsers(data))
-      .catch(error => console.error('Error fetching users:', error));
+      .then(data => setTeams(data.map((team: any) => team.name)))
+      .catch(error => console.error('Error fetching teams:', error));
   }, []);
 
   const handleMenuClick = (event: React.MouseEvent<HTMLButtonElement>, user: any) => {
@@ -109,10 +167,14 @@ const BrandAmbassadorsPage: React.FC = () => {
                 <TableCell>{user.address}</TableCell>
                 <TableCell><a href={`mailto:${user.email}`}>{user.email}</a></TableCell>
                 <TableCell><a href={`tel:${user.phone_number}`}>{user.phone_number}</a></TableCell>
-                <TableCell>{'N/A'}</TableCell> {/* No availability data in the database */}
-                <TableCell>{user.teams}</TableCell> {/* Display teams */}
+                <TableCell>{'N/A'}</TableCell> 
+                <TableCell>{user.teams ? `${user.teams}` : 'N/A'} 
+                  <IconButton onClick={() => handleEditTeams(user)}>
+                    <EditIcon />
+                  </IconButton>
+                </TableCell>
                 <TableCell>{user.wage ? `$${user.wage}/h` : 'N/A'}</TableCell>
-                <TableCell>{'N/A'}</TableCell> {/* No docsReturned data in the database */}
+                <TableCell>{'N/A'}</TableCell>
                 <TableCell>{user.date_of_last_request ? new Date(user.date_of_last_request).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>
                   <IconButton onClick={(event) => handleMenuClick(event, user)}>
@@ -134,7 +196,15 @@ const BrandAmbassadorsPage: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
-      <CreateAmbassadorForm open={openForm} onClose={handleCloseForm} />
+      <CreateAmbassadorForm open={openForm} onClose={handleCloseForm} fetchUsers={fetchUsers}/>
+      <EditTeamsForm 
+        open={editTeamsOpen} 
+        onClose={handleCloseEditTeams} 
+        currentTeams={currentTeams} 
+        userId={currentUserId} 
+        teams={teams} 
+        onSave={handleSaveTeams} 
+      />
     </div>
   );
 };

@@ -76,6 +76,13 @@ export const deleteAmbassador = async (req: Request, res: Response) => {
     const pool = await poolPromise;
     const request = new sql.Request(pool);
     const { id } = req.body;
+    
+    const requestDelete = new sql.Request(pool);
+    await requestDelete
+      .input('userId', sql.Int, id)
+      .query(`
+        DELETE FROM UserTeams WHERE user_id = @userId
+      `);
 
     await request
       .input('id', sql.Int, id)
@@ -84,6 +91,65 @@ export const deleteAmbassador = async (req: Request, res: Response) => {
     res.status(200).json({ message: 'Ambassador deleted successfully' });
   } catch (error) {
     console.error('Error deleting ambassador:', error);
+    const err = error as Error;
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateAmbassadorTeams = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    const { id, teams } = req.body;
+
+    console.log('Updating teams for ambassador ID:', id);
+    console.log('New teams:', teams);
+
+    // Delete existing teams for the ambassador
+    const requestDelete = new sql.Request(transaction);
+
+    await requestDelete
+      .input('userId', sql.Int, id)
+      .query(`
+        DELETE FROM UserTeams WHERE user_id = @userId
+      `);
+
+    // Insert new teams for the ambassador
+    for (const teamName of teams) {
+      const requestTeam = new sql.Request(transaction);
+
+      // Fetch the team ID based on the team name
+      const teamResult = await requestTeam
+        .input('teamName', sql.VarChar, teamName)
+        .query(`
+          SELECT id FROM Teams WHERE name = @teamName
+        `);
+
+      if (teamResult.recordset.length > 0) {
+        const teamId = teamResult.recordset[0].id;
+
+        // Create a new request for inserting into UserTeams
+        const requestUserTeams = new sql.Request(transaction);
+
+        await requestUserTeams
+          .input('userId', sql.Int, id)
+          .input('teamId', sql.Int, teamId)
+          .query(`
+            INSERT INTO UserTeams (user_id, team_id, joined_at)
+            VALUES (@userId, @teamId, GETDATE())
+          `);
+      } else {
+        console.warn(`Team not found: ${teamName}`);
+      }
+    }
+
+    await transaction.commit();
+    res.status(200).json({ message: 'Ambassador teams updated successfully' });
+  } catch (error) {
+    console.error('Error updating ambassador teams:', error);
     const err = error as Error;
     res.status(500).json({ message: err.message });
   }
