@@ -1,8 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useRef } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete as MuiAutocomplete, IconButton } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+/* eslint-disable react-hooks/exhaustive-deps */
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { debounce } from "lodash"
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete } from '@mui/material';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+
+const libraries: ("places")[] = ["places"];
 
 type Venue = {
   name: string;
@@ -17,12 +21,20 @@ type Venue = {
   teams: string[];
 };
 
-const CreateVenueForm: React.FC<{ open: boolean, onClose: () => void, fetchVenues: () => void }> = ({ open, onClose, fetchVenues }) => {
-  const [venues, setVenues] = useState<Venue[]>([{ name: '', address: '', region: '', comment: '', contact1_name: '', contact1_phone: '', contact2_name: '', contact2_phone: '', last_time_visited: '', teams: [] }]);
+type AutocompletePrediction = {
+  description: string;
+  place_id: string;
+};
+
+const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenues: () => void }> = ({ open, onClose, fetchVenues }) => {
+  const [venue, setVenue] = useState<Venue>({ name: '', address: '', region: '', comment: '', contact1_name: '', contact1_phone: '', contact2_name: '', contact2_phone: '', last_time_visited: '', teams: [] });
   const [teams, setTeams] = useState<string[]>([]);
-  const [mapCenter, setMapCenter] = useState<{ lat: number, lng: number }>({ lat: 0, lng: 0 });
-  const [markerPosition, setMarkerPosition] = useState<{ lat: number, lng: number }>({ lat: 0, lng: 0 });
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 0, lng: 0 });
+  const [markerPosition, setMarkerPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [autocompletePredictions, setAutocompletePredictions] = useState<AutocompletePrediction[]>([]);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesService = useRef<google.maps.places.PlacesService | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -47,27 +59,17 @@ const CreateVenueForm: React.FC<{ open: boolean, onClose: () => void, fetchVenue
         const { latitude, longitude } = position.coords;
         setMapCenter({ lat: latitude, lng: longitude });
         setMarkerPosition({ lat: latitude, lng: longitude });
+        console.log("Set initial marker position:", { lat: latitude, lng: longitude });
       });
     }
   };
 
-  const handleAddMore = () => {
-    setVenues([...venues, { name: '', address: '', region: '', comment: '', contact1_name: '', contact1_phone: '', contact2_name: '', contact2_phone: '', last_time_visited: '', teams: [] }]);
-  };
-
-  const handleInputChange = (index: number, field: keyof Venue, value: any) => {
-    const newVenues = [...venues];
-    newVenues[index][field] = value;
-    setVenues(newVenues);
-    if (field === 'address' && value) {
-      updateMapCenter(value, index);
+  const handleInputChange = useCallback((field: keyof Venue, value: any) => {
+    setVenue(prevVenue => ({ ...prevVenue, [field]: value }));
+    if (field === 'address') {
+      debouncedFetchPredictions(value);
     }
-  };
-
-  const handleDeleteRow = (index: number) => {
-    const newVenues = venues.filter((_, i) => i !== index);
-    setVenues(newVenues);
-  };
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -76,191 +78,198 @@ const CreateVenueForm: React.FC<{ open: boolean, onClose: () => void, fetchVenue
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ venues }),
+        body: JSON.stringify({ venue }),
       });
 
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
-      fetchVenues(); // updates table
+      fetchVenues();
       onClose();
     } catch (error) {
-      console.error('Error creating venues:', error);
+      console.error('Error creating venue:', error);
     }
   };
 
-  const updateMapCenter = (address: string, index: number) => {
-    const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ address }, (results, status) => {
-      if (status === 'OK' && results && results[0]) {
-        const location = results[0].geometry.location;
-        setMapCenter({ lat: location.lat(), lng: location.lng() });
-        setMarkerPosition({ lat: location.lat(), lng: location.lng() });
-        
-        // Extract name and city
-        const name = results[0].address_components.find(component => component.types.includes('point_of_interest'))?.long_name || '';
-        const city = results[0].address_components.find(component => component.types.includes('locality'))?.long_name || '';
-        const formattedName = name && city ? `${name} - ${city}` : results[0].formatted_address;
-        
-        handleInputChange(index, 'name', formattedName);
-        handleInputChange(index, 'address', results[0].formatted_address);
-      }
-    });
-  };
+  const updateMapCenter = useCallback((placeId: string) => {
+    if (placesService.current) {
+      placesService.current.getDetails(
+        { placeId: placeId, fields: ['geometry', 'formatted_address', 'name'] },
+        (place, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && place && place.geometry && place.geometry.location) {
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            setMapCenter({ lat, lng });
+            setMarkerPosition({ lat, lng });
+            console.log("Updated marker position:", { lat, lng });
 
-  const onMarkerDragEnd = (event: google.maps.MapMouseEvent, index: number) => {
-    const lat = event.latLng!.lat();
-    const lng = event.latLng!.lng();
-    setMarkerPosition({ lat, lng });
+            const name = place.name || '';
+            const formattedName = name ? `${name} - ${place.formatted_address}` : place.formatted_address || '';
 
-    const geocoder = new google.maps.Geocoder();
-    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      if (status === 'OK' && results && results[0]) {
-        const address = results[0].formatted_address;
-        
-        // Extract name and city
-        const name = results[0].address_components.find(component => component.types.includes('point_of_interest'))?.long_name || '';
-        const city = results[0].address_components.find(component => component.types.includes('locality'))?.long_name || '';
-        const formattedName = name && city ? `${name} - ${city}` : address;
-        
-        handleInputChange(index, 'address', address);
-        handleInputChange(index, 'name', formattedName);
-      }
-    });
-  };
-
-  const handlePlaceSelect = (index: number) => {
-    const place = autocompleteRef.current?.getPlace();
-    if (place && place.geometry && place.geometry.location) {
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      setMapCenter({ lat, lng });
-      setMarkerPosition({ lat, lng });
-      
-      // Extract name and city
-      const name = place.name || '';
-      const city = place.address_components?.find(component => component.types.includes('locality'))?.long_name || '';
-      const formattedName = name && city ? `${name} - ${city}` : place.formatted_address || '';
-      
-      handleInputChange(index, 'address', place.formatted_address || '');
-      handleInputChange(index, 'name', formattedName);
+            setVenue(prevVenue => ({
+              ...prevVenue,
+              name: formattedName,
+              address: place.formatted_address || '',
+            }));
+          }
+        }
+      );
     }
-  };
+  }, []);
+
+  const debouncedFetchPredictions = useCallback(
+    debounce((input: string) => {
+      if (autocompleteService.current && input) {
+        autocompleteService.current.getPlacePredictions(
+          { input },
+          (predictions, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              setAutocompletePredictions(predictions.slice(0, 5));
+            }
+          }
+        );
+      }
+    }, 300),
+    []
+  );
+
+  const onMarkerDragEnd = useCallback((_event: google.maps.MapMouseEvent) => {
+    console.log('drag end');
+  }, []);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Create Venues</DialogTitle>
+      <DialogTitle>Create Venue</DialogTitle>
       <DialogContent>
-        {venues.map((venue, index) => (
-          <div key={index} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', flexDirection: 'column' }}>
-            <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_KEY} libraries={['places']}>
-              <TextField
-                label="Address"
-                value={venue.address}
-                onChange={(e) => handleInputChange(index, 'address', e.target.value)}
-                style={{ marginRight: 8, marginTop: 5, width: '100%' }}
-                inputProps={{
-                  ref: (input: HTMLInputElement | null) => {
-                    if (input && !autocompleteRef.current) {
-                      autocompleteRef.current = new google.maps.places.Autocomplete(input);
-                      autocompleteRef.current.addListener('place_changed', () => handlePlaceSelect(index));
-                    }
-                  },
-                }}
-              />
-              <GoogleMap
-                center={mapCenter}
-                zoom={15}
-                mapContainerStyle={{ width: '100%', height: '400px', marginTop: '10px' }}
-                onClick={(e) => {
-                  if (e.latLng) {
-                    setMarkerPosition({ lat: e.latLng.lat(), lng: e.latLng.lng() });
-                    onMarkerDragEnd(e, index);
+      <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_KEY} libraries={libraries}>
+      <Autocomplete
+        freeSolo
+        options={autocompletePredictions}
+        getOptionLabel={(option) => (option as AutocompletePrediction).description}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Address"
+            value={venue.address}
+            onChange={(e) => handleInputChange('address', e.target.value)}
+            style={{ marginRight: 8, marginTop: 5, width: '100%' }}
+          />
+        )}
+        onChange={(_, value) => {
+          const selectedOption = value as AutocompletePrediction;
+          if (selectedOption) {
+            updateMapCenter(selectedOption.place_id);
+          }
+        }}
+      />
+          <GoogleMap
+            center={mapCenter}
+            zoom={15}
+            mapContainerStyle={{ width: '100%', height: '400px', marginTop: '10px' }}
+             onClick={(e) => {
+              if (e.latLng) {
+                const lat = e.latLng.lat();
+                const lng = e.latLng.lng();
+                setMarkerPosition({ lat, lng });
+                setMapCenter({ lat, lng });
+
+                const geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+                  if (status === 'OK' && results && results[0]) {
+                    const address = results[0].formatted_address;
+                    
+                    const name = results[0].address_components.find(component => component.types.includes('point_of_interest'))?.long_name || '';
+                    const city = results[0].address_components.find(component => component.types.includes('locality'))?.long_name || '';
+                    const formattedName = name && city ? `${name} - ${city}` : address;
+                    
+                    setVenue(prevVenue => ({
+                      ...prevVenue,
+                      address: address,
+                      name: formattedName
+                    }));
                   }
-                }}
-              >
-                <Marker
-                  position={markerPosition}
-                  draggable={true}
-                  onDragEnd={(e) => {
-                    if (e.latLng) {
-                      onMarkerDragEnd(e, index);
-                    }
-                  }}
-                />
-              </GoogleMap>
-            </LoadScript>
-            <TextField
-              label="Name"
-              value={venue.name}
-              onChange={(e) => handleInputChange(index, 'name', e.target.value)}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <TextField
-              label="Region"
-              value={venue.region}
-              onChange={(e) => handleInputChange(index, 'region', e.target.value)}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <TextField
-              label="Comment"
-              value={venue.comment}
-              onChange={(e) => handleInputChange(index, 'comment', e.target.value)}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <TextField
-              label="Contact 1 Name"
-              value={venue.contact1_name}
-              onChange={(e) => handleInputChange(index, 'contact1_name', e.target.value)}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <TextField
-              label="Contact 1 Phone"
-              value={venue.contact1_phone}
-              onChange={(e) => handleInputChange(index, 'contact1_phone', e.target.value)}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <TextField
-              label="Contact 2 Name"
-              value={venue.contact2_name}
-              onChange={(e) => handleInputChange(index, 'contact2_name', e.target.value)}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <TextField
-              label="Contact 2 Phone"
-              value={venue.contact2_phone}
-              onChange={(e) => handleInputChange(index, 'contact2_phone', e.target.value)}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <TextField
-              label="Last Time Visited"
-              type="datetime-local"
-              value={venue.last_time_visited}
-              onChange={(e) => handleInputChange(index, 'last_time_visited', e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              style={{ marginRight: 8, marginTop: 5 }}
-            />
-            <MuiAutocomplete
+                });
+              }
+            }}
+            onLoad={(map) => {
+              placesService.current = new google.maps.places.PlacesService(map);
+              autocompleteService.current = new google.maps.places.AutocompleteService();
+              setIsMapLoaded(true);
+            }}
+          >
+            {isMapLoaded && markerPosition && (
+              <Marker
+                position={markerPosition}
+                draggable={true}
+                onDragEnd={onMarkerDragEnd}
+              />
+            )}
+          </GoogleMap>
+        </LoadScript>
+        <TextField
+          label="Name"
+          value={venue.name}
+          onChange={(e) => handleInputChange('name', e.target.value)}
+          style={{ marginRight: 16, marginTop: 10, width: '100%' }}
+        />
+            <Autocomplete
               multiple
               options={teams}
               value={venue.teams}
-              onChange={(_e, value) => handleInputChange(index, 'teams', value)}
+              onChange={(_, value) => handleInputChange('teams', value)}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label="Teams"
-                  style={{ marginRight: 8, minWidth: 200, marginTop: 5 }}
+                  style={{ marginRight: 16, width: '100%', marginTop: 10 }}
                 />
               )}
             />
-            {venues.length > 1 && (
-              <IconButton onClick={() => handleDeleteRow(index)}>
-                <DeleteIcon />
-              </IconButton>
-            )}
-          </div>
-        ))}
-        <Button onClick={handleAddMore}>Add More</Button>
+            <div style={{display: 'flex', flexDirection: 'column'}}>
+              <div style={{display: 'flex'}}>
+                <TextField
+                  label="Contact 1 Name"
+                  value={venue.contact1_phone}
+                  onChange={(e) => handleInputChange('contact1_phone', e.target.value)}
+                  style={{ marginRight: 16, marginTop: 10 }}
+                />
+                <TextField
+                  label="Contact 1 Phone"
+                  value={venue.contact1_phone}
+                  onChange={(e) => handleInputChange('contact1_phone', e.target.value)}
+                  style={{ marginRight: 16, marginTop: 10 }}
+                />
+              </div>
+              <div style={{display: 'flex'}}>
+                <TextField
+                  label="Contact 2 Name"
+                  value={venue.contact2_name}
+                  onChange={(e) => handleInputChange('contact2_name', e.target.value)}
+                  style={{ marginRight: 16, marginTop: 10 }}
+                />
+                <TextField
+                  label="Contact 2 Phone"
+                  value={venue.contact2_phone}
+                  onChange={(e) => handleInputChange('contact2_phone', e.target.value)}
+                  style={{ marginRight: 16, marginTop: 10 }}
+                />
+              </div>
+            </div>
+            <TextField
+              label="Last Time Visited"
+              type="datetime-local"
+              value={venue.last_time_visited}
+              onChange={(e) => handleInputChange('last_time_visited', e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              style={{ marginRight: 16, marginTop: 20 }}
+            />
+            <TextField
+              label="Comment"
+              value={venue.comment}
+              onChange={(e) => handleInputChange('comment', e.target.value)}
+              style={{ marginRight: 16, marginTop: 20 }}
+            />
+            
       </DialogContent>
       <DialogActions>
         <Button onClick={handleSave} color="primary">Save</Button>
