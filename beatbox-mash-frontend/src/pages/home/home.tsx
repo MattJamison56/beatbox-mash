@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Navbar from '../../components/navbar/navbar';
 import BrandAmbassadorsPage from '../bapage/bapage';
 import CreateTeamsPage from '../createTeamPage/createTeamPage';
+import CreateVenuesPage from '../venuePage/createVenuePage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
@@ -17,6 +18,7 @@ const HomePage: React.FC = () => {
       <div style={{ padding: '20px', margin: '64px'}}>
         {currentSubcategory === 'Brand Ambassadors' && <BrandAmbassadorsPage />}
         {currentSubcategory === 'Teams' && <CreateTeamsPage />}
+        {currentSubcategory === 'Venues' && <CreateVenuesPage />}
         {/* Add more subcategories as needed */}
         {!currentSubcategory && <h1 style={{color: 'black' }}>Welcome to the Home Page</h1>}
       </div>

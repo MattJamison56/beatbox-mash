@@ -168,7 +168,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     Lists
                 </Typography>
                 <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Brand Ambassadors')}>Brand Ambassadors</button>
-                <button className="subcat" style={{ width: '100%' }}>Venues</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Venues')}>Venues</button>
                 <button className="subcat" style={{ width: '100%' }}>Products</button>
             </Box>
             <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '15px' }}>

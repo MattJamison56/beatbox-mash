@@ -154,3 +154,36 @@ export const updateAmbassadorTeams = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const editAmbassadorWage = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+    const transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    const { id, wage } = req.body;
+
+    console.log('Updating wage for ambassador ID:', id);
+    console.log('New wage:', wage);
+
+    // Create a new request for updating the wage
+    const requestUpdateWage = new sql.Request(transaction);
+
+    await requestUpdateWage
+      .input('userId', sql.Int, id)
+      .input('wage', sql.Decimal(10, 2), wage)
+      .query(`
+        UPDATE Users 
+        SET wage = @wage, updated_at = GETDATE()
+        WHERE id = @userId
+      `);
+
+    await transaction.commit();
+    res.status(200).json({ message: 'Ambassador wage updated successfully' });
+  } catch (error) {
+    console.error('Error updating ambassador wage:', error);
+    const err = error as Error;
+    res.status(500).json({ message: err.message });
+  }
+};

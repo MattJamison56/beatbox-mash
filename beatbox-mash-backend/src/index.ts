@@ -7,6 +7,7 @@ import { poolPromise } from './database';
 import ambassadorRoutes from './routes/ambassadorRoutes';
 import teamRoutes from './routes/teamRoutes'
 import bodyParser from 'body-parser';
+import venueRoutes from './routes/venueRoutes';
 
 dotenv.config();
 
@@ -23,6 +24,8 @@ app.use(bodyParser.json());
 app.use('/ambassadors', ambassadorRoutes);
 
 app.use('/teams', teamRoutes);
+
+app.use('/venues', venueRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 

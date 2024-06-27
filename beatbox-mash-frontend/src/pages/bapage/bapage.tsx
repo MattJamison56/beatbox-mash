@@ -6,6 +6,7 @@ import './bapage.css';
 import CreateAmbassadorForm from '../../components/createAmbassadorForm/createAmbassadorForm';
 import EditIcon from '@mui/icons-material/Edit';
 import { EditTeamsForm } from '../../components/editTeamsForm/editTeamsForm';
+import { EditWageForm } from '../../components/editWageForm/editWageForm';
 
 
 const BrandAmbassadorsPage: React.FC = () => {
@@ -19,6 +20,9 @@ const BrandAmbassadorsPage: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [teams, setTeams] = useState<string[]>([]);
 
+  const [editWageOpen, setEditWageOpen] = useState(false);
+  const [currentWage, setCurrentWage] = useState<number>(0);
+
   const handleEditTeams = (user: any) => {
     setCurrentTeams(user.teams || []);
     setCurrentUserId(user.id);
@@ -28,6 +32,18 @@ const BrandAmbassadorsPage: React.FC = () => {
   const handleCloseEditTeams = () => {
     setEditTeamsOpen(false);
     setCurrentTeams([]);
+    setCurrentUserId(null);
+  };
+
+  const handleEditWage = (user: any) => {
+    setCurrentWage(user.wage || 0);
+    setCurrentUserId(user.id);
+    setEditWageOpen(true);
+  };
+
+  const handleCloseEditWage = () => {
+    setEditWageOpen(false);
+    setCurrentWage(0);
     setCurrentUserId(null);
   };
 
@@ -52,6 +68,29 @@ const BrandAmbassadorsPage: React.FC = () => {
       await fetchUsers(); // reload table
     } catch (error) {
       console.error('Error updating teams:', error);
+    }
+  };
+
+  const handleSaveWage = async (userId: string | null, newWage: number) => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/ambassadors/updateBAWage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: userId, wage: newWage }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      setUsers(users.map(user => user.id === userId ? { ...user, wage: newWage } : user));
+      await fetchUsers(); // reload table
+    } catch (error) {
+      console.error('Error updating wage:', error);
     }
   };
 
@@ -173,7 +212,11 @@ const BrandAmbassadorsPage: React.FC = () => {
                     <EditIcon />
                   </IconButton>
                 </TableCell>
-                <TableCell>{user.wage ? `$${user.wage}/h` : 'N/A'}</TableCell>
+                <TableCell>{user.wage ? `$${user.wage}/h` : 'N/A'} 
+                  <IconButton onClick={() => handleEditWage(user)}>
+                    <EditIcon />
+                  </IconButton>
+                </TableCell>
                 <TableCell>{'N/A'}</TableCell>
                 <TableCell>{user.date_of_last_request ? new Date(user.date_of_last_request).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>
@@ -204,6 +247,13 @@ const BrandAmbassadorsPage: React.FC = () => {
         userId={currentUserId} 
         teams={teams} 
         onSave={handleSaveTeams} 
+      />
+      <EditWageForm 
+        open={editWageOpen} 
+        onClose={handleCloseEditWage} 
+        currentWage={currentWage} 
+        userId={currentUserId} 
+        onSave={handleSaveWage} 
       />
     </div>
   );
