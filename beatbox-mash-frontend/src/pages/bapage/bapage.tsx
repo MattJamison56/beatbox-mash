@@ -244,7 +244,7 @@ const BrandAmbassadorsPage: React.FC = () => {
         open={editTeamsOpen} 
         onClose={handleCloseEditTeams} 
         currentTeams={currentTeams} 
-        userId={currentUserId} 
+        entityId={currentUserId} 
         teams={teams} 
         onSave={handleSaveTeams} 
       />

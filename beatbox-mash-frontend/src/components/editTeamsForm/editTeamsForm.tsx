@@ -4,23 +4,23 @@ import { useState, useEffect } from 'react';
 type EditTeamsFormProps = {
   open: boolean;
   onClose: () => void;
-  currentTeams: string[];
-  userId: string | null;
+  currentTeams: string | string[];
+  entityId: string | null;
   teams: string[];
-  onSave: (userId: string | null, newTeams: string[]) => void;
+  onSave: (entityId: string | null, newTeams: string[]) => void;
 };
 
-export const EditTeamsForm: React.FC<EditTeamsFormProps> = ({ open, onClose, currentTeams, userId, teams, onSave }) => {
-  const [selectedTeams, setSelectedTeams] = useState<string[]>(currentTeams);
+export const EditTeamsForm: React.FC<EditTeamsFormProps> = ({ open, onClose, currentTeams, entityId, teams, onSave }) => {
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(Array.isArray(currentTeams) ? currentTeams : currentTeams.split(', '));
 
   useEffect(() => {
     if (open) {
-      setSelectedTeams(currentTeams);
+      setSelectedTeams(Array.isArray(currentTeams) ? currentTeams : currentTeams.split(', '));
     }
   }, [open, currentTeams]);
 
   const handleSave = () => {
-    onSave(userId, selectedTeams);
+    onSave(entityId, selectedTeams);
     onClose();
   };
 
