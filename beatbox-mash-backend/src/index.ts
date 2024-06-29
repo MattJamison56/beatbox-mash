@@ -8,6 +8,7 @@ import ambassadorRoutes from './routes/ambassadorRoutes';
 import teamRoutes from './routes/teamRoutes'
 import bodyParser from 'body-parser';
 import venueRoutes from './routes/venueRoutes';
+import productRoutes from './routes/productRoutes';
 
 dotenv.config();
 
@@ -26,6 +27,8 @@ app.use('/ambassadors', ambassadorRoutes);
 app.use('/teams', teamRoutes);
 
 app.use('/venues', venueRoutes);
+
+app.use('/products', productRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 
