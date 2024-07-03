@@ -3,11 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, IconButton, Menu, MenuItem, Switch } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
 import { EditTeamsForm } from '../../components/editTeamsForm/editTeamsForm';
 
-const CampaignsPage: React.FC = () => {
+interface CampaignsPageProps {
+  onCreateCampaign: () => void;
+}
+
+const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<null | any>(null);
@@ -15,7 +18,6 @@ const CampaignsPage: React.FC = () => {
   const [currentTeams, setCurrentTeams] = useState<string[]>([]);
   const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
   const [teams, setTeams] = useState<string[]>([]);
-  const navigate = useNavigate();
 
   const handleEditTeams = (campaign: any) => {
     setCurrentTeams(campaign.teams || []);
@@ -56,6 +58,7 @@ const CampaignsPage: React.FC = () => {
     try {
       const response = await fetch('http://localhost:5000/campaigns');
       const data = await response.json();
+      console.log(data);
       setCampaigns(data);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
@@ -88,10 +91,9 @@ const CampaignsPage: React.FC = () => {
     handleMenuClose();
   };
 
-
   const handleDeactivate = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/campaigns/deletecampaign`, {
+      const response = await fetch(`http://localhost:5000/campaigns/delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +116,7 @@ const CampaignsPage: React.FC = () => {
     <div className="container">
       <div className="header">
         <h1 className='title'>Campaigns</h1>
-        <Button variant="contained" color="primary" onClick={() => navigate('/create-campaign')}>
+        <Button variant="contained" color="primary" onClick={onCreateCampaign}>
           Create Campaign
         </Button>
       </div>

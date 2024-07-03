@@ -1,0 +1,13 @@
+.container {
+    color: black; /* Make all text black */
+  }
+  
+  .formControlLabel {
+    display: block; /* Make switches stack vertically */
+    margin-top: 10px; /* Add some spacing between each switch */
+  }
+  
+  .textField {
+    margin-top: 10px; /* Add some spacing between each text field */
+  }
+  

@@ -5,6 +5,7 @@ import CreateTeamsPage from '../createTeamPage/createTeamPage';
 import CreateVenuesPage from '../venuePage/createVenuePage';
 import CreateProductsPage from '../productPage/createProductPage';
 import CampaignsPage from '../campaignPage/campaignPage';
+import CreateCampaignPage from '../createCampaignPage/createCampaignPage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
@@ -12,6 +13,14 @@ const HomePage: React.FC = () => {
   const handleSubcategoryChange = (subcategory: string | null) => {
     setCurrentSubcategory(subcategory);
     console.log(subcategory);
+  };
+
+  const handleCreateCampaign = () => {
+    setCurrentSubcategory('Create Campaign');
+  };
+
+  const handleBackToCampaignPage = () => {
+    setCurrentSubcategory('Campaigns');
   };
 
   return (
@@ -22,8 +31,8 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Teams' && <CreateTeamsPage />}
         {currentSubcategory === 'Venues' && <CreateVenuesPage />}
         {currentSubcategory === 'Products' && <CreateProductsPage />}
-        {currentSubcategory === 'Campaigns' && <CampaignsPage />}
-        {/* Add more subcategories as needed */}
+        {currentSubcategory === 'Campaigns' && <CampaignsPage onCreateCampaign={handleCreateCampaign} />}
+        {currentSubcategory === 'Create Campaign' && <CreateCampaignPage onBackToCampaigns={handleBackToCampaignPage} />}
         {!currentSubcategory && <h1 style={{color: 'black' }}>Welcome to the Home Page</h1>}
       </div>
     </div>

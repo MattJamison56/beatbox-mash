@@ -3,8 +3,8 @@ import { createCampaign, deleteCampaign, getCampaigns } from '../controllers/cam
 
 const router = express.Router();
 
+router.get('/', getCampaigns);
 router.post('/create', createCampaign);
 router.post('/delete', deleteCampaign);
-router.post('/', getCampaigns)
 
 export default router;
