@@ -9,6 +9,7 @@ import teamRoutes from './routes/teamRoutes'
 import bodyParser from 'body-parser';
 import venueRoutes from './routes/venueRoutes';
 import productRoutes from './routes/productRoutes';
+import campaignRoutes from './routes/campaignRoutes';
 
 dotenv.config();
 
@@ -29,6 +30,8 @@ app.use('/teams', teamRoutes);
 app.use('/venues', venueRoutes);
 
 app.use('/products', productRoutes);
+
+app.use('/campaigns', campaignRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 

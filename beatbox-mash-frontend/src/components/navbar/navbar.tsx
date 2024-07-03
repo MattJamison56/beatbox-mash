@@ -157,7 +157,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     <ContentPasteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                     Templates
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Campaigns</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Campaigns')}>Campaigns</button>
                 <button className="subcat" style={{ width: '100%' }}>Inventory Report</button>
                 <button className="subcat" style={{ width: '100%' }}>Post-Event Questions</button>
                 <button className="subcat" style={{ width: '100%' }}>Exporting Templates</button>
