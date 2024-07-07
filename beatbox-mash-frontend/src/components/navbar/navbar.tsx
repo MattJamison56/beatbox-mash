@@ -87,7 +87,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                   <CalendarTodayIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                   Create Single Event
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>By Date or Range</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Create Event Date')}>By Date or Range</button>
                 <button className="subcat" style={{ width: '100%' }}>By Calendar</button>
                 <button className="subcat" style={{ width: '100%' }}>By Map by Venue</button>
                 <button className="subcat" style={{ width: '100%' }}>By Map by BA</button>

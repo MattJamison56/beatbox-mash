@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, IconButton, Menu, MenuItem, Switch } from '@mui/material';
@@ -7,7 +6,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { EditTeamsForm } from '../../components/editTeamsForm/editTeamsForm';
 
 interface CampaignsPageProps {
-  onCreateCampaign: () => void;
+  onCreateCampaign: (campaign?: any) => void;
 }
 
 const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
@@ -58,7 +57,6 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
     try {
       const response = await fetch('http://localhost:5000/campaigns');
       const data = await response.json();
-      console.log(data);
       setCampaigns(data);
     } catch (error) {
       console.error('Error fetching campaigns:', error);
@@ -91,6 +89,11 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
     handleMenuClose();
   };
 
+  const handleEdit = (campaign: any) => {
+    onCreateCampaign(campaign);
+    handleMenuClose();
+  };
+
   const handleDeactivate = async () => {
     try {
       const response = await fetch(`http://localhost:5000/campaigns/delete`, {
@@ -116,7 +119,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
     <div className="container">
       <div className="header">
         <h1 className='title'>Campaigns</h1>
-        <Button variant="contained" color="primary" onClick={onCreateCampaign}>
+        <Button variant="contained" color="primary" onClick={() => onCreateCampaign()}>
           Create Campaign
         </Button>
       </div>
@@ -139,7 +142,8 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
                 <TableCell>{campaign.name}</TableCell>
                 <TableCell>{campaign.start_date ? new Date(campaign.start_date).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>{campaign.end_date ? new Date(campaign.end_date).toLocaleDateString() : 'N/A'}</TableCell>
-                <TableCell>{campaign.teams ? `${campaign.teams}` : 'N/A'}
+                <TableCell>
+                  {campaign.teams ? `${campaign.teams}` : 'N/A'}
                   <IconButton onClick={() => handleEditTeams(campaign)}>
                     <EditIcon />
                   </IconButton>
@@ -158,6 +162,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
                     onClose={handleMenuClose}
                   >
                     <MenuItem onClick={handleView}>View</MenuItem>
+                    <MenuItem onClick={() => handleEdit(selectedCampaign)}>Edit</MenuItem>
                     <MenuItem onClick={handleDeactivate}>Deactivate</MenuItem>
                   </Menu>
                 </TableCell>

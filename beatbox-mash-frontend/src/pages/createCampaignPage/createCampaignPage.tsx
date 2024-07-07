@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, TextField, Autocomplete, Switch, FormControlLabel, Typography, Box, Divider } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { useParams } from 'react-router-dom';
 
 interface CreateCampaignPageProps {
   onBackToCampaigns: () => void;
@@ -18,6 +19,7 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
 }));
 
 const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaigns }) => {
+  const { id } = useParams<{ id: string }>();
   const [name, setName] = useState('');
   const [owners, setOwners] = useState('');
   const [reportTemplate, setReportTemplate] = useState('');
@@ -52,22 +54,54 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
       .then(response => response.json())
       .then(data => setAvailableProducts(data.map((product: any) => product.ProductName)))
       .catch(error => console.error('Error fetching products:', error));
-  }, []);
+
+    if (id) {
+      fetch(`http://localhost:5000/campaigns/${id}`)
+        .then(response => response.json())
+        .then(data => {
+          setName(data.name);
+          setOwners(data.owners);
+          setReportTemplate(data.report_template);
+          setPreEventInstructions(data.pre_event_instructions);
+          setFirstBaInventory(data.first_ba_inventory);
+          setFirstBaPostEvent(data.first_ba_post_event);
+          setSubsequentBaInventory(data.subsequent_ba_inventory);
+          setSubsequentBaPostEvent(data.subsequent_ba_post_event);
+          setBaEditEventName(data.ba_edit_event_name);
+          setBaChangeVenue(data.ba_change_venue);
+          setBaReschedule(data.ba_reschedule);
+          setBaCheckInOut(data.ba_check_in_out);
+          setPhotoCheckIn(data.photo_check_in);
+          setPhotoCheckOut(data.photo_check_out);
+          setShowCheckPhotosInReport(data.show_check_photos_in_report);
+          setTimeDurationPresets(data.set_time_duration_presets);
+          setAllowBaToSchedule(data.allow_ba_to_schedule);
+          setExcludeExpensesFromReport(data.exclude_expenses_from_report);
+          setHideBaContactInfo(data.hide_ba_contact_info);
+          setTeams(data.teams || []);
+          setProducts(data.products || []);
+        })
+        .catch(error => console.error('Error fetching campaign:', error));
+    }
+  }, [id]);
 
   const handleSave = async () => {
     try {
-      const response = await fetch('http://localhost:5000/campaigns/create', {
-        method: 'POST',
+      const url = id ? `http://localhost:5000/campaigns/update` : `http://localhost:5000/campaigns/create`;
+      const method = id ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name, owners, report_template: reportTemplate, pre_event_instructions: preEventInstructions,
+          id, name, owners, report_template: reportTemplate, pre_event_instructions: preEventInstructions,
           first_ba_inventory: firstBaInventory, first_ba_post_event: firstBaPostEvent,
           subsequent_ba_inventory: subsequentBaInventory, subsequent_ba_post_event: subsequentBaPostEvent,
           ba_edit_event_name: baEditEventName, ba_change_venue: baChangeVenue, ba_reschedule: baReschedule,
           ba_check_in_out: baCheckInOut, photo_check_in: photoCheckIn, photo_check_out: photoCheckOut,
-          show_check_photos_in_report: showCheckPhotosInReport, set_time_duration_presets: setTimeDurationPresets,
+          show_check_photos_in_report: showCheckPhotosInReport, set_time_duration_presets: timeDurationPresets,
           allow_ba_to_schedule: allowBaToSchedule, override_wage: false, exclude_expenses_from_report: excludeExpensesFromReport,
           hide_ba_contact_info: hideBaContactInfo, teams, products
         }),
@@ -79,13 +113,13 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
 
       onBackToCampaigns(); // Navigate back to campaigns page
     } catch (error) {
-      console.error('Error creating campaign:', error);
+      console.error('Error saving campaign:', error);
     }
   };
 
   return (
     <div className="container" style={{ color: 'black' }}>
-      <h1 className='title'>Create Campaign</h1>
+      <h1 className='title'>{id ? 'Update Campaign' : 'Create Campaign'}</h1>
       <form>
         <Section>
           <TextField
@@ -285,10 +319,10 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
         </Section>
 
         <Box display="flex" justifyContent="center" marginTop="20px">
-          <Button variant="contained" color="primary" onClick={handleSave} style={{margin: '10px'}}>
-            Create Campaign
+          <Button variant="contained" color="primary" onClick={handleSave} style={{ margin: '10px' }}>
+            {id ? 'Update Campaign' : 'Create Campaign'}
           </Button>
-          <Button variant="outlined" color="secondary" onClick={onBackToCampaigns} style={{margin: '10px'}}>
+          <Button variant="outlined" color="secondary" onClick={onBackToCampaigns} style={{ margin: '10px' }}>
             Cancel
           </Button>
         </Box>
