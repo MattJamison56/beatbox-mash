@@ -77,7 +77,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                   <EventNoteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                   View Events
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>List View</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('List Events')}>List View</button>
                 <button className="subcat" style={{ width: '100%' }}>Calendar View</button>
                 <button className="subcat" style={{ width: '100%' }}>Map View</button>
                 <button className="subcat" style={{ width: '100%' }}>Check In Status</button>

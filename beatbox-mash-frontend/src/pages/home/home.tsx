@@ -7,6 +7,7 @@ import CreateProductsPage from '../productPage/createProductPage';
 import CampaignsPage from '../campaignPage/campaignPage';
 import CreateCampaignPage from '../createCampaignPage/createCampaignPage';
 import CreateEventDate from '../createEventDate/createEventDate';
+import ListEventsPage from '../listEventPage/listEventPage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
@@ -35,6 +36,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Campaigns' && <CampaignsPage onCreateCampaign={handleCreateCampaign} />}
         {currentSubcategory === 'Create Campaign' && <CreateCampaignPage onBackToCampaigns={handleBackToCampaignPage} />}
         {currentSubcategory === 'Create Event Date' && <CreateEventDate />}
+        {currentSubcategory === 'List Events' && <ListEventsPage />}
         {!currentSubcategory && <h1 style={{color: 'black' }}>Welcome to the Home Page</h1>}
       </div>
     </div>

@@ -38,6 +38,7 @@ const CreateEventDate: React.FC = () => {
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [eventType, setEventType] = useState<string | null>(null);
   const [whoSchedules, setWhoSchedules] = useState('Specific Date');
   const [startDateTime, setStartDateTime] = useState<Dayjs | null>(null);
   const [durationHours, setDurationHours] = useState<number>(3);
@@ -128,6 +129,7 @@ const CreateEventDate: React.FC = () => {
       campaign: selectedCampaign,
       venue: selectedVenue,
       team: selectedTeam,
+      eventType,
       eventName: (event.target as any).elements.eventName.value,
       preEventInstructions: (event.target as any).elements.preEventInstructions.value,
       whoSchedules,
@@ -214,7 +216,18 @@ const CreateEventDate: React.FC = () => {
             multiline
             rows={4}
           />
-
+          <TextField
+            select
+            label="Event Type"
+            value={eventType}
+            onChange={(event) => setEventType(event.target.value)}
+            fullWidth
+            margin="normal"
+          >
+            <MenuItem value="On Premise">On Premise</MenuItem>
+            <MenuItem value="Off Premise">Off Premise</MenuItem>
+            {/* Add other event types as needed */}
+          </TextField>
           <Box display="flex" gap={2} mt={2} flexDirection={'column'}>
             <FormControl component="fieldset" margin="normal">
                 <FormLabel component="legend">Who Schedules?</FormLabel>
@@ -398,8 +411,8 @@ const CreateEventDate: React.FC = () => {
             fullWidth
             margin="normal"
           >
-            <MenuItem value="Type1">On Premise</MenuItem>
-            <MenuItem value="Type2">Off Premise</MenuItem>
+            <MenuItem value="On Premise">On Premise</MenuItem>
+            <MenuItem value="Off Premise">Off Premise</MenuItem>
             {/* Add other event types as needed */}
           </TextField>
           <TextField
