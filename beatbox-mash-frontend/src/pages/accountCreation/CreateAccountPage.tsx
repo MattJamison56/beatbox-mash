@@ -1,0 +1,59 @@
+// src/pages/account/CreateAccountPage.tsx
+import React, { useState } from 'react';
+import { TextField, Button, Container } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+
+const CreateAccountPage: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('manager');
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch('http://localhost:5000/account/create-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, role }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to send account creation email');
+      }
+
+      console.log('Email sent successfully');
+      navigate('/manage-accounts');
+    } catch (error) {
+      console.error('Error creating account:', error);
+    }
+  };
+
+  return (
+    <Container>
+      <h1 className='title'>Create Account</h1>
+      <form onSubmit={handleSubmit}>
+        <TextField
+          label="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          fullWidth
+          margin="normal"
+        />
+        <TextField
+          label="Role"
+          value={role}
+          onChange={(e) => setRole(e.target.value)}
+          fullWidth
+          margin="normal"
+        />
+        <Button type="submit" variant="contained" color="primary">Create Account</Button>
+      </form>
+    </Container>
+  );
+};
+
+export default CreateAccountPage;

@@ -221,7 +221,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     <PersonIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                     Rights & Roles
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Brand Managers</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Brand Managers')}>Brand Managers</button>
             </Box>
             </>
           )}
