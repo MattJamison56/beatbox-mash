@@ -5,17 +5,21 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { google } from 'googleapis';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const OAuth2 = google.auth.OAuth2;
 
 const oauth2Client = new OAuth2(
-  '341841504141-b66a2b8ubf2aikoaoj64bvhr2sdh20i6.apps.googleusercontent.com', // ClientID
-  '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', // Client Secret
+  process.env.CLIENT_ID, // ClientID
+  process.env.CLIENT_SECRET, // Client Secret
   'https://developers.google.com/oauthplayground' // Redirect URL
 );
 
 oauth2Client.setCredentials({
-  refresh_token: '1//04WApiUxtczvHCgYIARAAGAQSNgF-L9IrYpjol50Q0ksIKppRCUfsmTLH9o0EjrGIaN1yvqn7ms75geo9a3AlCfsGOXhlRWuAjQ'
+  refresh_token: process.env.REFRESH_TOKEN,
 });
 
 export const sendAccountCreationEmail = async (req: Request, res: Response) => {
@@ -51,17 +55,17 @@ export const sendAccountCreationEmail = async (req: Request, res: Response) => {
       service: 'gmail',
       auth: {
         type: 'OAuth2',
-        user: 'matthewjamison56@gmail.com',
-        clientId: '341841504141-b66a2b8ubf2aikoaoj64bvhr2sdh20i6.apps.googleusercontent.com',
-        clientSecret: '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',
-        refreshToken: '1//04WApiUxtczvHCgYIARAAGAQSNgF-L9IrYpjol50Q0ksIKppRCUfsmTLH9o0EjrGIaN1yvqn7ms75geo9a3AlCfsGOXhlRWuAjQ',
+        user: process.env.EMAIL_USER,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken: process.env.REFRESH_TOKEN,
         accessToken: accessToken.token as string,
       },
     });
 
     const mailOptions = {
       to: email,
-      from: 'matthewjamison56@gmail.com',
+      from: process.env.EMAIL_USER,
       subject: 'Account Creation',
       text: `You are receiving this because you (or someone else) have requested the creation of an account.\n\n
         Please click on the following link, or paste this into your browser to complete the process:\n\n
