@@ -12,6 +12,7 @@ import productRoutes from './routes/productRoutes';
 import campaignRoutes from './routes/campaignRoutes';
 import eventRoutes from './routes/eventRoutes';
 import accountRoutes from './routes/accountRoutes';
+import authRoutes from './routes/authRoutes';
 
 dotenv.config();
 
@@ -25,6 +26,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/', userRoutes);
 
 app.use('/account', accountRoutes);
+
+app.use('/auth', authRoutes);
 
 app.use(bodyParser.json());
 app.use('/ambassadors', ambassadorRoutes);

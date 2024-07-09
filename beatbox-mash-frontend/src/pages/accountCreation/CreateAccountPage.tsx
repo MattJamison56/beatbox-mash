@@ -1,15 +1,21 @@
 // src/pages/account/CreateAccountPage.tsx
 import React, { useState } from 'react';
-import { TextField, Button, Container } from '@mui/material';
+import { TextField, Button, Container, Snackbar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 const CreateAccountPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('manager');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!email || !role) {
+      setErrorMessage('Email and role are required');
+      return;
+    }
 
     try {
       const response = await fetch('http://localhost:5000/account/create-account', {
@@ -28,6 +34,8 @@ const CreateAccountPage: React.FC = () => {
       console.log('Email sent successfully');
       navigate('/manage-accounts');
     } catch (error) {
+      const err = error as Error;
+      setErrorMessage(err.message);
       console.error('Error creating account:', error);
     }
   };
@@ -52,6 +60,13 @@ const CreateAccountPage: React.FC = () => {
         />
         <Button type="submit" variant="contained" color="primary">Create Account</Button>
       </form>
+      {errorMessage && (
+        <Snackbar open autoHideDuration={6000} onClose={() => setErrorMessage(null)}>
+          <Alert onClose={() => setErrorMessage(null)} severity="error">
+            {errorMessage}
+          </Alert>
+        </Snackbar>
+      )}
     </Container>
   );
 };

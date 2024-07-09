@@ -1,4 +1,3 @@
-// controllers/accountController.ts
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
 import nodemailer from 'nodemailer';
@@ -7,7 +6,6 @@ import bcrypt from 'bcrypt';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 
-// Load environment variables
 dotenv.config();
 
 const OAuth2 = google.auth.OAuth2;
@@ -36,17 +34,18 @@ export const sendAccountCreationEmail = async (req: Request, res: Response) => {
     }
 
     const token = crypto.randomBytes(20).toString('hex');
-    const hash = await bcrypt.hash(token, 10);
+    const tokenHash = await bcrypt.hash(token, 10);
 
     await pool.request()
       .input('email', email)
-      .input('password_hash', hash)
+      .input('password_hash', tokenHash)
+      .input('reset_token', token) 
       .input('role', role)
       .input('name', 'Temporary Name')  // Add a temporary name
       .input('wage', role === 'manager' ? 0 : null)  // Set default wage for managers
       .query(`
-        INSERT INTO Users (email, password_hash, role, name, wage, created_at, updated_at)
-        VALUES (@email, @password_hash, @role, @name, @wage, GETDATE(), GETDATE())
+        INSERT INTO Users (email, password_hash, reset_token, role, name, wage, created_at, updated_at)
+        VALUES (@email, @password_hash, @reset_token, @role, @name, @wage, GETDATE(), GETDATE())
       `);
 
     const accessToken = await oauth2Client.getAccessToken();
@@ -92,10 +91,9 @@ export const setPassword = async (req: Request, res: Response) => {
 
   try {
     const pool = await poolPromise;
-    const tokenHash = bcrypt.hashSync(token, 10);
     const result = await pool.request()
-      .input('password_hash', tokenHash)
-      .query('SELECT * FROM Users WHERE password_hash = @password_hash');
+      .input('reset_token', token)
+      .query('SELECT * FROM Users WHERE reset_token = @reset_token');
 
     const user = result.recordset[0];
 
