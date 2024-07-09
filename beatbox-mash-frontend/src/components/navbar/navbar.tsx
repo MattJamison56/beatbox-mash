@@ -4,12 +4,13 @@ import Toolbar from '@mui/material/Toolbar';
 import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import logo from '../../assets/beatboxlogo.png';
-import './navbar.css';
+import Avatar from '@mui/material/Avatar';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Button from '@mui/material/Button';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import { Button } from '@mui/material';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -19,6 +20,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LocalAtmIcon from '@mui/icons-material/LocalAtm';
 import DvrIcon from '@mui/icons-material/Dvr';
 import PersonIcon from '@mui/icons-material/Person';
+import logo from '../../assets/beatboxlogo.png';
+import './navbar.css';
 
 interface NavbarProps {
   onSubcategoryChange: (subcategory: string | null) => void;
@@ -27,6 +30,7 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [submenu, setSubmenu] = useState<string | null>(null);
+  const [accountMenuAnchorEl, setAccountMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     setSubmenu(event.currentTarget.getAttribute('data-submenu'));
@@ -43,32 +47,55 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
     setDrawerOpen(false);
   };
 
+  const handleAccountMenuOpen = (event: MouseEvent<HTMLElement>) => {
+    setAccountMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleAccountMenuClose = () => {
+    setAccountMenuAnchorEl(null);
+  };
+
   return (
     <div>
-      {/* The main navbar at the top */}
       <AppBar position="fixed" style={{ backgroundColor: '#5a50a0', zIndex: 1201, padding: '8px' }}>
         <Toolbar>
           <Button onClick={() => handleSubcatClick('')}>
-            <img src={logo} alt="Logo" className='logo' />
+            <img src={logo} alt="Logo" className="logo" />
           </Button>
           <Button className="navButton" color="inherit" data-submenu="planEvents" onClick={handleClick}>Plan Events</Button>
           <Button className="navButton" color="inherit" data-submenu="approvePay" onClick={handleClick}>Approve & Pay</Button>
           <Button className="navButton" color="inherit" data-submenu="reportAnalyze" onClick={handleClick}>Report & Analyze</Button>
           <Button className="navButton" color="inherit" data-submenu="setUp" onClick={handleClick}>Set Up</Button>
           <Button className="navButton" color="inherit" data-submenu="admin" onClick={handleClick}>Admin</Button>
+          <Box flexGrow={1} />
+          <Button onClick={handleAccountMenuOpen} className="accountButton">
+            <Avatar src="/path-to-avatar.png" className="avatar" />
+            <Box ml={1}>
+              <h4 style={{ border: 'solid', color: '#FFFFFF'}} >Matt Jamison</h4>
+              <h5 style={{ border: 'solid', color: '#FFFFFF'}}>Beatbox Beverages</h5>
+            </Box>
+          </Button>
+          <Menu
+            anchorEl={accountMenuAnchorEl}
+            open={Boolean(accountMenuAnchorEl)}
+            onClose={handleAccountMenuClose}
+          >
+            <MenuItem onClick={handleAccountMenuClose}>Notifications</MenuItem>
+            <MenuItem onClick={handleAccountMenuClose}>My Profile</MenuItem>
+            <MenuItem onClick={handleAccountMenuClose}>Switch to BA</MenuItem>
+            <MenuItem onClick={handleAccountMenuClose}>Log Out</MenuItem>
+          </Menu>
         </Toolbar>
       </AppBar>
 
-      <Toolbar /> {/* This is to offset the content below the AppBar */}
+      <Toolbar />
 
-      {/* The drawer for the subcategories */}
       <Drawer
         anchor="top"
         open={drawerOpen}
         onClose={handleDrawerClose}
         PaperProps={{ style: { width: 'auto', top: 64, position: 'absolute', zIndex: 1200 } }}
       >
-
         <Box p={3} display="flex" justifyContent="flex-start" flexWrap="wrap" marginTop='20px' marginLeft='20px' marginBottom='20px'>
           {submenu === 'planEvents' && (
             <>
