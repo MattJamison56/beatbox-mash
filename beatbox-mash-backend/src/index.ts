@@ -13,6 +13,7 @@ import campaignRoutes from './routes/campaignRoutes';
 import eventRoutes from './routes/eventRoutes';
 import accountRoutes from './routes/accountRoutes';
 import authRoutes from './routes/authRoutes';
+import { authenticateToken, getUserProfile } from './controllers/authController';
 
 dotenv.config();
 
@@ -26,6 +27,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/', userRoutes);
 
 app.use('/account', accountRoutes);
+
+app.get('/profile', authenticateToken, getUserProfile);
 
 app.use('/auth', authRoutes);
 
