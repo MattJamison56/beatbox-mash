@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useState } from 'react';
 import Navbar from '../../components/navbar/navbar';
 import BrandAmbassadorsPage from '../bapage/bapage';
 import CreateTeamsPage from '../createTeamPage/createTeamPage';
@@ -12,7 +13,6 @@ import ManageAccountsPage from '../accountCreation/ManageAccountsPage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{ name: string; email: string; role: string } | null>(null);
 
   const handleSubcategoryChange = (subcategory: string | null) => {
     setCurrentSubcategory(subcategory);
@@ -27,33 +27,9 @@ const HomePage: React.FC = () => {
     setCurrentSubcategory('Campaigns');
   };
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-      try {
-        const response = await fetch('http://localhost:5000/profile', {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch user profile');
-        }
-
-        const data = await response.json();
-        setUserProfile(data);
-        console.log(data);
-        console.log(userProfile);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      }
-    };
-
-    fetchUserProfile();
-  }, []);
+  const handleEventCreation = () => {
+    setCurrentSubcategory('List Events');
+  };
 
   return (
     <div>
@@ -61,14 +37,7 @@ const HomePage: React.FC = () => {
       <div style={{ padding: '20px', margin: '64px'}}>
         {!currentSubcategory && (
           <>
-            <h1 style={{color: 'black' }}>Welcome to the Home Page</h1>
-            {userProfile && (
-              <div>
-                <p>Name: {userProfile.name}</p>
-                <p>Email: {userProfile.email}</p>
-                <p>Role: {userProfile.role}</p>
-              </div>
-            )}
+            <h1 style={{color: 'black' }}>This is the Home Page</h1>
           </>
         )}
         {currentSubcategory === 'Brand Ambassadors' && <BrandAmbassadorsPage />}
@@ -77,7 +46,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Products' && <CreateProductsPage />}
         {currentSubcategory === 'Campaigns' && <CampaignsPage onCreateCampaign={handleCreateCampaign} />}
         {currentSubcategory === 'Create Campaign' && <CreateCampaignPage onBackToCampaigns={handleBackToCampaignPage} />}
-        {currentSubcategory === 'Create Event Date' && <CreateEventDate />}
+        {currentSubcategory === 'Create Event Date' && <CreateEventDate onEventCreation={handleEventCreation} />}
         {currentSubcategory === 'List Events' && <ListEventsPage />}
         {currentSubcategory === 'Brand Managers' && <ManageAccountsPage />}
       </div>

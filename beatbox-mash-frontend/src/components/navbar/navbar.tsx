@@ -1,4 +1,4 @@
-import React, { useState, MouseEvent } from 'react';
+import React, { useState, MouseEvent, useEffect } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Drawer from '@mui/material/Drawer';
@@ -8,6 +8,7 @@ import Avatar from '@mui/material/Avatar';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
+import { useNavigate } from 'react-router-dom';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -31,6 +32,35 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [submenu, setSubmenu] = useState<string | null>(null);
   const [accountMenuAnchorEl, setAccountMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string; role: string } | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        const response = await fetch('http://localhost:5000/profile', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user profile');
+        }
+
+        const data = await response.json();
+        setUserProfile(data);
+        console.log(data);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     setSubmenu(event.currentTarget.getAttribute('data-submenu'));
@@ -55,6 +85,11 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
     setAccountMenuAnchorEl(null);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
+
   return (
     <div>
       <AppBar position="fixed" style={{ backgroundColor: '#5a50a0', zIndex: 1201, padding: '8px' }}>
@@ -71,8 +106,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
           <Button onClick={handleAccountMenuOpen} className="accountButton">
             <Avatar src="/path-to-avatar.png" className="avatar" />
             <Box ml={1}>
-              <h4 style={{ border: 'solid', color: '#FFFFFF'}} >Matt Jamison</h4>
-              <h5 style={{ border: 'solid', color: '#FFFFFF'}}>Beatbox Beverages</h5>
+              <h4 style={{ color: '#FFFFFF', marginBottom: '0px', textAlign: 'left'}}>{userProfile?.name ? userProfile.name : ''}</h4>
+              <h5 style={{ color: '#FFFFFF', marginTop: '0px'}}>Beatbox Beverages</h5>
             </Box>
           </Button>
           <Menu
@@ -83,7 +118,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
             <MenuItem onClick={handleAccountMenuClose}>Notifications</MenuItem>
             <MenuItem onClick={handleAccountMenuClose}>My Profile</MenuItem>
             <MenuItem onClick={handleAccountMenuClose}>Switch to BA</MenuItem>
-            <MenuItem onClick={handleAccountMenuClose}>Log Out</MenuItem>
+            <MenuItem onClick={handleLogout}>Log Out</MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>

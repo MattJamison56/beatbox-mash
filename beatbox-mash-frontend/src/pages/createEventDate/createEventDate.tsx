@@ -31,7 +31,11 @@ interface BrandAmbassador {
   expenses: boolean;
 }
 
-const CreateEventDate: React.FC = () => {
+interface CreateEventDateProps {
+  onEventCreation: () => void;
+}
+
+const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) => {
   const [campaigns, setCampaigns] = useState<string[]>([]);
   const [venues, setVenues] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
@@ -56,7 +60,7 @@ const CreateEventDate: React.FC = () => {
         const campaignsResponse = await fetch('http://localhost:5000/campaigns');
         const venuesResponse = await fetch('http://localhost:5000/venues');
         const teamsResponse = await fetch('http://localhost:5000/teams');
-        const basResponse = await fetch('http://localhost:5000/users');
+        const basResponse = await fetch('http://localhost:5000/ambassadors');
 
         const campaignsData = await campaignsResponse.json();
         const venuesData = await venuesResponse.json();
@@ -153,6 +157,7 @@ const CreateEventDate: React.FC = () => {
       }
 
       console.log('Event created successfully');
+      onEventCreation();  // Call the function to switch the subcategory
     } catch (error) {
       console.error('Error creating event:', error);
     }
@@ -459,3 +464,4 @@ const CreateEventDate: React.FC = () => {
 };
 
 export default CreateEventDate;
+

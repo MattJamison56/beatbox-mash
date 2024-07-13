@@ -1,5 +1,6 @@
+// App.tsx
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
 import HomePage from './pages/home/home';
 import LoginPage from './pages/login/login';
 import CreateAccountPage from './pages/accountCreation/CreateAccountPage';
@@ -14,9 +15,16 @@ interface PrivateRouteProps {
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles }) => {
   const { isAuthenticated, role } = useAuth();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (!isAuthenticated || role === null || !roles.includes(role)) {
+      navigate('/login');
+    }
+  }, [isAuthenticated, role, roles, navigate]);
 
   if (!isAuthenticated || role === null || !roles.includes(role)) {
-    return <Navigate to="/" />;
+    return null;
   }
 
   return children;

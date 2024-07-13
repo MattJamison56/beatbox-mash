@@ -90,16 +90,37 @@ export const updateManagerTeams = async (req: Request, res: Response) => {
 
 export const deleteManager = async (req: Request, res: Response) => {
   const { id } = req.body;
+  let transaction;
 
   try {
     const pool = await poolPromise;
-    await pool.request()
+    transaction = pool.transaction();
+
+    // Begin the transaction
+    await transaction.begin();
+
+    // Delete the manager from the UserTeams table
+    await transaction.request()
+      .input('user_id', id)
+      .query('DELETE FROM UserTeams WHERE user_id = @user_id');
+
+    // Delete the manager from the Users table
+    await transaction.request()
       .input('id', id)
       .query('DELETE FROM Users WHERE id = @id');
+
+    // Commit the transaction
+    await transaction.commit();
 
     res.status(200).json({ message: 'Manager deleted successfully' });
   } catch (error) {
     console.error('Error deleting manager:', error);
+
+    // Rollback the transaction in case of error
+    if (transaction) {
+      await transaction.rollback();
+    }
+
     res.status(500).json({ message: 'Error deleting manager' });
   }
 };

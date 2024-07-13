@@ -32,7 +32,7 @@ const CreateAccountPage: React.FC = () => {
       }
 
       console.log('Email sent successfully');
-      navigate('/manage-accounts');
+      navigate('/');
     } catch (error) {
       const err = error as Error;
       setErrorMessage(err.message);

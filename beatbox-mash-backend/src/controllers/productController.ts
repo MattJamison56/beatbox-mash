@@ -53,21 +53,39 @@ export const createProducts = async (req: Request, res: Response) => {
 };
 
 export const deleteProduct = async (req: Request, res: Response) => {
-    try {
-      const pool = await poolPromise;
-      const request = new sql.Request(pool);
-      const { id } = req.body;
-  
-      console.log('Deleting product with ID:', id);
-  
-      await request
-        .input('id', sql.Int, id)
-        .query('DELETE FROM Products WHERE ProductID = @id');
-  
-      res.status(200).json({ message: 'Product deleted successfully' });
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      const err = error as Error;
-      res.status(500).json({ message: err.message });
+  const { id } = req.body;
+  let transaction;
+
+  try {
+    const pool = await poolPromise;
+    transaction = pool.transaction();
+
+    // Begin the transaction
+    await transaction.begin();
+
+    // Delete the product from the CampaignProducts table
+    await transaction.request()
+      .input('id', sql.Int, id)
+      .query('DELETE FROM CampaignProducts WHERE product_id = @id');
+
+    // Delete the product from the Products table
+    await transaction.request()
+      .input('id', sql.Int, id)
+      .query('DELETE FROM Products WHERE ProductID = @id');
+
+    // Commit the transaction
+    await transaction.commit();
+
+    res.status(200).json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting product:', error);
+
+    // Rollback the transaction in case of error
+    if (transaction) {
+      await transaction.rollback();
     }
-  };
+
+    const err = error as Error;
+    res.status(500).json({ message: err.message });
+  }
+};
