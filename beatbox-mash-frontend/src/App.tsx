@@ -37,9 +37,9 @@ const App: React.FC = () => {
       <Route
         path="/"
         element={
-          <PrivateRoute roles={['manager']}>
+          // <PrivateRoute roles={['manager']}>
             <HomePage />
-          </PrivateRoute>
+          // </PrivateRoute>
         }
       />
       <Route

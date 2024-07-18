@@ -117,3 +117,35 @@ export const setPassword = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error setting password', error: err.message });
   }
 };
+
+export const saveProfileInfo = async (req: Request, res: Response) => {
+  const { id, age, height, shirt_size, hairColor, gender, primaryLanguage, secondaryLanguage, address, availability } = req.body;
+
+  try {
+    console.log("In backend");
+    console.log({ id, age, height, shirt_size, hairColor, gender, primaryLanguage, secondaryLanguage, address, availability });
+    const pool = await poolPromise;
+    await pool.request()
+      .input('id', id)
+      .input('age', age)
+      .input('height', height)
+      .input('shirt_size', shirt_size)
+      .input('hair_color', hairColor)
+      .input('gender', gender)
+      .input('primary_language', primaryLanguage)
+      .input('secondary_language', secondaryLanguage)
+      .input('address', address)
+      .input('availability', JSON.stringify(availability))
+      .query(`
+        UPDATE Users
+        SET age = @age, height = @height, shirt_size = @shirt_size, hair_color = @hair_color, gender = @gender,
+            primary_language = @primary_language, secondary_language = @secondary_language, address = @address, availability = @availability
+        WHERE id = @id
+      `);
+
+    res.status(200).json({ message: 'Profile updated successfully' });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Error updating profile' });
+  }
+};

@@ -79,11 +79,14 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
-    
+
     const pool = await poolPromise;
     const result = await pool.request()
       .input('id', req.user.userId)
-      .query('SELECT name, email, role FROM Users WHERE id = @id');
+      .query(`
+        SELECT id, name, email, role, age, height, shirt_size, hair_color, gender, primary_language, secondary_language, address, availability
+        FROM Users WHERE id = @id
+      `);
 
     const user = result.recordset[0];
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -94,3 +97,4 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
     res.status(500).json({ message: 'Error fetching user profile' });
   }
 };
+

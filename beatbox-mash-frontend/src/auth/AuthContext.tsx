@@ -1,10 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
-// src/auth/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   role: string | null;
+  token: string | null;
   login: (token: string, role: string) => void;
   logout: () => void;
 }
@@ -26,22 +26,25 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [role, setRole] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
+    const savedToken = localStorage.getItem('token');
+    const savedRole = localStorage.getItem('role');
 
-    if (token) {
+    if (savedToken) {
       setIsAuthenticated(true);
-      setRole(role);
+      setRole(savedRole);
+      setToken(savedToken);
     }
   }, []);
 
-  const login = (token: string, role: string) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('role', role);
+  const login = (newToken: string, newRole: string) => {
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('role', newRole);
     setIsAuthenticated(true);
-    setRole(role);
+    setRole(newRole);
+    setToken(newToken);
   };
 
   const logout = () => {
@@ -49,10 +52,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('role');
     setIsAuthenticated(false);
     setRole(null);
+    setToken(null);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, role, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, role, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

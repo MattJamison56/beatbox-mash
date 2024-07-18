@@ -28,11 +28,17 @@ interface NavbarProps {
   onSubcategoryChange: (subcategory: string | null) => void;
 }
 
+interface UserProfile {
+  name: string;
+  email: string;
+  role: string;
+}
+
 const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [submenu, setSubmenu] = useState<string | null>(null);
   const [accountMenuAnchorEl, setAccountMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [userProfile, setUserProfile] = useState<{ name: string; email: string; role: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,7 +58,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
         }
 
         const data = await response.json();
-        setUserProfile(data);
+        const { name, email, role } = data;
+        setUserProfile({ name, email, role });
         console.log(data);
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -75,6 +82,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
   const handleSubcatClick = (subcategory: string) => {
     onSubcategoryChange(subcategory);
     setDrawerOpen(false);
+    setAccountMenuAnchorEl(null);
   };
 
   const handleAccountMenuOpen = (event: MouseEvent<HTMLElement>) => {
@@ -116,7 +124,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
             onClose={handleAccountMenuClose}
           >
             <MenuItem onClick={handleAccountMenuClose}>Notifications</MenuItem>
-            <MenuItem onClick={handleAccountMenuClose}>My Profile</MenuItem>
+            <MenuItem onClick={() => handleSubcatClick('Profile')}>My Profile</MenuItem>
             <MenuItem onClick={handleAccountMenuClose}>Switch to BA</MenuItem>
             <MenuItem onClick={handleLogout}>Log Out</MenuItem>
           </Menu>
