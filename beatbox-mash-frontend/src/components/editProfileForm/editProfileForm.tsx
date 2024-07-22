@@ -28,10 +28,10 @@ type UserProfile = {
   age?: string;
   height?: string;
   shirt_size?: string;
-  hairColor?: string;
+  hair_color?: string;
   gender?: string;
-  primaryLanguage?: string;
-  secondaryLanguage?: string;
+  primary_language?: string;
+  secondary_language?: string;
   address?: string;
   availability?: Record<string, { start: Dayjs | null, end: Dayjs | null }[]>;
 };
@@ -52,10 +52,10 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({ open, onClose, userPr
     age: '',
     height: '',
     shirt_size: '',
-    hairColor: '',
+    hair_color: '',
     gender: '',
-    primaryLanguage: '',
-    secondaryLanguage: '',
+    primary_language: '',
+    secondary_language: '',
     address: '',
     availability: {
       Sunday: [],
@@ -332,8 +332,8 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({ open, onClose, userPr
         />
         <TextField
           label="Hair Color"
-          value={userProfile.hairColor || ''}
-          onChange={(e) => handleInputChange('hairColor', e.target.value)}
+          value={userProfile.hair_color || ''}
+          onChange={(e) => handleInputChange('hair_color', e.target.value)}
           style={{ marginRight: 16, marginTop: 10, width: '100%' }}
         />
         <TextField
@@ -344,14 +344,14 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({ open, onClose, userPr
         />
         <TextField
           label="Primary Language"
-          value={userProfile.primaryLanguage || ''}
-          onChange={(e) => handleInputChange('primaryLanguage', e.target.value)}
+          value={userProfile.primary_language || ''}
+          onChange={(e) => handleInputChange('primary_language', e.target.value)}
           style={{ marginRight: 16, marginTop: 10, width: '100%' }}
         />
         <TextField
           label="Secondary Language"
-          value={userProfile.secondaryLanguage || ''}
-          onChange={(e) => handleInputChange('secondaryLanguage', e.target.value)}
+          value={userProfile.secondary_language || ''}
+          onChange={(e) => handleInputChange('secondary_language', e.target.value)}
           style={{ marginRight: 16, marginTop: 10, width: '100%' }}
         />
         <Typography variant="h6" style={{ marginTop: 20 }}>Availability</Typography>

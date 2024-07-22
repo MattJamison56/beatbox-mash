@@ -68,11 +68,9 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void, fetch
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
-      // Handle success, e.g., show a success message, refresh data, etc.
-      fetchUsers(); // updates table
+      fetchUsers();
       onClose();
     } catch (error) {
-      // Handle error, e.g., show an error message
       console.error('Error creating ambassadors:', error);
     }
   };
@@ -138,7 +136,6 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void, fetch
         <Button onClick={handleAddMore}>Add More</Button>
         <div style={{ marginTop: 16 }}>
           <h4>Assign Trainings</h4>
-          {/* Placeholder checkboxes for share files */}
           <FormControlLabel control={<Checkbox />} label="Training1" />
           <FormControlLabel control={<Checkbox />} label="Training2" />
           <FormControlLabel control={<Checkbox />} label="Training3" />

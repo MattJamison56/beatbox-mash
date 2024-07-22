@@ -1,6 +1,64 @@
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
+import bcrypt from 'bcrypt';
+import { google } from 'googleapis';
 import sql from 'mssql';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const OAuth2 = google.auth.OAuth2;
+
+const oauth2Client = new OAuth2(
+  process.env.CLIENT_ID, // ClientID
+  process.env.CLIENT_SECRET, // Client Secret
+  'https://developers.google.com/oauthplayground' // Redirect URL
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.REFRESH_TOKEN,
+});
+
+export const getAmbassadorsWithTeams = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT 
+        Users.id, 
+        Users.name, 
+        Users.email, 
+        Users.address, 
+        Users.phone_number, 
+        Users.avatar_url, 
+        COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams, 
+        Users.wage, 
+        Users.date_of_last_request
+      FROM 
+        Users
+      LEFT JOIN 
+        UserTeams ON Users.id = UserTeams.user_id
+      LEFT JOIN 
+        Teams ON UserTeams.team_id = Teams.id
+      WHERE 
+        Users.role = 'ambassador'
+      GROUP BY 
+        Users.id, 
+        Users.name, 
+        Users.email, 
+        Users.address, 
+        Users.phone_number, 
+        Users.avatar_url, 
+        Users.wage, 
+        Users.date_of_last_request
+    `);
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching ambassadors with teams:', error);
+    res.status(500).json({ message: 'Error fetching ambassadors with teams' });
+  }
+};
 
 export const createAmbassadors = async (req: Request, res: Response) => {
   try {
@@ -11,12 +69,10 @@ export const createAmbassadors = async (req: Request, res: Response) => {
 
     const { ambassadors } = req.body;
 
-    console.log('Creating ambassadors:', ambassadors); // Log input data
-
     for (const ambassador of ambassadors) {
-      console.log('Processing ambassador:', ambassador); // Log each ambassador
+      const token = crypto.randomBytes(20).toString('hex');
+      const tokenHash = await bcrypt.hash(token, 10);
 
-      // Create a new request for inserting user
       const requestUser = new sql.Request(transaction);
 
       const result = await requestUser
@@ -24,19 +80,19 @@ export const createAmbassadors = async (req: Request, res: Response) => {
         .input('email', sql.VarChar, ambassador.email)
         .input('role', sql.NVarChar, 'ambassador')
         .input('wage', sql.Decimal(10, 2), ambassador.wage)
+        .input('password_hash', sql.VarChar, tokenHash)
+        .input('reset_token', sql.VarChar, token)
         .query(`
-          INSERT INTO Users (name, email, role, wage, date_of_last_request, avatar_url, phone_number, address, password_hash, created_at, updated_at)
+          INSERT INTO Users (name, email, role, wage, password_hash, reset_token, date_of_last_request, avatar_url, phone_number, address, created_at, updated_at)
           OUTPUT INSERTED.id
-          VALUES (@name, @email, @role, @wage, NULL, NULL, NULL, NULL, NULL, GETDATE(), GETDATE())
+          VALUES (@name, @email, @role, @wage, @password_hash, @reset_token, NULL, NULL, NULL, NULL, GETDATE(), GETDATE())
         `);
 
       const userId = result.recordset[0].id;
 
       for (const teamName of ambassador.teams) {
-        // Create a new request for each team query
         const requestTeam = new sql.Request(transaction);
 
-        // Fetch the team ID based on the team name
         const teamResult = await requestTeam
           .input('teamName', sql.VarChar, teamName)
           .query(`
@@ -46,7 +102,6 @@ export const createAmbassadors = async (req: Request, res: Response) => {
         if (teamResult.recordset.length > 0) {
           const teamId = teamResult.recordset[0].id;
 
-          // Create a new request for inserting into UserTeams
           const requestUserTeams = new sql.Request(transaction);
 
           await requestUserTeams
@@ -60,6 +115,9 @@ export const createAmbassadors = async (req: Request, res: Response) => {
           console.warn(`Team not found: ${teamName}`);
         }
       }
+
+      // Send account creation email
+      await sendAccountCreationEmail(ambassador.email, token);
     }
 
     await transaction.commit();
@@ -69,6 +127,34 @@ export const createAmbassadors = async (req: Request, res: Response) => {
     const err = error as Error;
     res.status(500).json({ message: err.message });
   }
+};
+
+const sendAccountCreationEmail = async (email: string, token: string) => {
+  const accessToken = await oauth2Client.getAccessToken();
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      type: 'OAuth2',
+      user: process.env.EMAIL_USER,
+      clientId: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      refreshToken: process.env.REFRESH_TOKEN,
+      accessToken: accessToken.token as string,
+    },
+  });
+
+  const mailOptions = {
+    to: email,
+    from: process.env.EMAIL_USER,
+    subject: 'Account Creation',
+    text: `You are receiving this because you (or someone else) have requested the creation of an account.\n\n
+      Please click on the following link, or paste this into your browser to complete the process:\n\n
+      http://localhost:5173/set-password/${token}\n\n
+      If you did not request this, please ignore this email.\n`
+  };
+
+  await transporter.sendMail(mailOptions);
 };
 
 export const deleteAmbassador = async (req: Request, res: Response) => {

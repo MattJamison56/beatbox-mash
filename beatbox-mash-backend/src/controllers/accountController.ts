@@ -119,21 +119,21 @@ export const setPassword = async (req: Request, res: Response) => {
 };
 
 export const saveProfileInfo = async (req: Request, res: Response) => {
-  const { id, age, height, shirt_size, hairColor, gender, primaryLanguage, secondaryLanguage, address, availability } = req.body;
+  const { id, age, height, shirt_size, hair_color, gender, primary_language, secondary_language, address, availability } = req.body;
 
   try {
     console.log("In backend");
-    console.log({ id, age, height, shirt_size, hairColor, gender, primaryLanguage, secondaryLanguage, address, availability });
+    console.log({ id, age, height, shirt_size, hair_color, gender, primary_language, secondary_language, address, availability });
     const pool = await poolPromise;
     await pool.request()
       .input('id', id)
       .input('age', age)
       .input('height', height)
       .input('shirt_size', shirt_size)
-      .input('hair_color', hairColor)
+      .input('hair_color', hair_color)
       .input('gender', gender)
-      .input('primary_language', primaryLanguage)
-      .input('secondary_language', secondaryLanguage)
+      .input('primary_language', primary_language)
+      .input('secondary_language', secondary_language)
       .input('address', address)
       .input('availability', JSON.stringify(availability))
       .query(`

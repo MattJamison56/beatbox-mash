@@ -70,10 +70,10 @@ const ProfilePage: React.FC = () => {
     age?: string;
     height?: string;
     shirt_size?: string;
-    hairColor?: string;
+    hair_color?: string;
     gender?: string;
-    primaryLanguage?: string;
-    secondaryLanguage?: string;
+    primary_language?: string;
+    secondary_language?: string;
     address?: string;
     availability?: Record<string, { start: Dayjs | null, end: Dayjs | null }[]>;
   } | null>(null);
@@ -140,7 +140,7 @@ const ProfilePage: React.FC = () => {
             </InfoItem>
             <InfoItem>
               <span>Hair Color</span>
-              <span>{userProfile?.hairColor || 'Unknown'}</span>
+              <span>{userProfile?.hair_color || 'Unknown'}</span>
             </InfoItem>
             <InfoItem>
               <span>Gender</span>
@@ -148,11 +148,11 @@ const ProfilePage: React.FC = () => {
             </InfoItem>
             <InfoItem>
               <span>Primary Language</span>
-              <span>{userProfile?.primaryLanguage || 'None'}</span>
+              <span>{userProfile?.primary_language || 'None'}</span>
             </InfoItem>
             <InfoItem>
               <span>Secondary Language</span>
-              <span>{userProfile?.secondaryLanguage || 'None'}</span>
+              <span>{userProfile?.secondary_language || 'None'}</span>
             </InfoItem>
           </Section>
         </LeftColumn>
