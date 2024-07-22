@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './login.css';
-import logo from '../../assets/beatboxlogo.png';
+import logo from '../../../assets/beatboxlogo.png';
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage: React.FC = () => {

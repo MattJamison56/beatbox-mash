@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Box, Typography, Avatar } from '@mui/material';
 import { styled } from '@mui/system';
-import EditProfileForm from '../../components/editProfileForm/editProfileForm';
-import { useAuth } from '../../auth/AuthContext';
+import EditProfileForm from '../../../components/editProfileForm/editProfileForm';
+import { useAuth } from '../../../auth/AuthContext';
 import { Dayjs } from 'dayjs';
 
 const ProfileContainer = styled('div')({

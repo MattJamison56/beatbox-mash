@@ -1,11 +1,11 @@
-// App.tsx
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
-import HomePage from './pages/home/home';
-import LoginPage from './pages/login/login';
-import CreateAccountPage from './pages/accountCreation/CreateAccountPage';
-import SetPasswordPage from './pages/accountCreation/SetPasswordPage';
-import ManageAccountsPage from './pages/accountCreation/ManageAccountsPage';
+import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
+import HomePage from './pages/managerPages/home/home';
+import LoginPage from './pages/managerPages/login/login';
+import CreateAccountPage from './pages/managerPages/accountCreation/CreateAccountPage';
+import SetPasswordPage from './pages/managerPages/accountCreation/SetPasswordPage';
+import ManageAccountsPage from './pages/managerPages/accountCreation/ManageAccountsPage';
+import AmbassadorHome from './pages/ambassadorPages/ambassadorHome/ambassadorHome';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 
 interface PrivateRouteProps {
@@ -30,6 +30,11 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles }) => {
   return children;
 };
 
+const RoleBasedHome: React.FC = () => {
+  const { role } = useAuth();
+  return role === 'manager' ? <Navigate to="/manager" /> : <Navigate to="/ambassadors" />;
+};
+
 const App: React.FC = () => {
   return (
     <Routes>
@@ -37,9 +42,9 @@ const App: React.FC = () => {
       <Route
         path="/"
         element={
-          // <PrivateRoute roles={['manager']}>
-            <HomePage />
-          // </PrivateRoute>
+          <PrivateRoute roles={['manager', 'ambassador']}>
+            <RoleBasedHome />
+          </PrivateRoute>
         }
       />
       <Route
@@ -59,6 +64,22 @@ const App: React.FC = () => {
         element={
           <PrivateRoute roles={['manager']}>
             <ManageAccountsPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/ambassadors"
+        element={
+          <PrivateRoute roles={['ambassador']}>
+            <AmbassadorHome />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/manager"
+        element={
+          <PrivateRoute roles={['manager']}>
+            <HomePage />
           </PrivateRoute>
         }
       />

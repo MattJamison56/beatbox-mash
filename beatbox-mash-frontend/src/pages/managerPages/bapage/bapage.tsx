@@ -2,12 +2,16 @@
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Avatar, Menu, MenuItem, IconButton } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { useNavigate } from 'react-router-dom';
+import './bapage.css';
+import CreateAmbassadorForm from '../../../components/createAmbassadorForm/createAmbassadorForm';
 import EditIcon from '@mui/icons-material/Edit';
-import { EditTeamsForm } from '../../components/editTeamsForm/editTeamsForm';
+import { EditTeamsForm } from '../../../components/editTeamsForm/editTeamsForm';
+import { EditWageForm } from '../../../components/editWageForm/editWageForm';
 
-const ManageAccountsPage: React.FC = () => {
+
+const BrandAmbassadorsPage: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
+  const [openForm, setOpenForm] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUser, setSelectedUser] = useState<null | any>(null);
 
@@ -16,7 +20,8 @@ const ManageAccountsPage: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [teams, setTeams] = useState<string[]>([]);
 
-  const navigate = useNavigate();
+  const [editWageOpen, setEditWageOpen] = useState(false);
+  const [currentWage, setCurrentWage] = useState<number>(0);
 
   const handleEditTeams = (user: any) => {
     setCurrentTeams(user.teams || []);
@@ -30,11 +35,23 @@ const ManageAccountsPage: React.FC = () => {
     setCurrentUserId(null);
   };
 
+  const handleEditWage = (user: any) => {
+    setCurrentWage(user.wage || 0);
+    setCurrentUserId(user.id);
+    setEditWageOpen(true);
+  };
+
+  const handleCloseEditWage = () => {
+    setEditWageOpen(false);
+    setCurrentWage(0);
+    setCurrentUserId(null);
+  };
+
   const handleSaveTeams = async (userId: string | null, newTeams: string[]) => {
     if (!userId) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/managers/updateTeams`, {
+      const response = await fetch(`http://localhost:5000/ambassadors/updateBATeams`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -54,9 +71,40 @@ const ManageAccountsPage: React.FC = () => {
     }
   };
 
+  const handleSaveWage = async (userId: string | null, newWage: number) => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/ambassadors/updateBAWage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: userId, wage: newWage }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      setUsers(users.map(user => user.id === userId ? { ...user, wage: newWage } : user));
+      await fetchUsers(); // reload table
+    } catch (error) {
+      console.error('Error updating wage:', error);
+    }
+  };
+
+  const handleOpenForm = () => {
+    setOpenForm(true);
+  };
+
+  const handleCloseForm = () => {
+    setOpenForm(false);
+  };
+
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/managers');
+      const response = await fetch('http://localhost:5000/ambassadors/getAmbassadors');
       const data = await response.json();
       setUsers(data);
     } catch (error) {
@@ -91,9 +139,21 @@ const ManageAccountsPage: React.FC = () => {
     handleMenuClose();
   };
 
+  const handleShareTrainingMaterial = () => {
+    // Placeholder function for Share Training Material
+    console.log('Share training material for user:', selectedUser);
+    handleMenuClose();
+  };
+
+  const handleRequestDocument = () => {
+    // Placeholder function for Request Document
+    console.log('Request document for user:', selectedUser);
+    handleMenuClose();
+  };
+
   const handleDeactivate = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/managers/delete`, {
+      const response = await fetch(`http://localhost:5000/ambassadors/deleteba`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,19 +176,25 @@ const ManageAccountsPage: React.FC = () => {
   return (
     <div className="container">
       <div className="header">
-        <h1 className='title'>Managers</h1>
-        <Button variant="contained" color="primary" onClick={() => navigate('/create-account')}>
-          Add Manager
+        <h1 className='title'>Brand Ambassadors</h1>
+        <Button variant="contained" color="primary" onClick={handleOpenForm}>
+          Create ambassadors
         </Button>
       </div>
-      <TableContainer component={Paper} style={{ marginTop: '20px' }}>
+      <TableContainer component={Paper} style={{ marginTop: '20px'}}>
         <Table>
           <TableHead>
             <TableRow>
               <TableCell>Avatar</TableCell>
               <TableCell>Name</TableCell>
+              <TableCell>Address</TableCell>
               <TableCell>Email</TableCell>
+              <TableCell>Phone Number</TableCell>
+              <TableCell>Availability</TableCell>
               <TableCell>Teams</TableCell>
+              <TableCell>Wage</TableCell>
+              <TableCell>Docs Returned</TableCell>
+              <TableCell>Date of Last Request</TableCell>
               <TableCell>Options</TableCell>
             </TableRow>
           </TableHead>
@@ -137,12 +203,22 @@ const ManageAccountsPage: React.FC = () => {
               <TableRow key={index}>
                 <TableCell><Avatar alt={user.name} src={user.avatar_url} /></TableCell>
                 <TableCell>{user.name}</TableCell>
+                <TableCell>{user.address}</TableCell>
                 <TableCell><a href={`mailto:${user.email}`}>{user.email}</a></TableCell>
-                <TableCell>{user.teams ? `${user.teams}` : 'N/A'}
+                <TableCell><a href={`tel:${user.phone_number}`}>{user.phone_number}</a></TableCell>
+                <TableCell>{'N/A'}</TableCell> 
+                <TableCell>{user.teams ? `${user.teams}` : 'N/A'} 
                   <IconButton onClick={() => handleEditTeams(user)}>
                     <EditIcon />
                   </IconButton>
                 </TableCell>
+                <TableCell>{user.wage ? `$${user.wage}/h` : 'N/A'} 
+                  <IconButton onClick={() => handleEditWage(user)}>
+                    <EditIcon />
+                  </IconButton>
+                </TableCell>
+                <TableCell>{'N/A'}</TableCell>
+                <TableCell>{user.date_of_last_request ? new Date(user.date_of_last_request).toLocaleDateString() : 'N/A'}</TableCell>
                 <TableCell>
                   <IconButton onClick={(event) => handleMenuClick(event, user)}>
                     <MoreVertIcon />
@@ -153,6 +229,8 @@ const ManageAccountsPage: React.FC = () => {
                     onClose={handleMenuClose}
                   >
                     <MenuItem onClick={handleView}>View</MenuItem>
+                    <MenuItem onClick={handleShareTrainingMaterial}>Share Training Material</MenuItem>
+                    <MenuItem onClick={handleRequestDocument}>Request Document</MenuItem>
                     <MenuItem onClick={handleDeactivate}>Deactivate</MenuItem>
                   </Menu>
                 </TableCell>
@@ -161,16 +239,24 @@ const ManageAccountsPage: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
-      <EditTeamsForm
-        open={editTeamsOpen}
-        onClose={handleCloseEditTeams}
-        currentTeams={currentTeams}
-        entityId={currentUserId}
-        teams={teams}
-        onSave={handleSaveTeams}
+      <CreateAmbassadorForm open={openForm} onClose={handleCloseForm} fetchUsers={fetchUsers}/>
+      <EditTeamsForm 
+        open={editTeamsOpen} 
+        onClose={handleCloseEditTeams} 
+        currentTeams={currentTeams} 
+        entityId={currentUserId} 
+        teams={teams} 
+        onSave={handleSaveTeams} 
+      />
+      <EditWageForm 
+        open={editWageOpen} 
+        onClose={handleCloseEditWage} 
+        currentWage={currentWage} 
+        userId={currentUserId} 
+        onSave={handleSaveWage} 
       />
     </div>
   );
 };
 
-export default ManageAccountsPage;
+export default BrandAmbassadorsPage;

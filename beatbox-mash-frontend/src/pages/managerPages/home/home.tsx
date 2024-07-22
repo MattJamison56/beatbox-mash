@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState } from 'react';
-import Navbar from '../../components/navbar/navbar';
+import Navbar from '../../../components/managerNavbar/managerNavbar';
 import BrandAmbassadorsPage from '../bapage/bapage';
 import CreateTeamsPage from '../createTeamPage/createTeamPage';
 import CreateVenuesPage from '../venuePage/createVenuePage';

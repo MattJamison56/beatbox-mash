@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, IconButton, Menu, MenuItem } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import CreateProductForm from '../../components/createProductForm/createProductForm';
+import CreateProductForm from '../../../components/createProductForm/createProductForm';
 
 const CreateProductsPage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);

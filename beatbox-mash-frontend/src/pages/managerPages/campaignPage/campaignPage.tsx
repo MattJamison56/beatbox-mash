@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, IconButton, Menu, MenuItem, Switch } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
-import { EditTeamsForm } from '../../components/editTeamsForm/editTeamsForm';
+import { EditTeamsForm } from '../../../components/editTeamsForm/editTeamsForm';
 
 interface CampaignsPageProps {
   onCreateCampaign: (campaign?: any) => void;
