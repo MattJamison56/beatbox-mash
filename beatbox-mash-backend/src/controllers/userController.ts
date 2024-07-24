@@ -42,18 +42,16 @@ export const getManagersWithTeams = async (req: Request, res: Response) => {
     const pool = await poolPromise;
     const result = await pool.request().query(`
       SELECT 
-        Users.*, 
-        COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams
+        Users.*,
+        (SELECT STRING_AGG(Teams.name, ', ') 
+         FROM UserTeams 
+         JOIN Teams ON UserTeams.team_id = Teams.id 
+         WHERE UserTeams.user_id = Users.id
+        ) AS teams
       FROM 
         Users
-      LEFT JOIN 
-        UserTeams ON Users.id = UserTeams.user_id
-      LEFT JOIN 
-        Teams ON UserTeams.team_id = Teams.id
       WHERE 
         Users.role = 'manager'
-      GROUP BY 
-        Users.id, Users.name, Users.email, Users.address, Users.password_hash, Users.role, Users.phone_number, Users.wage, Users.date_of_last_request, Users.avatar_url, Users.created_at, Users.updated_at, Users.reset_token
     `);
     res.status(200).json(result.recordset);
   } catch (error) {

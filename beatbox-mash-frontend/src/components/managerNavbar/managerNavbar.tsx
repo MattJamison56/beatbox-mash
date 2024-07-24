@@ -60,7 +60,6 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
         const data = await response.json();
         const { name, email, role } = data;
         setUserProfile({ name, email, role });
-        console.log(data);
       } catch (error) {
         console.error('Error fetching user profile:', error);
       }

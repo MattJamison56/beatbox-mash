@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './login.css';
-import logo from '../../../assets/beatboxlogo.png';
+import logo from '../../assets/beatboxlogo.png';
 import { useNavigate } from 'react-router-dom';
 
 const LoginPage: React.FC = () => {
@@ -27,6 +27,7 @@ const LoginPage: React.FC = () => {
       const data = await response.json();
       localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.role);
+      localStorage.setItem('ba_id', data.ba_id);
 
       navigate('/');
     } catch (error) {

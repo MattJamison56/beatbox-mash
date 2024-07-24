@@ -21,7 +21,8 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
 const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaigns }) => {
   const { id } = useParams<{ id: string }>();
   const [name, setName] = useState('');
-  const [owners, setOwners] = useState('');
+  const [owners, setOwners] = useState<string[]>([]);
+  const [availableManagers, setAvailableManagers] = useState<string[]>([]);
   const [reportTemplate, setReportTemplate] = useState('');
   const [preEventInstructions, setPreEventInstructions] = useState('');
   const [firstBaInventory, setFirstBaInventory] = useState(false);
@@ -54,6 +55,17 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
       .then(response => response.json())
       .then(data => setAvailableProducts(data.map((product: any) => product.ProductName)))
       .catch(error => console.error('Error fetching products:', error));
+
+    fetch('http://localhost:5000/managers')
+      .then(response => response.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setAvailableManagers(data.map((manager: any) => manager.name));
+        } else {
+          console.error('Unexpected response format:', data);
+        }
+      })
+      .catch(error => console.error('Error fetching managers:', error));
 
     if (id) {
       fetch(`http://localhost:5000/campaigns/${id}`)
@@ -130,12 +142,19 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
             margin="normal"
             required
           />
-          <TextField
-            label="Owners"
+          <Autocomplete
+            multiple
+            options={availableManagers}
             value={owners}
-            onChange={(e) => setOwners(e.target.value)}
-            fullWidth
-            margin="normal"
+            onChange={(_e, value) => setOwners(value)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Owners"
+                fullWidth
+                margin="normal"
+              />
+            )}
           />
           <Autocomplete
             multiple
@@ -151,13 +170,19 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
               />
             )}
           />
-          <TextField
-            label="Report Template"
+          <Autocomplete
+            options={['Post-Event Recap', 'Festival Recap']}
             value={reportTemplate}
-            onChange={(e) => setReportTemplate(e.target.value)}
-            fullWidth
-            margin="normal"
-            required
+            onChange={(_e, value) => setReportTemplate(value as string)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Report Template"
+                fullWidth
+                margin="normal"
+                required
+              />
+            )}
           />
           <TextField
             label="Pre-Event Instructions"

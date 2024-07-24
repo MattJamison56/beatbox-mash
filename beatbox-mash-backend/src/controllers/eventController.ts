@@ -1,7 +1,64 @@
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
+import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
+import dotenv from 'dotenv';
 import sql from 'mssql';
 
+dotenv.config();
+
+const OAuth2 = google.auth.OAuth2;
+
+const oauth2Client = new OAuth2(
+  process.env.CLIENT_ID, // ClientID
+  process.env.CLIENT_SECRET, // Client Secret
+  'https://developers.google.com/oauthplayground' // Redirect URL
+);
+
+oauth2Client.setCredentials({
+  refresh_token: process.env.REFRESH_TOKEN,
+});
+
+export const notifyAmbassadors = async (req: Request, res: Response) => {
+  const { brandAmbassadors, eventName, startDateTime, venue, preEventInstructions } = req.body;
+
+  try {
+    const accessToken = await oauth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: process.env.EMAIL_USER,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken: process.env.REFRESH_TOKEN,
+        accessToken: accessToken.token as string,
+      },
+    });
+
+    for (const ba of brandAmbassadors) {
+      const mailOptions = {
+        to: ba.email,
+        from: process.env.EMAIL_USER,
+        subject: 'New Event Assignment',
+        text: `You have been assigned a new event:\n\n
+          Event Name: ${eventName}\n
+          Date and Time: ${startDateTime}\n
+          Venue: ${venue}\n
+          Instructions: ${preEventInstructions}\n\n
+          Please log in to your dashboard to view more details.`,
+      };
+
+      await transporter.sendMail(mailOptions);
+    }
+
+    res.status(200).json({ message: 'Notifications sent successfully' });
+  } catch (error) {
+    console.error('Error sending notifications:', error);
+    res.status(500).json({ message: 'Error sending notifications', error: (error as Error).message });
+  }
+};
 
 export const getEvents = async (req: Request, res: Response) => {
   try {
@@ -171,5 +228,46 @@ export const deleteEvent = async (req: Request, res: Response) => {
     console.error('Error deleting event:', error);
     const err = error as Error;
     res.status(500).json({ message: err.message });
+  }
+};
+
+export const getMyEvents = async (req: Request, res: Response) => {
+  const { ba_id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT 
+          e.event_id AS id,
+          e.event_name AS eventName,
+          e.start_date_time AS startDateTime,
+          DATEADD(MINUTE, e.duration_minutes, DATEADD(HOUR, e.duration_hours, e.start_date_time)) AS endDateTime,
+          t.name AS team,
+          v.name AS venue,
+          c.name AS campaign,
+          eba.inventory,
+          eba.qa,
+          eba.photos,
+          eba.expenses
+        FROM 
+          Events e
+        JOIN 
+          EventBrandAmbassadors eba ON e.event_id = eba.event_id
+        JOIN 
+          Teams t ON e.team_id = t.id
+        JOIN 
+          Venues v ON e.venue_id = v.id
+        JOIN 
+          Campaigns c ON e.campaign_id = c.id
+        WHERE 
+          eba.ba_id = @ba_id
+      `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    res.status(500).json({ message: 'Error fetching events' });
   }
 };

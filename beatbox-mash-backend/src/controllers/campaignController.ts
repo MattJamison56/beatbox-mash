@@ -25,7 +25,13 @@ export const getCampaigns = async (req: Request, res: Response) => {
         Campaigns.allow_ba_to_schedule, Campaigns.override_wage, Campaigns.exclude_expenses_from_report, 
         Campaigns.hide_ba_contact_info, Campaigns.created_at, Campaigns.updated_at
     `);
-    res.json(result.recordset);
+
+    const campaigns = result.recordset.map(campaign => ({
+      ...campaign,
+      owners: campaign.owners ? campaign.owners.split(',') : []
+    }));
+
+    res.json(campaigns);
   } catch (err) {
     const error = err as Error;
     res.status(500).send(error.message);
@@ -50,11 +56,13 @@ export const createCampaign = async (req: Request, res: Response) => {
 
     console.log('Creating campaign:', req.body); // Log input data
 
+    const ownersString = owners.join(',');
+
     const requestCampaign = new sql.Request(transaction);
 
     const result = await requestCampaign
       .input('name', sql.NVarChar, name)
-      .input('owners', sql.NVarChar, owners || null)
+      .input('owners', sql.NVarChar, ownersString || null)
       .input('report_template', sql.NVarChar, report_template || null)
       .input('pre_event_instructions', sql.NVarChar, pre_event_instructions || null)
       .input('first_ba_inventory', sql.Bit, first_ba_inventory || 0)
@@ -175,12 +183,14 @@ export const updateCampaign = async (req: Request, res: Response) => {
 
     console.log('Updating campaign:', req.body); // Log input data
 
+    const ownersString = owners.join(',');
+
     const requestCampaign = new sql.Request(transaction);
 
     await requestCampaign
       .input('id', sql.Int, id)
       .input('name', sql.NVarChar, name)
-      .input('owners', sql.NVarChar, owners || null)
+      .input('owners', sql.NVarChar, ownersString || null)
       .input('report_template', sql.NVarChar, report_template || null)
       .input('pre_event_instructions', sql.NVarChar, pre_event_instructions || null)
       .input('first_ba_inventory', sql.Bit, first_ba_inventory || 0)
@@ -302,6 +312,7 @@ export const updateCampaign = async (req: Request, res: Response) => {
   }
 };
 
+
 export const deleteCampaign = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
@@ -383,3 +394,42 @@ export const updateCampaignTeams = async (req: Request, res: Response) => {
   }
 };
 
+export const getCampaignByName = async (req: Request, res: Response) => {
+  const { name } = req.params;
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('name', sql.NVarChar, name)
+      .query(`
+        SELECT 
+          Campaigns.*, 
+          COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams
+        FROM 
+          Campaigns
+        LEFT JOIN 
+          CampaignTeams ON Campaigns.id = CampaignTeams.campaign_id
+        LEFT JOIN 
+          Teams ON CampaignTeams.team_id = Teams.id
+        WHERE 
+          Campaigns.name = @name
+        GROUP BY 
+          Campaigns.id, Campaigns.name, Campaigns.owners, Campaigns.report_template, 
+          Campaigns.pre_event_instructions, Campaigns.first_ba_inventory, Campaigns.first_ba_post_event, 
+          Campaigns.subsequent_ba_inventory, Campaigns.subsequent_ba_post_event, Campaigns.ba_can_schedule, 
+          Campaigns.ba_edit_event_name, Campaigns.ba_change_venue, Campaigns.ba_reschedule, 
+          Campaigns.ba_check_in_out, Campaigns.photo_check_in, Campaigns.photo_check_out, 
+          Campaigns.show_check_photos_in_report, Campaigns.set_time_duration_presets, 
+          Campaigns.allow_ba_to_schedule, Campaigns.override_wage, Campaigns.exclude_expenses_from_report, 
+          Campaigns.hide_ba_contact_info, Campaigns.created_at, Campaigns.updated_at
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+
+    res.json(result.recordset[0]);
+  } catch (err) {
+    const error = err as Error;
+    res.status(500).send(error.message);
+  }
+};

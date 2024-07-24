@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
@@ -52,6 +53,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
   const [selectedBa, setSelectedBa] = useState<BrandAmbassador | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [editBaId, setEditBaId] = useState<number | null>(null);
+  const [preEventInstructions, setPreEventInstructions] = useState<string>('');
 
   useEffect(() => {
     // Fetch campaigns, venues, teams, and brand ambassadors from the backend
@@ -60,7 +62,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
         const campaignsResponse = await fetch('http://localhost:5000/campaigns');
         const venuesResponse = await fetch('http://localhost:5000/venues');
         const teamsResponse = await fetch('http://localhost:5000/teams');
-        const basResponse = await fetch('http://localhost:5000/ambassadors');
+        const basResponse = await fetch('http://localhost:5000/ambassadors/getAmbassadors');
 
         const campaignsData = await campaignsResponse.json();
         const venuesData = await venuesResponse.json();
@@ -127,6 +129,53 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
     );
   };
 
+  const notifyBrandAmbassadors = async (brandAmbassadors: BrandAmbassador[], eventName: any, startDateTime: Dayjs | null, venue: string | null, preEventInstructions: any) => {
+    try {
+      const response = await fetch('http://localhost:5000/events/notifybas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          brandAmbassadors,
+          eventName,
+          startDateTime,
+          venue,
+          preEventInstructions,
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to send notifications');
+      }
+  
+      console.log('Notifications sent successfully');
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+    }
+  };
+
+  const handleCampaignChange = async (_event: React.ChangeEvent<{}>, value: string | null) => {
+    setSelectedCampaign(value);
+  
+    if (value) {
+      try {
+        const encodedValue = encodeURIComponent(value);
+        const response = await fetch(`http://localhost:5000/campaigns/campaigns/${encodedValue}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch campaign details');
+        }
+        const campaign = await response.json();
+        setPreEventInstructions(campaign.pre_event_instructions || '');
+      } catch (error) {
+        console.error('Error fetching campaign details:', error);
+      }
+    } else {
+      setPreEventInstructions('');
+    }
+  };
+  
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const eventData = {
@@ -157,6 +206,15 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
       }
 
       console.log('Event created successfully');
+
+      notifyBrandAmbassadors(
+        brandAmbassadors,
+        eventData.eventName,
+        eventData.startDateTime,
+        eventData.venue,
+        eventData.preEventInstructions
+      );
+      
       onEventCreation();  // Call the function to switch the subcategory
     } catch (error) {
       console.error('Error creating event:', error);
@@ -171,7 +229,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <Autocomplete
             options={campaigns}
             value={selectedCampaign}
-            onChange={(_event, value) => setSelectedCampaign(value)}
+            onChange={handleCampaignChange}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -216,6 +274,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <TextField
             name="preEventInstructions"
             label="Pre-Event Instructions"
+            value={preEventInstructions}
+            onChange={(e) => setPreEventInstructions(e.target.value)}
             fullWidth
             margin="normal"
             multiline
@@ -451,10 +511,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <Button type="submit" variant="contained" color="primary" style={{ margin: '10px' }}>
             Create
           </Button>
-          <Button type="submit" variant="contained" color="primary" style={{ margin: '10px' }}>
-            Create & New
-          </Button>
-          <Button variant="outlined" color="secondary" style={{ margin: '10px' }}>
+          {/* Despite saying on event creation just doesn't submit and sets back to list view for cancel button*/}
+          <Button variant="outlined" color="secondary" onSubmit={onEventCreation} style={{ margin: '10px' }}>
             Cancel
           </Button>
         </Box>
@@ -464,4 +522,3 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
 };
 
 export default CreateEventDate;
-

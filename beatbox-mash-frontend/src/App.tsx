@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate, useNavigate } from 'react-router-dom';
 import HomePage from './pages/managerPages/home/home';
-import LoginPage from './pages/managerPages/login/login';
+import LoginPage from './pages/login/login';
 import CreateAccountPage from './pages/managerPages/accountCreation/CreateAccountPage';
 import SetPasswordPage from './pages/managerPages/accountCreation/SetPasswordPage';
 import ManageAccountsPage from './pages/managerPages/accountCreation/ManageAccountsPage';
