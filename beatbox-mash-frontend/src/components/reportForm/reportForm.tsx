@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, Modal, Paper, IconButton, Card, CardContent, Grid, ButtonBase, Button, Checkbox, FormControlLabel } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import InventorySalesDataForm from '../../../components/inventorySalesDataForm/inventorySalesDataForm';
+import InventorySalesDataForm from '../../components/inventorySalesDataForm/inventorySalesDataForm';
 
 const modalStyle = {
   position: 'absolute',
@@ -60,7 +60,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
             </IconButton>
           </Box>
         </Box>
-        <Grid container spacing={2} flex={1} xs={12} md={7} alignSelf="center">
+        <Grid item container spacing={2} flex={1} xs={12} md={7} alignSelf="center">
           {['Fill out Inventory & Sales Data', 'Answer Report Questions', 'Attach Photos', 'Attach Expenses'].map((text, index) => (
             <Grid item xs={12} key={index}>
               <Box display="flex" alignItems="center">
