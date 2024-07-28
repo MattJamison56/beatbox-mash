@@ -25,9 +25,11 @@ const modalStyle = {
 interface InventorySalesDataFormProps {
   open: boolean;
   handleClose: () => void;
+  eventId: number;
+  onComplete: () => void;
 }
 
-const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, handleClose }) => {
+const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, handleClose, eventId, onComplete }) => {
   const [products, setProducts] = useState<any[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [isProductSelectionOpen, setIsProductSelectionOpen] = useState(false);
@@ -46,6 +48,31 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    if (open) {
+      const fetchSavedData = async () => {
+        try {
+          const response = await fetch(`http://localhost:5000/reports/getInventorySalesData/${eventId}`);
+          const data = await response.json();
+
+          // Map the fetched data to match the expected structure
+          const mappedData = data.map((item: any) => ({
+            ProductID: item.product_id,
+            ProductName: products.find(p => p.ProductID === item.product_id)?.ProductName || 'Unknown',
+            beginningInventory: item.beginning_inventory,
+            endingInventory: item.ending_inventory
+          }));
+
+          setSelectedProducts(mappedData);
+        } catch (error) {
+          console.error('Error fetching saved data:', error);
+        }
+      };
+
+      fetchSavedData();
+    }
+  }, [open, eventId, products]);
+
   const handleProductSelection = (selected: any) => {
     setSelectedProducts(selected);
     setIsProductSelectionOpen(false);
@@ -63,6 +90,35 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
 
   const calculateTotal = (field: string) => {
     return selectedProducts.reduce((total, product) => total + (product[field] || 0), 0);
+  };
+
+  const handleSave = async () => {
+    const inventoryData = selectedProducts.map(product => ({
+      product_id: product.ProductID,
+      beginning_inventory: product.beginningInventory || 0,
+      ending_inventory: product.endingInventory || 0,
+      sold: (product.beginningInventory || 0) - (product.endingInventory || 0)
+    }));
+
+    try {
+      const response = await fetch('http://localhost:5000/reports/saveInventorySalesData', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ eventId, inventoryData })
+      });
+
+      if (response.ok) {
+        onComplete();
+        handleClose();
+      } else {
+        const errorData = await response.json();
+        console.error('Error saving data:', errorData);
+      }
+    } catch (error) {
+      console.error('Error saving data:', error);
+    }
   };
 
   return (
@@ -126,7 +182,7 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
           </Table>
         </TableContainer>
         <Box mt={3} display="flex" justifyContent="space-between">
-          <Button variant="contained" color="primary">Validate & Save</Button>
+          <Button variant="contained" color="primary" onClick={handleSave}>Validate & Save</Button>
           <Button variant="outlined" onClick={handleClose}>Close</Button>
         </Box>
         <ProductSelectionForm

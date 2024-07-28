@@ -13,6 +13,7 @@ import campaignRoutes from './routes/campaignRoutes';
 import eventRoutes from './routes/eventRoutes';
 import accountRoutes from './routes/accountRoutes';
 import authRoutes from './routes/authRoutes';
+import reportRoutes from './routes/reportRoutes';
 import { authenticateToken, getUserProfile } from './controllers/authController';
 
 dotenv.config();
@@ -44,6 +45,8 @@ app.use('/products', productRoutes);
 app.use('/campaigns', campaignRoutes);
 
 app.use('/events', eventRoutes);
+
+app.use('/reports', reportRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 

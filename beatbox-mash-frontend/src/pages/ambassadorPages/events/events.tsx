@@ -201,6 +201,7 @@ const Events = () => {
           handleClose={handleCloseModal}
           eventName={selectedEvent.eventName}
           startTime={formatEventDateTime(selectedEvent.startDateTime, selectedEvent.endDateTime)}
+          eventId={selectedEvent.id}
         />
       )}
     </Box>
