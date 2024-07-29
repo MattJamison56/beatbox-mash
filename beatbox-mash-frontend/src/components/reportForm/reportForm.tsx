@@ -149,7 +149,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
           <Button variant="outlined" onClick={handleClose} style={{ margin: '10px' }}>Close</Button>
         </Box>
         <InventorySalesDataForm open={openInventoryModal} handleClose={handleCloseInventoryModal} eventId={eventId} onComplete={handleInventoryComplete} />
-        <ReportQuestionsForm open={openQuestionsModal} handleClose={handleCloseQuestionsModal} eventId={eventId} onComplete={handleQuestionsComplete} />
+        <ReportQuestionsForm open={openQuestionsModal} handleClose={handleCloseQuestionsModal} eventId={eventId} eventName={eventName} startTime={startTime} onComplete={handleQuestionsComplete} />
       </Paper>
     </Modal>
   );

@@ -13,7 +13,6 @@ const AmbassadorHome: React.FC = () => {
 
   const handleTabChange = (tab: string) => {
     setCurrentTab(tab);
-    console.log(tab);
   };
 
   return (
