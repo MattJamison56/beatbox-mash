@@ -1,6 +1,19 @@
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
 import sql from 'mssql';
+import path from 'path';
+import fs from 'fs';
+import s3 from '../awsConfig';
+import { v4 as uuidv4 } from 'uuid';
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const uploadDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 export const saveInventorySalesData = async (req: Request, res: Response) => {
   const { eventId, inventoryData } = req.body;
@@ -174,3 +187,68 @@ export const saveReportQuestionsData = async (req: Request, res: Response) => {
   }
 };
 
+export const uploadPhotos = async (req: Request, res: Response) => {
+  const { eventId } = req.body;
+  const files = req.files;
+
+  if (!files || Object.keys(files).length === 0) {
+    return res.status(400).json({ message: 'No files were uploaded.' });
+  }
+
+  if (!process.env.AWS_S3_BUCKET_NAME) {
+    return res.status(500).json({ message: 'AWS S3 bucket name is not defined.' });
+  }
+
+  let transaction: sql.Transaction | undefined;
+
+  try {
+    const pool = await poolPromise;
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    const uploadPromises = Object.values(files).map(async (file: any) => {
+      const fileName = uuidv4() + path.extname(file.name);
+      const filePath = path.join(uploadDir, fileName);
+
+      await file.mv(filePath);
+
+      const fileContent = fs.readFileSync(filePath);
+
+      const params = {
+        Bucket: process.env.AWS_S3_BUCKET_NAME!,
+        Key: fileName,
+        Body: fileContent,
+        ContentType: file.mimetype,
+      };
+
+      const command = new PutObjectCommand(params);
+      const s3Upload = await s3.send(command);
+
+      fs.unlinkSync(filePath);
+
+      const request = new sql.Request(transaction!);
+      await request
+        .input('event_id', sql.Int, eventId)
+        .input('file_name', sql.NVarChar, file.name)
+        .input('file_path', sql.NVarChar, `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`)
+        .query(`
+          INSERT INTO EventPhotos (event_id, file_name, file_path)
+          VALUES (@event_id, @file_name, @file_path)
+        `);
+    });
+
+    await Promise.all(uploadPromises);
+
+    await transaction.commit();
+    res.status(200).json({ message: 'Photos uploaded successfully' });
+  } catch (error) {
+    console.error('Error uploading photos:', error);
+
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    const err = error as Error;
+    res.status(500).json({ message: err.message });
+  }
+};
