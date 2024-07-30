@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useState } from 'react';
 import { Box, Typography, Modal, Paper, IconButton, Card, CardContent, Grid, ButtonBase, Button, Checkbox, FormControlLabel } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import InventorySalesDataForm from '../../components/inventorySalesDataForm/inventorySalesDataForm';
 import ReportQuestionsForm from '../../components/reportQuestions/reportQuestions';
+import PhotoUploadForm from '../../components/photoReportForm/photoReportForm';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const modalStyle = {
@@ -37,9 +37,10 @@ interface ReportFormProps {
 const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, startTime, eventId }) => {
   const [openInventoryModal, setOpenInventoryModal] = useState(false);
   const [openQuestionsModal, setOpenQuestionsModal] = useState(false);
+  const [openPhotoUploadModal, setOpenPhotoUploadModal] = useState(false);
   const [inventoryFilled, setInventoryFilled] = useState(false);
   const [questionsFilled, setQuestionsFilled] = useState(false);
-  const [photosFilled] = useState(false);
+  const [photosFilled, setPhotosFilled] = useState(false);
   const [expensesFilled] = useState(false);
 
   const handleOpenInventoryModal = () => {
@@ -68,6 +69,19 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
     handleCloseQuestionsModal();
   };
 
+  const handleOpenPhotoUploadModal = () => {
+    setOpenPhotoUploadModal(true);
+  };
+
+  const handleClosePhotoUploadModal = () => {
+    setOpenPhotoUploadModal(false);
+  };
+
+  const handlePhotoUploadComplete = () => {
+    setPhotosFilled(true);
+    handleClosePhotoUploadModal();
+  };
+
   return (
     <Modal
       open={open}
@@ -91,7 +105,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
           {[
             { text: 'Fill out Inventory & Sales Data', filled: inventoryFilled, onClick: handleOpenInventoryModal },
             { text: 'Answer Report Questions', filled: questionsFilled, onClick: handleOpenQuestionsModal },
-            { text: 'Attach Photos', filled: photosFilled, onClick: () => alert('Attach Photos') },
+            { text: 'Attach Photos', filled: photosFilled, onClick: handleOpenPhotoUploadModal },
             { text: 'Attach Expenses', filled: expensesFilled, onClick: () => alert('Attach Expenses') }
           ].map((item, index) => (
             <Grid item xs={12} key={index}>
@@ -150,6 +164,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
         </Box>
         <InventorySalesDataForm open={openInventoryModal} handleClose={handleCloseInventoryModal} eventId={eventId} onComplete={handleInventoryComplete} />
         <ReportQuestionsForm open={openQuestionsModal} handleClose={handleCloseQuestionsModal} eventId={eventId} eventName={eventName} startTime={startTime} onComplete={handleQuestionsComplete} />
+        <PhotoUploadForm open={openPhotoUploadModal} handleClose={handleClosePhotoUploadModal} eventId={eventId} onComplete={handlePhotoUploadComplete} />
       </Paper>
     </Modal>
   );

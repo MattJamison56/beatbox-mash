@@ -96,20 +96,22 @@ export const saveReportQuestionsData = async (req: Request, res: Response) => {
     eventId,
     sampledFlavors,
     price,
-    consumersSampled,
-    consumersEngaged,
-    totalAttendees,
-    beatboxesPurchased,
-    firstTimeConsumers,
-    productSampledHow,
-    topReasonBought,
-    topReasonDidntBuy,
-    qrScans,
-    tableLocation,
+    consumers_sampled,
+    consumers_engaged,
+    total_attendees,
+    beatboxes_purchased,
+    first_time_consumers,
+    product_sampled_how,
+    top_reason_bought,
+    top_reason_didnt_buy,
+    qr_scans,
+    table_location,
     swag,
-    customerFeedback,
-    otherFeedback
+    customer_feedback,
+    other_feedback
   } = req.body;
+
+  const productSampledHowArray = Array.isArray(product_sampled_how) ? product_sampled_how : [];
 
   try {
     const pool = await poolPromise;
@@ -123,19 +125,19 @@ export const saveReportQuestionsData = async (req: Request, res: Response) => {
       .input('event_id', sql.Int, eventId)
       .input('sampled_flavors', sql.NVarChar, sampledFlavors.join(','))
       .input('price', sql.NVarChar, price)
-      .input('consumers_sampled', sql.Int, consumersSampled)
-      .input('consumers_engaged', sql.Int, consumersEngaged)
-      .input('total_attendees', sql.Int, totalAttendees)
-      .input('beatboxes_purchased', sql.Int, beatboxesPurchased)
-      .input('first_time_consumers', sql.NVarChar, firstTimeConsumers)
-      .input('product_sampled_how', sql.NVarChar, productSampledHow.join(','))
-      .input('top_reason_bought', sql.NVarChar, topReasonBought)
-      .input('top_reason_didnt_buy', sql.NVarChar, topReasonDidntBuy)
-      .input('qr_scans', sql.Int, qrScans)
-      .input('table_location', sql.NVarChar, tableLocation)
+      .input('consumers_sampled', sql.Int, consumers_sampled)
+      .input('consumers_engaged', sql.Int, consumers_engaged)
+      .input('total_attendees', sql.Int, total_attendees)
+      .input('beatboxes_purchased', sql.Int, beatboxes_purchased)
+      .input('first_time_consumers', sql.NVarChar, first_time_consumers)
+      .input('product_sampled_how', sql.NVarChar, productSampledHowArray.join(','))
+      .input('top_reason_bought', sql.NVarChar, top_reason_bought)
+      .input('top_reason_didnt_buy', sql.NVarChar, top_reason_didnt_buy)
+      .input('qr_scans', sql.Int, qr_scans)
+      .input('table_location', sql.NVarChar, table_location)
       .input('swag', sql.NVarChar, swag)
-      .input('customer_feedback', sql.NVarChar, customerFeedback)
-      .input('other_feedback', sql.NVarChar, otherFeedback)
+      .input('customer_feedback', sql.NVarChar, customer_feedback)
+      .input('other_feedback', sql.NVarChar, other_feedback)
       .query(`
         MERGE INTO EventReportQuestions AS target
         USING (SELECT @event_id AS event_id) AS source
@@ -171,3 +173,4 @@ export const saveReportQuestionsData = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+

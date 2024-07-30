@@ -31,7 +31,23 @@ interface ReportQuestionsFormProps {
 const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleClose, eventId, eventName, startTime, onComplete }) => {
   const [products, setProducts] = useState<any[]>([]);
   const [inventoryProducts, setInventoryProducts] = useState<string[]>([]);
-  const [formData, setFormData] = useState<any>(null);
+  const [formData, setFormData] = useState<any>({
+    sampledFlavors: [],
+    price: '',
+    consumers_sampled: '',
+    consumers_engaged: '',
+    total_attendees: '',
+    beatboxes_purchased: '',
+    first_time_consumers: '',
+    product_sampled_how: [],
+    top_reason_bought: '',
+    top_reason_didnt_buy: '',
+    qr_scans: '',
+    table_location: '',
+    swag: '',
+    customer_feedback: '',
+    other_feedback: ''
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,12 +69,13 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
       try {
         const response = await fetch(`http://localhost:5000/reports/getInventorySalesData/${eventId}`);
         const data = await response.json();
-        setInventoryProducts(data.map((item: any) => item.ProductName)); // Adjust to match the actual structure of your data
-
         const totalPurchased = data.reduce((total: number, item: any) => total + (item.sold || 0), 0);
+
+        setInventoryProducts(data.map((item: any) => item.ProductName));
+
         setFormData((prevData: any) => ({
           ...prevData,
-          beatboxesPurchased: totalPurchased,
+          beatboxes_purchased: String(totalPurchased),
           sampledFlavors: data.map((item: any) => item.ProductName) // Precheck based on inventory products
         }));
       } catch (error) {
@@ -80,8 +97,9 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
             const data = await response.json();
             setFormData((prevData: any) => ({
               ...prevData,
-              ...data,
-              sampledFlavors: prevData.sampledFlavors || data.sampledFlavors || inventoryProducts // Ensure prechecked flavors
+              ...Object.fromEntries(Object.entries(data).map(([key, value]) => [key, String(value)])),
+              sampledFlavors: prevData?.sampledFlavors?.length ? prevData.sampledFlavors : (data.sampledFlavors ? data.sampledFlavors.split(',') : inventoryProducts), // Ensure prechecked flavors
+              product_sampled_how: data.product_sampled_how ? data.product_sampled_how.split(',') : []
             }));
           } else {
             setFormData((prevData: any) => ({
@@ -102,16 +120,16 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData((prevData: any) => ({ ...prevData, [name]: value }));
   };
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, checked } = e.target;
-    setFormData((prevFormData: any) => ({
-      ...prevFormData,
+    setFormData((prevData: any) => ({
+      ...prevData,
       [name]: checked
-        ? [...(prevFormData[name] || []), value]
-        : prevFormData[name].filter((item: any) => item !== value)
+        ? [...(prevData[name] || []), value]
+        : prevData[name].filter((item: any) => item !== value)
     }));
   };
 
@@ -183,7 +201,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="price"
-                  value={formData.price || ''}
+                  value={formData.price}
                   onChange={handleChange}
                   required
                 />
@@ -199,7 +217,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="consumersSampled"
-                  value={formData.consumersSampled || ''}
+                  value={formData.consumers_sampled}
                   onChange={handleChange}
                   required
                 />
@@ -210,7 +228,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="consumersEngaged"
-                  value={formData.consumersEngaged || ''}
+                  value={formData.consumers_engaged}
                   onChange={handleChange}
                   required
                 />
@@ -221,7 +239,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="totalAttendees"
-                  value={formData.totalAttendees || ''}
+                  value={formData.total_attendees}
                   onChange={handleChange}
                   required
                 />
@@ -232,7 +250,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="beatboxesPurchased"
-                  value={formData.beatboxesPurchased || ''}
+                  value={formData.beatboxes_purchased}
                   onChange={handleChange}
                   required
                 />
@@ -243,7 +261,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="firstTimeConsumers"
-                  value={formData.firstTimeConsumers || ''}
+                  value={formData.first_time_consumers}
                   onChange={handleChange}
                   required
                 />
@@ -256,10 +274,10 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                       key={method}
                       control={
                         <Checkbox
-                          checked={formData.productSampledHow ? formData.productSampledHow.includes(method) : false}
+                          checked={formData.product_sampled_how ? formData.product_sampled_how.includes(method) : false}
                           onChange={handleCheckboxChange}
                           value={method}
-                          name="productSampledHow"
+                          name="product_sampled_how"
                         />
                       }
                       label={method}
@@ -273,7 +291,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="topReasonBought"
-                  value={formData.topReasonBought || ''}
+                  value={formData.top_reason_bought}
                   onChange={handleChange}
                   required
                 />
@@ -284,7 +302,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="topReasonDidntBuy"
-                  value={formData.topReasonDidntBuy || ''}
+                  value={formData.top_reason_didnt_buy}
                   onChange={handleChange}
                   required
                 />
@@ -295,7 +313,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="qrScans"
-                  value={formData.qrScans || ''}
+                  value={formData.qr_scans}
                   onChange={handleChange}
                   required
                 />
@@ -306,7 +324,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="tableLocation"
-                  value={formData.tableLocation || ''}
+                  value={formData.table_location}
                   onChange={handleChange}
                   required
                 />
@@ -317,7 +335,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="swag"
-                  value={formData.swag || ''}
+                  value={formData.swag}
                   onChange={handleChange}
                   required
                 />
@@ -328,7 +346,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="customerFeedback"
-                  value={formData.customerFeedback || ''}
+                  value={formData.customer_feedback}
                   onChange={handleChange}
                   required
                 />
@@ -339,7 +357,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                   fullWidth
                   variant="outlined"
                   name="otherFeedback"
-                  value={formData.otherFeedback || ''}
+                  value={formData.other_feedback}
                   onChange={handleChange}
                   required
                 />
@@ -348,8 +366,8 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
           </Grid>
         </Grid>
         <Box mt={3} display="flex" alignItems="center" justifyContent="center">
-          <Button variant="contained" color="primary" onClick={handleSave} style={{margin: '5px'}}>Validate & Save</Button>
-          <Button variant="outlined" onClick={handleClose} style={{margin: '5px'}}>Close</Button>
+          <Button variant="contained" color="primary" onClick={handleSave} style={{ margin: '5px' }}>Validate & Save</Button>
+          <Button variant="outlined" onClick={handleClose} style={{ margin: '5px' }}>Close</Button>
         </Box>
       </Paper>
     </Modal>
