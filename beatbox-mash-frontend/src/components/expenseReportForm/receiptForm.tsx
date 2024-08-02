@@ -6,69 +6,67 @@ import { useDropzone } from 'react-dropzone';
 import { ArrowUpward, Close } from '@mui/icons-material';
 
 const modalStyle = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  maxWidth: '1000px',
-  maxHeight: '80%',
-  bgcolor: 'background.paper',
-  p: 4,
-  outline: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  overflow: 'auto',
-  backgroundColor: '#FCFCFC',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '97%',
+    height: '95%',
+    maxHeight: '100vh',
+    maxWidth: '100vw',
+    overflow: 'auto',
+    bgcolor: 'background.paper',
+    p: 4,
+    outline: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: '#FCFCFC',
 };
 
-interface PhotoReportFormProps {
+interface ReceiptFormProps {
   open: boolean;
   handleClose: () => void;
   eventId: number;
-  onComplete: () => void;
 }
 
-const PhotoReportForm: React.FC<PhotoReportFormProps> = ({ open, handleClose, eventId, onComplete }) => {
-  const [files, setFiles] = useState<any[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const ReceiptForm: React.FC<ReceiptFormProps> = ({ open, handleClose, eventId }) => {
+    const [files, setFiles] = useState<any[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
-  const onDrop = useCallback((acceptedFiles: any[], rejectedFiles: any[]) => {
-    if (acceptedFiles?.length) {
-      setFiles(previousFiles => [
-        ...previousFiles,
-        ...acceptedFiles.map(file =>
-          Object.assign(file, { preview: URL.createObjectURL(file) })
-        )
-      ]);
-    }
+    const onDrop = useCallback((acceptedFiles: any[], rejectedFiles: any[]) => {
+        if (acceptedFiles?.length) {
+          setFiles(previousFiles => [
+            ...previousFiles,
+            ...acceptedFiles.map(file =>
+              Object.assign(file, { preview: URL.createObjectURL(file) })
+            )
+          ]);
+        }
+    
+        if (rejectedFiles?.length) {
+          setError('No images bigger than 3000x3000 are accepted');
+        } else {
+          setError(null);
+        }
+      }, []);
 
-    if (rejectedFiles?.length) {
-      setError('No images bigger than 3000x3000 are accepted');
-    } else {
-      setError(null);
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: {
-      'image/*': []
-    },
-    maxSize: 3000 * 3000,
-    onDrop
-  });
-
-  useEffect(() => {
-    return () => files.forEach(file => URL.revokeObjectURL(file.preview));
-  }, [files]);
-
-  const removeFile = (name: string) => {
-    setFiles(files => files.filter(file => file.name !== name));
-  };
+      const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        accept: {
+          'image/*': []
+        },
+        maxSize: 3000 * 3000,
+        onDrop
+      });
+    
+      useEffect(() => {
+        return () => files.forEach(file => URL.revokeObjectURL(file.preview));
+      }, [files]);
+    
+      const removeFile = (name: string) => {
+        setFiles(files => files.filter(file => file.name !== name));
+      };    
 
   const handleUpload = async () => {
-    setUploading(true);
     const formData = new FormData();
     files.forEach(file => {
       formData.append('files', file);
@@ -76,21 +74,18 @@ const PhotoReportForm: React.FC<PhotoReportFormProps> = ({ open, handleClose, ev
     formData.append('eventId', String(eventId));
 
     try {
-      const response = await fetch('http://localhost:5000/reports/photos', {
+      const response = await fetch('http://localhost:5000/reports/receipts', {
         method: 'POST',
         body: formData,
       });
 
       if (response.ok) {
-        onComplete();
         handleClose();
       } else {
         console.error('Error uploading files');
       }
     } catch (error) {
       console.error('Error uploading files:', error);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -98,8 +93,8 @@ const PhotoReportForm: React.FC<PhotoReportFormProps> = ({ open, handleClose, ev
     <Modal open={open} onClose={handleClose} aria-labelledby="photo-upload-modal-title" aria-describedby="photo-upload-modal-description">
       <Paper sx={modalStyle}>
         <Box display="flex" flexDirection="column" alignItems="center" mb={2}>
-          <Typography variant="h5">Attach Photos</Typography>
-          <IconButton onClick={handleClose} aria-label="close" sx={{ position: 'absolute', top: '10px', right: '10px' }}>
+          <Typography variant="h5">Attach Receipts</Typography>
+          <IconButton onClick={handleClose} aria-label="close" style={{ position: 'absolute', top: '10px', right: '10px' }}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -150,19 +145,17 @@ const PhotoReportForm: React.FC<PhotoReportFormProps> = ({ open, handleClose, ev
             </Grid>
           ))}
         </Grid>
-
         <Button
-          variant="contained"
-          color="primary"
-          onClick={handleUpload}
-          disabled={uploading}
-          sx={{ mt: 2, marginTop: '0px' }}
+            variant="contained"
+            color="primary"
+            onClick={handleUpload}
+            sx={{ mt: 2, marginTop: '0px', maxWidth: '100px', alignSelf: 'center' }}
         >
-          {uploading ? 'Uploading...' : 'Upload'}
+            Submit
         </Button>
       </Paper>
     </Modal>
   );
 };
 
-export default PhotoReportForm;
+export default ReceiptForm;

@@ -4,6 +4,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import InventorySalesDataForm from '../../components/inventorySalesDataForm/inventorySalesDataForm';
 import ReportQuestionsForm from '../../components/reportQuestions/reportQuestions';
 import PhotoUploadForm from '../../components/photoReportForm/photoReportForm';
+import ExpenseForm from '../../components/expenseReportForm/expenseReportForm';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 const modalStyle = {
@@ -38,6 +39,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
   const [openInventoryModal, setOpenInventoryModal] = useState(false);
   const [openQuestionsModal, setOpenQuestionsModal] = useState(false);
   const [openPhotoUploadModal, setOpenPhotoUploadModal] = useState(false);
+  const [openExpenseModal, setOpenExpenseModal] = useState(false);
   const [inventoryFilled, setInventoryFilled] = useState(false);
   const [questionsFilled, setQuestionsFilled] = useState(false);
   const [photosFilled, setPhotosFilled] = useState(false);
@@ -82,6 +84,14 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
     handleClosePhotoUploadModal();
   };
 
+  const handleOpenExpenseModal = () => {
+    setOpenExpenseModal(true);
+  };
+
+  const handleCloseExpenseModal = () => {
+    setOpenExpenseModal(false);
+  };
+
   return (
     <Modal
       open={open}
@@ -106,7 +116,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
             { text: 'Fill out Inventory & Sales Data', filled: inventoryFilled, onClick: handleOpenInventoryModal },
             { text: 'Answer Report Questions', filled: questionsFilled, onClick: handleOpenQuestionsModal },
             { text: 'Attach Photos', filled: photosFilled, onClick: handleOpenPhotoUploadModal },
-            { text: 'Attach Expenses', filled: expensesFilled, onClick: () => alert('Attach Expenses') }
+            { text: 'Attach Expenses', filled: expensesFilled, onClick: handleOpenExpenseModal }
           ].map((item, index) => (
             <Grid item xs={12} key={index}>
               <Box display="flex" alignItems="center">
@@ -165,6 +175,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
         <InventorySalesDataForm open={openInventoryModal} handleClose={handleCloseInventoryModal} eventId={eventId} onComplete={handleInventoryComplete} />
         <ReportQuestionsForm open={openQuestionsModal} handleClose={handleCloseQuestionsModal} eventId={eventId} eventName={eventName} startTime={startTime} onComplete={handleQuestionsComplete} />
         <PhotoUploadForm open={openPhotoUploadModal} handleClose={handleClosePhotoUploadModal} eventId={eventId} onComplete={handlePhotoUploadComplete} />
+        <ExpenseForm open={openExpenseModal} handleClose={handleCloseExpenseModal} eventId={eventId} eventName={eventName} startTime={startTime}/>
       </Paper>
     </Modal>
   );
