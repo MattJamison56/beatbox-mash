@@ -189,14 +189,18 @@ export const saveReportQuestionsData = async (req: Request, res: Response) => {
 
 export const uploadPhotos = async (req: Request, res: Response) => {
   const { eventId } = req.body;
-  const files = req.files?.files;
+  let files = req.files?.files;
 
-  if (!files || files.length === 0) {
+  if (!files) {
     return res.status(400).json({ message: 'No files were uploaded.' });
   }
 
   if (!process.env.AWS_S3_BUCKET_NAME) {
     return res.status(500).json({ message: 'AWS S3 bucket name is not defined.' });
+  }
+
+  if (!Array.isArray(files)) {
+    files = [files]; // Normalize to an array
   }
 
   let transaction: sql.Transaction | undefined;
@@ -258,11 +262,15 @@ export const uploadPhotos = async (req: Request, res: Response) => {
 };
 
 export const uploadReceipts = async (req: Request, res: Response) => {
-  const { eventId } = req.body;
-  const files = req.files?.files;
+  const { eventId, date, notes, category, paymentMethod, items } = req.body;
+  let files = req.files?.files;
 
-  if (!files || files.length === 0) {
+  if (!files) {
     return res.status(400).json({ message: 'No files were uploaded.' });
+  }
+
+  if (!Array.isArray(files)) {
+    files = [files]; // Normalize to an array
   }
 
   if (!process.env.AWS_S3_RECEIPT_BUCKET_NAME) {
@@ -276,13 +284,39 @@ export const uploadReceipts = async (req: Request, res: Response) => {
     transaction = new sql.Transaction(pool);
     await transaction.begin();
 
+    let totalAmount = 0;
+    const itemsArray = JSON.parse(items);
+    itemsArray.forEach((item: { name: string; amount: number }) => {
+      totalAmount += item.amount;
+    });
+
+    const receiptInsertResult = await transaction.request()
+      .input('event_id', sql.Int, eventId)
+      .input('date', sql.Date, date)
+      .input('notes', sql.NVarChar, notes)
+      .input('category', sql.NVarChar, category)
+      .input('payment_method', sql.NVarChar, paymentMethod)
+      .input('total_amount', sql.Decimal, totalAmount)
+      .query(`
+        INSERT INTO Receipts (event_id, date, notes, category, payment_method, total_amount)
+        OUTPUT Inserted.receipt_id
+        VALUES (@event_id, @date, @notes, @category, @payment_method, @total_amount)
+      `);
+
+    const receiptId = receiptInsertResult.recordset[0].receipt_id;
+
+    for (const item of itemsArray) {
+      await transaction.request()
+        .input('receipt_id', sql.Int, receiptId)
+        .input('item_name', sql.NVarChar, item.name)
+        .input('amount', sql.Decimal, item.amount)
+        .query(`
+          INSERT INTO ReceiptItems (receipt_id, item_name, amount)
+          VALUES (@receipt_id, @item_name, @amount)
+        `);
+    }
+
     for (const file of files) {
-      console.log('Processing file:', file); // Log each file object
-
-      if (!file || !file.name) {
-        throw new Error('Invalid file object');
-      }
-
       const fileName = uuidv4() + path.extname(file.name);
       const filePath = path.join(uploadDir, fileName);
 
@@ -298,18 +332,20 @@ export const uploadReceipts = async (req: Request, res: Response) => {
       };
 
       const command = new PutObjectCommand(params);
-      const s3Upload = await s3.send(command);
+      await s3.send(command);
+
+      const fileUrl = `https://${process.env.AWS_S3_RECEIPT_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
 
       fs.unlinkSync(filePath);
 
-      const request = new sql.Request(transaction!);
-      await request
-        .input('event_id', sql.Int, eventId)
+      await transaction.request()
+        .input('receipt_id', sql.Int, receiptId)
         .input('file_name', sql.NVarChar, file.name)
-        .input('file_path', sql.NVarChar, `https://${process.env.AWS_S3_RECEIPT_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`)
+        .input('file_path', sql.NVarChar, fileUrl)
         .query(`
-          INSERT INTO ReceiptPhotos (event_id, file_name, file_path)
-          VALUES (@event_id, @file_name, @file_path)
+          UPDATE Receipts
+          SET file_name = @file_name, file_path = @file_path
+          WHERE receipt_id = @receipt_id
         `);
     }
 
