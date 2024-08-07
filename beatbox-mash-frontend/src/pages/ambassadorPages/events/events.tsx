@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, List, Divider, Button, Card, CardContent, Grid, IconButton
@@ -8,6 +9,7 @@ import { styled } from '@mui/system';
 import ReportForm from '../../../components/reportForm/reportForm';
 
 interface Event {
+  report_submitted: any;
   id: number;
   eventName: string;
   startDateTime: string;
@@ -50,15 +52,15 @@ const isReportOverdue = (endDateTime: string) => {
 };
 
 interface ReportStatusProps {
-  status: 'overdue' | 'required';
+  status: 'overdue' | 'required' | 'submitted';
 }
 
 const ReportStatus = styled('div')<ReportStatusProps>(({ status }) => ({
   borderRadius: '16px',
   padding: '4px 8px',
   color: '#fff',
-  backgroundColor: status === 'overdue' ? 'red' : 'orange',
-  border: `1px solid ${status === 'overdue' ? 'red' : 'orange'}`,
+  backgroundColor: status === 'overdue' ? 'red' : status === 'submitted' ? 'green' : 'orange',
+  border: `1px solid ${status === 'overdue' ? 'red' : status === 'submitted' ? 'green' : 'orange'}`,
   display: 'inline-block',
   textAlign: 'center',
   minWidth: '50px',
@@ -70,23 +72,23 @@ const Events = () => {
   const [openModal, setOpenModal] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
+  const fetchEvents = async () => {
+    const ba_id = localStorage.getItem('ba_id');
+    if (!ba_id) {
+      console.error('No ba_id found in local storage');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/events/myevents/${ba_id}`);
+      const data = await response.json();
+      setEvents(data);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
+
   useEffect(() => {
-    const fetchEvents = async () => {
-      const ba_id = localStorage.getItem('ba_id');
-      if (!ba_id) {
-        console.error('No ba_id found in local storage');
-        return;
-      }
-
-      try {
-        const response = await fetch(`http://localhost:5000/events/myevents/${ba_id}`);
-        const data = await response.json();
-        setEvents(data);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-      }
-    };
-
     fetchEvents();
   }, []);
 
@@ -103,9 +105,27 @@ const Events = () => {
 
   const handleCloseModal = () => setOpenModal(false);
 
+  const handleReportSubmitted = () => {
+    fetchEvents();
+  };
+
+  const handleViewReport = async (event: Event) => {
+    try {
+      const response = await fetch(`http://localhost:5000/pdf/generateReport/${event.id}`);
+      const data = await response.json();
+      if (data.filePath) {
+        const fileUrl = `http://localhost:5000${data.filePath}`;
+        window.open(fileUrl, '_blank');
+      }
+    } catch (error) {
+      console.error('Error fetching report:', error);
+    }
+  };
+  
+
   return (
     <Box padding={2}>
-      <h1 style={{color: 'black'}}>My Events</h1>
+      <h1 style={{ color: 'black' }}>My Events</h1>
       <List>
         {events.map((event) => (
           <React.Fragment key={event.id}>
@@ -113,7 +133,9 @@ const Events = () => {
               <CardContent>
                 <Grid container spacing={1} alignItems="center">
                   <Grid item xs={2}>
-                    {isReportOverdue(event.endDateTime) ? (
+                    {event.report_submitted ? (
+                      <ReportStatus status="submitted">Submitted</ReportStatus>
+                    ) : isReportOverdue(event.endDateTime) ? (
                       <ReportStatus status="overdue">Report Overdue</ReportStatus>
                     ) : (
                       <ReportStatus status="required">Report Required</ReportStatus>
@@ -125,24 +147,31 @@ const Events = () => {
                     </Typography>
                   </Grid>
                   <Grid item xs={2}>
-                    <Typography variant="body2">
-                      {event.eventName}
-                    </Typography>
+                    <Typography variant="body2">{event.eventName}</Typography>
                   </Grid>
                   <Grid item xs={3}>
-                    <Typography variant="body2">
-                      {event.campaign}
-                    </Typography>
+                    <Typography variant="body2">{event.campaign}</Typography>
                   </Grid>
                   <Grid item xs={1.6} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      style={{ marginRight: '8px' }}
-                      onClick={() => handleOpenModal(event)}
-                    >
-                      Details
-                    </Button>
+                    {event.report_submitted ? (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          style={{ marginRight: '8px' }}
+                          onClick={() => handleViewReport(event)}
+                        >
+                          View Report
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          style={{ marginRight: '8px' }}
+                          onClick={() => handleOpenModal(event)}
+                        >
+                          Details
+                        </Button>
+                      )}
                   </Grid>
                   <Grid item xs={0.4} style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <IconButton onClick={() => toggleExpand(event.id)}>
@@ -152,24 +181,12 @@ const Events = () => {
                   {expandedEventIds.includes(event.id) && (
                     <>
                       <Grid item xs={6}>
-                        <Typography variant="body2">
-                          Venue: {event.venue}
-                        </Typography>
-                        <Typography variant="body2">
-                          Team: {event.team}
-                        </Typography>
-                        <Typography variant="body2">
-                          Inventory: {event.inventory ? 'Yes' : 'No'}
-                        </Typography>
-                        <Typography variant="body2">
-                          QA: {event.qa ? 'Yes' : 'No'}
-                        </Typography>
-                        <Typography variant="body2">
-                          Photos: {event.photos ? 'Yes' : 'No'}
-                        </Typography>
-                        <Typography variant="body2">
-                          Expenses: {event.expenses ? 'Yes' : 'No'}
-                        </Typography>
+                        <Typography variant="body2">Venue: {event.venue}</Typography>
+                        <Typography variant="body2">Team: {event.team}</Typography>
+                        <Typography variant="body2">Inventory: {event.inventory ? 'Yes' : 'No'}</Typography>
+                        <Typography variant="body2">QA: {event.qa ? 'Yes' : 'No'}</Typography>
+                        <Typography variant="body2">Photos: {event.photos ? 'Yes' : 'No'}</Typography>
+                        <Typography variant="body2">Expenses: {event.expenses ? 'Yes' : 'No'}</Typography>
                       </Grid>
                       <Grid item xs={6} style={{ display: 'flex', justifyContent: 'flex-end' }}>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -202,6 +219,7 @@ const Events = () => {
           eventName={selectedEvent.eventName}
           startTime={formatEventDateTime(selectedEvent.startDateTime, selectedEvent.endDateTime)}
           eventId={selectedEvent.id}
+          onReportSubmitted={handleReportSubmitted}
         />
       )}
     </Box>

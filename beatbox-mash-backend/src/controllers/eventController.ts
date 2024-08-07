@@ -247,6 +247,7 @@ export const getMyEvents = async (req: Request, res: Response) => {
           t.name AS team,
           v.name AS venue,
           c.name AS campaign,
+          e.report_submitted AS report_submitted,  -- Add this line
           eba.inventory,
           eba.qa,
           eba.photos,

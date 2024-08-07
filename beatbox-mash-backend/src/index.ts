@@ -14,8 +14,10 @@ import eventRoutes from './routes/eventRoutes';
 import accountRoutes from './routes/accountRoutes';
 import authRoutes from './routes/authRoutes';
 import reportRoutes from './routes/reportRoutes';
+import pdfRoutes from './routes/pdfRoutes';
 import fileUpload from 'express-fileupload';
 import { authenticateToken, getUserProfile } from './controllers/authController';
+import path from 'path';
 
 dotenv.config();
 
@@ -49,6 +51,10 @@ app.use('/campaigns', campaignRoutes);
 app.use('/events', eventRoutes);
 
 app.use('/reports', reportRoutes);
+
+app.use('/pdf', pdfRoutes);
+
+app.use('/pdfs', express.static(path.join(__dirname, '../pdfs')));
 
 app.get('/', (req, res) => res.send('API is running'));
 

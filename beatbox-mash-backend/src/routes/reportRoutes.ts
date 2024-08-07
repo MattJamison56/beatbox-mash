@@ -1,5 +1,5 @@
 import express from 'express';
-import { saveInventorySalesData, getInventorySalesData, getReportQuestionsData, saveReportQuestionsData, uploadPhotos, uploadReceipts, saveMileageReport, saveOtherExpense } from '../controllers/reportController';
+import { saveInventorySalesData, getInventorySalesData, getReportQuestionsData, saveReportQuestionsData, uploadPhotos, uploadReceipts, saveMileageReport, saveOtherExpense, submitReport } from '../controllers/reportController';
 
 const router = express.Router();
 
@@ -13,5 +13,7 @@ router.post('/photos', uploadPhotos);
 router.post('/receipts', uploadReceipts);
 router.post('/mileage', saveMileageReport);
 router.post('/other', saveOtherExpense);
+
+router.post('/submit', submitReport);
 
 export default router;

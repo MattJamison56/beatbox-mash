@@ -33,9 +33,10 @@ interface ReportFormProps {
   eventName: string;
   startTime: string;
   eventId: number;
+  onReportSubmitted: () => void;
 }
 
-const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, startTime, eventId }) => {
+const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, startTime, eventId, onReportSubmitted }) => {
   const [openInventoryModal, setOpenInventoryModal] = useState(false);
   const [openQuestionsModal, setOpenQuestionsModal] = useState(false);
   const [openPhotoUploadModal, setOpenPhotoUploadModal] = useState(false);
@@ -116,6 +117,38 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
       setExpensesFilled(false);
     }
   };
+
+  const handleSubmit = async () => {
+    const data = {
+      eventId,
+      inventoryFilled,
+      questionsFilled,
+      photosFilled,
+      expensesFilled,
+    };
+  
+    try {
+      const response = await fetch('http://localhost:5000/reports/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+  
+      console.log('Report successfully submitted');
+      onReportSubmitted();
+      handleClose();
+    } catch (error) {
+      console.error('There was a problem with your fetch operation:', error);
+    }
+  };
+
+  const isSubmitDisabled = !inventoryFilled || !questionsFilled || !photosFilled || !expensesFilled;
 
   return (
     <Modal
@@ -200,7 +233,15 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
           </Box>
         </Box>
         <Box mt={3} display="flex" width="100%" justifyContent='center'>
-          <Button variant="contained" color="secondary" style={{ margin: '10px' }}>Submit Report</Button>
+        <Button
+            variant="contained"
+            color="secondary"
+            style={{ margin: '10px', backgroundColor: isSubmitDisabled ? 'grey' : 'blue' }}
+            disabled={isSubmitDisabled}
+            onClick={handleSubmit}
+          >
+            Submit
+          </Button>
           <Button variant="outlined" onClick={handleClose} style={{ margin: '10px' }}>Close</Button>
         </Box>
         <InventorySalesDataForm open={openInventoryModal} handleClose={handleCloseInventoryModal} eventId={eventId} onComplete={handleInventoryComplete} />

@@ -460,3 +460,42 @@ export const saveOtherExpense = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error saving other expense' });
   }
 };
+
+export const submitReport = async (req: Request, res: Response) => {
+  const { eventId, inventoryFilled, questionsFilled, photosFilled, expensesFilled } = req.body;
+  let transaction;
+
+  try {
+    const pool = await poolPromise;
+    transaction = new sql.Transaction(pool);
+
+    await transaction.begin();
+
+    // Check if all sections are filled
+    if (inventoryFilled && questionsFilled && photosFilled && expensesFilled) {
+      // Update the event to mark the report as submitted
+      await transaction.request()
+        .input('eventId', sql.Int, eventId)
+        .query(`
+          UPDATE Events
+          SET report_submitted = 1
+          WHERE event_id = @eventId
+        `);
+
+      // Commit the transaction
+      await transaction.commit();
+
+      res.status(200).json({ message: 'Report successfully submitted and event marked as complete.' });
+    } else {
+      res.status(400).json({ message: 'All sections must be completed before submitting the report.' });
+    }
+  } catch (error) {
+    console.error('Error submitting report:', error);
+
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    res.status(500).json({ message: 'Error submitting report.' });
+  }
+};
