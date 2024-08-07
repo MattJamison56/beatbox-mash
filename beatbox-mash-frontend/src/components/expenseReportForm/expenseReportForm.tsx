@@ -5,6 +5,7 @@ import ReceiptIcon from '@mui/icons-material/Receipt';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ReceiptForm from './receiptForm';
+import MileageForm from './mileageForm';
 
 const modalStyle = {
   position: 'absolute',
@@ -34,6 +35,15 @@ interface ExpenseFormProps {
 
 const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, eventName, startTime }) => {
   const [openReceiptForm, setOpenReceiptForm] = useState(false);
+  const [openMileageForm, setOpenMileageForm] = useState(false);
+
+  const handleOpenMileageForm = () => {
+    setOpenMileageForm(true);
+  };
+
+  const handleCloseMileageForm = () => {
+    setOpenMileageForm(false);
+  };
 
   const handleOpenReceiptForm = () => {
     setOpenReceiptForm(true);
@@ -70,7 +80,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
           <Grid container spacing={2} justifyContent="center">
             {[
               { text: 'Receipt', color: '#83E8E1', icon: <ReceiptIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenReceiptForm },
-              { text: 'Mileage', color: '#AAD1F9', icon: <DirectionsCarIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: () => alert('Attach Mileage') },
+              { text: 'Mileage', color: '#AAD1F9', icon: <DirectionsCarIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenMileageForm },
               { text: 'Other', color: '#FEBED6', icon: <AttachMoneyIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: () => alert('Attach Other') }
             ].map((item, index) => (
               <Grid key={index} item xs={4} md={1} display="flex" flexDirection="column" alignItems="center">
@@ -89,6 +99,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
         </Paper>
       </Modal>
       <ReceiptForm open={openReceiptForm} handleClose={handleCloseReceiptForm} eventId={eventId} />
+      <MileageForm open={openMileageForm} handleClose={handleCloseMileageForm} eventId={eventId} />
     </>
   );
 };

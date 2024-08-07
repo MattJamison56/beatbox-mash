@@ -362,3 +362,58 @@ export const uploadReceipts = async (req: Request, res: Response) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const saveMileageReport = async (req: Request, res: Response) => {
+  const { eventId, locations, totalMileage, totalFee, category, notes } = req.body;
+  let transaction: sql.Transaction | undefined;
+
+  try {
+    const pool = await poolPromise;
+    transaction = new sql.Transaction(pool);
+
+    // Begin the transaction
+    await transaction.begin();
+
+    // Insert the mileage report
+    const reportResult = await transaction.request()
+      .input('eventId', sql.Int, eventId)
+      .input('totalMileage', sql.Float, totalMileage)
+      .input('totalFee', sql.Decimal(10, 2), totalFee)
+      .input('category', sql.NVarChar(50), category)
+      .input('notes', sql.NVarChar(sql.MAX), notes)
+      .query(`
+        INSERT INTO MileageReports (eventId, totalMileage, totalFee, category, notes)
+        OUTPUT Inserted.ReportId
+        VALUES (@eventId, @totalMileage, @totalFee, @category, @notes)
+      `);
+
+    const reportId = reportResult.recordset[0].ReportId;
+
+    // Insert the locations
+    for (const location of locations) {
+      await transaction.request()
+        .input('reportId', sql.Int, reportId)
+        .input('address', sql.NVarChar(255), location.address)
+        .input('lat', sql.Float, location.lat)
+        .input('lng', sql.Float, location.lng)
+        .query(`
+          INSERT INTO Locations (reportId, address, lat, lng)
+          VALUES (@reportId, @address, @lat, @lng)
+        `);
+    }
+
+    // Commit the transaction
+    await transaction.commit();
+
+    res.status(200).json({ message: 'Mileage report saved successfully' });
+  } catch (error) {
+    console.error('Error saving mileage report:', error);
+
+    // Rollback the transaction in case of error
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    res.status(500).json({ message: 'Error saving mileage report' });
+  }
+};
