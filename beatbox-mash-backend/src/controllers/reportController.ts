@@ -368,6 +368,9 @@ export const saveMileageReport = async (req: Request, res: Response) => {
   let transaction: sql.Transaction | undefined;
 
   try {
+    // Parse locations if it's a string
+    const parsedLocations = typeof locations === 'string' ? JSON.parse(locations) : locations;
+
     const pool = await poolPromise;
     transaction = new sql.Transaction(pool);
 
@@ -390,14 +393,14 @@ export const saveMileageReport = async (req: Request, res: Response) => {
     const reportId = reportResult.recordset[0].ReportId;
 
     // Insert the locations
-    for (const location of locations) {
+    for (const location of parsedLocations) {
       await transaction.request()
         .input('reportId', sql.Int, reportId)
         .input('address', sql.NVarChar(255), location.address)
         .input('lat', sql.Float, location.lat)
         .input('lng', sql.Float, location.lng)
         .query(`
-          INSERT INTO Locations (reportId, address, lat, lng)
+          INSERT INTO Locations (ReportId, Address, Latitude, Longitude)
           VALUES (@reportId, @address, @lat, @lng)
         `);
     }
@@ -415,5 +418,45 @@ export const saveMileageReport = async (req: Request, res: Response) => {
     }
 
     res.status(500).json({ message: 'Error saving mileage report' });
+  }
+};
+
+export const saveOtherExpense = async (req: Request, res: Response) => {
+  const { eventId, category, paymentMethod, date, amount, notes } = req.body;
+  let transaction: sql.Transaction | undefined;
+
+  try {
+    const pool = await poolPromise;
+    transaction = new sql.Transaction(pool);
+
+    // Begin the transaction
+    await transaction.begin();
+
+    // Insert the other expense
+    await transaction.request()
+      .input('eventId', sql.Int, eventId)
+      .input('category', sql.NVarChar(50), category)
+      .input('paymentMethod', sql.NVarChar(50), paymentMethod)
+      .input('date', sql.Date, date)
+      .input('amount', sql.Decimal(10, 2), amount)
+      .input('notes', sql.NVarChar(sql.MAX), notes)
+      .query(`
+        INSERT INTO OtherExpenses (EventId, Category, PaymentMethod, Date, Amount, Notes)
+        VALUES (@eventId, @category, @paymentMethod, @date, @amount, @notes)
+      `);
+
+    // Commit the transaction
+    await transaction.commit();
+
+    res.status(200).json({ message: 'Other expense saved successfully' });
+  } catch (error) {
+    console.error('Error saving other expense:', error);
+
+    // Rollback the transaction in case of error
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    res.status(500).json({ message: 'Error saving other expense' });
   }
 };

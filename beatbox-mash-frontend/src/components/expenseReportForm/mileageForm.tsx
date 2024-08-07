@@ -123,22 +123,18 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId })
   };
 
   const handleSubmit = async () => {
-    const data = {
-      eventId,
-      locations,
-      totalMileage: mileageInput,
-      totalFee: fee,
-      category,
-      notes,
-    };
+    const formData = new FormData();
+    formData.append('eventId', String(eventId));
+    formData.append('totalMileage', String(mileageInput));
+    formData.append('totalFee', String(fee));
+    formData.append('category', category);
+    formData.append('notes', notes);
+    formData.append('locations', JSON.stringify(locations));
   
     try {
       const response = await fetch('http://localhost:5000/reports/mileage', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
+        body: formData,
       });
   
       if (!response.ok) {
@@ -151,6 +147,7 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId })
       console.error('There was a problem with your fetch operation:', error);
     }
   };
+  
 
   return (
     <Modal open={open} onClose={handleClose} aria-labelledby="mileage-form-modal-title" aria-describedby="mileage-form-modal-description">
@@ -190,7 +187,7 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId })
 
         <Button variant="outlined" onClick={addLocation}>Add Location</Button>
 
-        <Box display="flex" flexDirection="column" alignItems="center" mb={2} sx={{ width: '100%' }}>
+        <Box display="flex" flexDirection="column" alignItems="center" mb={2} sx={{ width: '100%', margin: '20px'}}>
           <TextField
             label="Miles"
             value={mileageInput}

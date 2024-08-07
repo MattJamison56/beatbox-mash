@@ -43,7 +43,9 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
   const [inventoryFilled, setInventoryFilled] = useState(false);
   const [questionsFilled, setQuestionsFilled] = useState(false);
   const [photosFilled, setPhotosFilled] = useState(false);
-  const [expensesFilled] = useState(false);
+  const [expensesFilled, setExpensesFilled] = useState(false);
+  const [noPhotos, setNoPhotos] = useState(false);
+  const [noExpenses, setNoExpenses] = useState(false);
 
   const handleOpenInventoryModal = () => {
     setOpenInventoryModal(true);
@@ -90,6 +92,29 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
 
   const handleCloseExpenseModal = () => {
     setOpenExpenseModal(false);
+  };
+
+  const handleExpenseComplete = () => {
+    setExpensesFilled(true);
+    handleCloseExpenseModal();
+  };
+
+  const handleNoPhotosChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setNoPhotos(event.target.checked);
+    if (event.target.checked) {
+      setPhotosFilled(true);
+    } else {
+      setPhotosFilled(false);
+    }
+  };
+
+  const handleNoExpensesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setNoExpenses(event.target.checked);
+    if (event.target.checked) {
+      setExpensesFilled(true);
+    } else {
+      setExpensesFilled(false);
+    }
   };
 
   return (
@@ -147,13 +172,19 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
                     {index === 2 && (
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         Show us how awesome your setup was.
-                        <FormControlLabel control={<Checkbox />} label="No photos to add" />
+                        <FormControlLabel
+                          control={<Checkbox checked={noPhotos} onChange={handleNoPhotosChange} />}
+                          label="No photos to add"
+                        />
                       </div>
                     )}
                     {index === 3 && (
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         Any expenses related to this event.
-                        <FormControlLabel control={<Checkbox />} label="No expenses to add" />
+                        <FormControlLabel
+                          control={<Checkbox checked={noExpenses} onChange={handleNoExpensesChange} />}
+                          label="No expenses to add"
+                        />
                       </div>
                     )}
                   </Typography>
@@ -175,7 +206,7 @@ const ReportForm: React.FC<ReportFormProps> = ({ open, handleClose, eventName, s
         <InventorySalesDataForm open={openInventoryModal} handleClose={handleCloseInventoryModal} eventId={eventId} onComplete={handleInventoryComplete} />
         <ReportQuestionsForm open={openQuestionsModal} handleClose={handleCloseQuestionsModal} eventId={eventId} eventName={eventName} startTime={startTime} onComplete={handleQuestionsComplete} />
         <PhotoUploadForm open={openPhotoUploadModal} handleClose={handleClosePhotoUploadModal} eventId={eventId} onComplete={handlePhotoUploadComplete} />
-        <ExpenseForm open={openExpenseModal} handleClose={handleCloseExpenseModal} eventId={eventId} eventName={eventName} startTime={startTime}/>
+        <ExpenseForm open={openExpenseModal} handleClose={handleCloseExpenseModal} eventId={eventId} eventName={eventName} startTime={startTime} onComplete={handleExpenseComplete} />
       </Paper>
     </Modal>
   );

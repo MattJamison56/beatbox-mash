@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Box, Typography, Modal, Paper, IconButton, Card, CardContent, Grid, ButtonBase } from '@mui/material';
+import { Box, Typography, Modal, Paper, IconButton, Card, CardContent, Grid, ButtonBase, Button } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ReceiptForm from './receiptForm';
 import MileageForm from './mileageForm';
+import OtherForm from './otherForm';
 
 const modalStyle = {
   position: 'absolute',
@@ -31,11 +32,21 @@ interface ExpenseFormProps {
   eventId: number;
   eventName: string;
   startTime: string;
+  onComplete: () => void;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, eventName, startTime }) => {
+const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, eventName, startTime, onComplete }) => {
   const [openReceiptForm, setOpenReceiptForm] = useState(false);
   const [openMileageForm, setOpenMileageForm] = useState(false);
+  const [openOtherForm, setOpenOtherForm] = useState(false);
+
+  const handleOpenOtherForm = () => {
+    setOpenOtherForm(true);
+  };
+
+  const handleCloseOtherForm = () => {
+    setOpenOtherForm(false);
+  };
 
   const handleOpenMileageForm = () => {
     setOpenMileageForm(true);
@@ -51,6 +62,11 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
 
   const handleCloseReceiptForm = () => {
     setOpenReceiptForm(false);
+  };
+
+  const handleSubmit = () => {
+    onComplete();
+    handleClose();
   };
 
   return (
@@ -81,7 +97,7 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
             {[
               { text: 'Receipt', color: '#83E8E1', icon: <ReceiptIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenReceiptForm },
               { text: 'Mileage', color: '#AAD1F9', icon: <DirectionsCarIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenMileageForm },
-              { text: 'Other', color: '#FEBED6', icon: <AttachMoneyIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: () => alert('Attach Other') }
+              { text: 'Other', color: '#FEBED6', icon: <AttachMoneyIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenOtherForm }
             ].map((item, index) => (
               <Grid key={index} item xs={4} md={1} display="flex" flexDirection="column" alignItems="center">
                 <ButtonBase onClick={item.onClick}>
@@ -96,10 +112,14 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
             ))}
           </Grid>
           <Box display="flex" alignSelf="center" borderBottom={1} borderColor="grey.300" mt={2} width="50%" /> {/* Centered Spacing line */}
+          <Button variant="contained" color="primary" onClick={handleSubmit} sx={{ mt: 2, alignSelf: 'center' }}>
+            Submit
+          </Button>
         </Paper>
       </Modal>
       <ReceiptForm open={openReceiptForm} handleClose={handleCloseReceiptForm} eventId={eventId} />
       <MileageForm open={openMileageForm} handleClose={handleCloseMileageForm} eventId={eventId} />
+      <OtherForm open={openOtherForm} handleClose={handleCloseOtherForm} eventId={eventId} />
     </>
   );
 };
