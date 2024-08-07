@@ -101,7 +101,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
               sampledFlavors: prevData?.sampledFlavors?.length ? prevData.sampledFlavors : (data.sampledFlavors ? data.sampledFlavors.split(',') : inventoryProducts), // Ensure prechecked flavors
               product_sampled_how: data.product_sampled_how ? data.product_sampled_how.split(',') : []
             }));
-          } else {
+          } else if (response.status === 404) {
             setFormData((prevData: any) => ({
               ...prevData,
               sampledFlavors: inventoryProducts // Precheck based on inventory products
@@ -216,7 +216,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="consumersSampled"
+                  name="consumers_sampled"
                   value={formData.consumers_sampled}
                   onChange={handleChange}
                   required
@@ -227,7 +227,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="consumersEngaged"
+                  name="consumers_engaged"
                   value={formData.consumers_engaged}
                   onChange={handleChange}
                   required
@@ -238,7 +238,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="totalAttendees"
+                  name="total_attendees"
                   value={formData.total_attendees}
                   onChange={handleChange}
                   required
@@ -249,7 +249,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="beatboxesPurchased"
+                  name="beatboxes_purchased"
                   value={formData.beatboxes_purchased}
                   onChange={handleChange}
                   required
@@ -260,7 +260,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="firstTimeConsumers"
+                  name="first_time_consumers"
                   value={formData.first_time_consumers}
                   onChange={handleChange}
                   required
@@ -290,7 +290,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="topReasonBought"
+                  name="top_reason_bought"
                   value={formData.top_reason_bought}
                   onChange={handleChange}
                   required
@@ -301,7 +301,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="topReasonDidntBuy"
+                  name="top_reason_didnt_buy"
                   value={formData.top_reason_didnt_buy}
                   onChange={handleChange}
                   required
@@ -312,7 +312,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="qrScans"
+                  name="qr_scans"
                   value={formData.qr_scans}
                   onChange={handleChange}
                   required
@@ -323,7 +323,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="tableLocation"
+                  name="table_location"
                   value={formData.table_location}
                   onChange={handleChange}
                   required
@@ -345,7 +345,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="customerFeedback"
+                  name="customer_feedback"
                   value={formData.customer_feedback}
                   onChange={handleChange}
                   required
@@ -356,7 +356,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 <TextField
                   fullWidth
                   variant="outlined"
-                  name="otherFeedback"
+                  name="other_feedback"
                   value={formData.other_feedback}
                   onChange={handleChange}
                   required

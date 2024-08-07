@@ -16,7 +16,11 @@ export const generateReportPDF = async (req: Request, res: Response) => {
   const { eventId } = req.params;
 
   try {
+    console.log('Starting PDF generation for event ID:', eventId);
+    
     const pool = await poolPromise;
+    console.log('Connected to the database');
+
     const result = await pool.request()
       .input('eventId', sql.Int, eventId)
       .query(`
@@ -44,10 +48,6 @@ export const generateReportPDF = async (req: Request, res: Response) => {
           erq.swag,
           erq.customer_feedback,
           erq.other_feedback,
-          ei.product_id,
-          ei.beginning_inventory,
-          ei.ending_inventory,
-          ei.sold,
           ep.file_name,
           ep.file_path
         FROM 
@@ -71,6 +71,24 @@ export const generateReportPDF = async (req: Request, res: Response) => {
       `);
 
     const event = result.recordset[0];
+    console.log('Event data fetched:', event);
+
+    const inventoryResult = await pool.request()
+      .input('eventId', sql.Int, eventId)
+      .query(`
+        SELECT 
+          p.ProductName,
+          ei.beginning_inventory,
+          ei.ending_inventory,
+          ei.sold
+        FROM 
+          EventInventory ei
+        JOIN 
+          Products p ON ei.product_id = p.ProductID
+        WHERE 
+          ei.event_id = @eventId
+      `);
+    console.log('Inventory data fetched:', inventoryResult.recordset);
 
     // Create a new PDF document
     const doc = new PDFDocument();
@@ -81,12 +99,15 @@ export const generateReportPDF = async (req: Request, res: Response) => {
     // Ensure the directories exist
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true });
+      console.log('PDF directory created:', dirPath);
     }
     if (!fs.existsSync(tempDirPath)) {
       fs.mkdirSync(tempDirPath, { recursive: true });
+      console.log('Temp directory created:', tempDirPath);
     }
 
     doc.pipe(fs.createWriteStream(filePath));
+    console.log('PDF creation started:', filePath);
 
     // Add content to the PDF
     doc.fontSize(20).text(`Event Report`, { align: 'center' });
@@ -115,44 +136,71 @@ export const generateReportPDF = async (req: Request, res: Response) => {
     });
 
     // Add event inventory
-    if (event.product_id) {
+    if (inventoryResult.recordset.length > 0) {
       doc.moveDown();
       doc.fontSize(18).text(`Inventory Report`, { underline: true });
-      doc.fontSize(14).text(`Product ID: ${event.product_id}`);
-      doc.text(`Beginning Inventory: ${event.beginning_inventory}`);
-      doc.text(`Ending Inventory: ${event.ending_inventory}`);
-      doc.text(`Sold: ${event.sold}`);
+
+      // Create table header
+      doc.fontSize(14).text(`Product Name`, 72, doc.y);
+      doc.text(`Beginning Inventory`, 180, doc.y);
+      doc.text(`Ending Inventory`, 320, doc.y);
+      doc.text(`# Sold`, 440, doc.y);
+      doc.moveDown();
+
+      // Add inventory data
+      inventoryResult.recordset.forEach((item, index) => {
+        doc.fontSize(12).text(item.ProductName, 72, doc.y);
+        doc.text(item.beginning_inventory, 180, doc.y);
+        doc.text(item.ending_inventory, 320, doc.y);
+        doc.text(item.sold, 440, doc.y);
+        doc.moveDown();
+      });
+      console.log('Inventory data added to PDF');
     }
 
     // Add event photos
     const photos = result.recordset.filter(row => row.file_name && row.file_path);
-    if (photos.length > 0) {
-      doc.moveDown();
+    const uniquePhotos = new Set(photos.map(photo => photo.file_path));
+    if (uniquePhotos.size > 0) {
+      doc.addPage();
       doc.fontSize(18).text(`Event Photos`, { underline: true });
-      for (const photo of photos) {
-        const imagePath = path.join(tempDirPath, `${uuidv4()}${path.extname(photo.file_name)}`);
+
+      let x = 72;
+      let y = doc.y + 20;
+      const imageHeight = 200;
+      const imageWidth = 250;
+      const margin = 20;
+
+      for (const filePath of uniquePhotos) {
+        const imagePath = path.join(tempDirPath, `${uuidv4()}${path.extname(filePath)}`);
         const command = new GetObjectCommand({
           Bucket: process.env.AWS_S3_BUCKET_NAME!,
-          Key: photo.file_path.split('/').pop()
+          Key: filePath.split('/').pop()
         });
 
         const { Body } = await s3.send(command);
         await pipeline(Body as stream.Readable, fs.createWriteStream(imagePath));
+        console.log('Downloaded image:', imagePath);
         
-        const imageHeight = 400;
-        const imageWidth = 500;
-        const margin = 50;
-        const availablePageHeight = doc.page.height - doc.y - margin;
-        if (imageHeight > availablePageHeight) {
-          doc.addPage();
+        if (x + imageWidth > doc.page.width - margin) {
+          x = 72;
+          y += imageHeight + margin;
+          if (y + imageHeight > doc.page.height - margin) {
+            doc.addPage();
+            y = 72;
+          }
         }
 
-        doc.image(imagePath, { fit: [imageWidth, imageHeight], align: 'center' });
+        doc.image(imagePath, x, y, { fit: [imageWidth, imageHeight], align: 'center' });
+        x += imageWidth + margin;
+
         fs.unlinkSync(imagePath);
+        console.log('Image added to PDF and deleted:', imagePath);
       }
     }
 
     doc.end();
+    console.log('PDF generation completed:', filePath);
 
     res.status(200).json({ message: 'PDF generated successfully', filePath: `/pdfs/${path.basename(filePath)}` });
   } catch (error) {

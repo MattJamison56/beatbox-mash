@@ -70,9 +70,9 @@ const App: React.FC = () => {
       <Route
         path="/ambassadors"
         element={
-          // <PrivateRoute roles={['ambassador']}>
+          <PrivateRoute roles={['ambassador']}>
             <AmbassadorHome />
-          // </PrivateRoute>
+          </PrivateRoute>
         }
       />
       <Route
