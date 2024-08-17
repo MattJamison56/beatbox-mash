@@ -183,7 +183,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     <EditNoteIcon sx={{ marginRight: '8px' }} fontSize='large'/>
                     Approvals
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Approve Submitted Events</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Approve Submitted Events')}>Approve Submitted Events</button>
             </Box>
             <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '10px' }}>
                 <Typography variant="h6" sx={{ display: 'inline-flex', alignItems: 'center', padding: '10px', whiteSpace: 'nowrap', paddingRight: '50px', color: '#6f65ac'}}>

@@ -11,6 +11,7 @@ import CreateEventDate from '../createEventDate/createEventDate';
 import ListEventsPage from '../listEventPage/listEventPage';
 import ManageAccountsPage from '../accountCreation/ManageAccountsPage';
 import ProfilePage from '../profilePage/profilePage';
+import ApproveEventsPage from '../approveEventsPage/approveEventsPage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
@@ -51,6 +52,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'List Events' && <ListEventsPage />}
         {currentSubcategory === 'Brand Managers' && <ManageAccountsPage />}
         {currentSubcategory === 'Profile' && <ProfilePage />}
+        {currentSubcategory === 'Approve Submitted Events' && <ApproveEventsPage />}
       </div>
     </div>
   );

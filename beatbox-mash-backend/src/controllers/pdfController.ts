@@ -208,3 +208,29 @@ export const generateReportPDF = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error generating PDF' });
   }
 };
+
+
+export const getEventPdf = async (req: Request, res: Response) => {
+  const { eventId } = req.params;
+
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('eventId', sql.Int, eventId)
+      .query(`
+        SELECT s3_path 
+        FROM EventReports 
+        WHERE event_id = @eventId
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'PDF not found for the event.' });
+    }
+
+    const pdfUrl = result.recordset[0].s3_path;
+    res.status(200).json({ pdfUrl });
+  } catch (error) {
+    console.error('Error fetching PDF URL:', error);
+    res.status(500).json({ message: 'Error fetching PDF URL.' });
+  }
+};

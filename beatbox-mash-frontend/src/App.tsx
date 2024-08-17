@@ -32,6 +32,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles }) => {
 
 const RoleBasedHome: React.FC = () => {
   const { role } = useAuth();
+  console.log(`Current role in RoleBasedHome: ${role}`);
   return role === 'manager' ? <Navigate to="/manager" /> : <Navigate to="/ambassadors" />;
 };
 

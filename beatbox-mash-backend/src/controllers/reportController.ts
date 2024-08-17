@@ -7,6 +7,7 @@ import s3 from '../awsConfig';
 import { v4 as uuidv4 } from 'uuid';
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from 'dotenv';
+import PDFDocument from 'pdfkit';
 
 dotenv.config();
 
@@ -461,18 +462,94 @@ export const saveOtherExpense = async (req: Request, res: Response) => {
   }
 };
 
-export const submitReport = async (req: Request, res: Response) => {
+export const submitAndGenerateReport = async (req: Request, res: Response) => {
   const { eventId, inventoryFilled, questionsFilled, photosFilled, expensesFilled } = req.body;
   let transaction;
 
   try {
     const pool = await poolPromise;
     transaction = new sql.Transaction(pool);
-
     await transaction.begin();
 
-    // Check if all sections are filled
     if (inventoryFilled && questionsFilled && photosFilled && expensesFilled) {
+      const result = await pool.request()
+        .input('eventId', sql.Int, eventId)
+        .query(`
+          SELECT 
+            e.event_name AS eventName,
+            e.start_date_time AS startDateTime,
+            u.name AS brandAmbassador
+          FROM 
+            Events e
+          JOIN 
+            EventBrandAmbassadors eba ON e.event_id = eba.event_id
+          JOIN 
+            Users u ON eba.ba_id = u.id
+          WHERE 
+            e.event_id = @eventId
+        `);
+
+      const event = result.recordset[0];
+      const pdfDoc = new PDFDocument();
+      const tempDirPath = path.join(__dirname, '../../temp');
+      const tempFilePath = path.join(tempDirPath, `${uuidv4()}.pdf`);
+
+      // Ensure the temp directory exists
+      if (!fs.existsSync(tempDirPath)) {
+        fs.mkdirSync(tempDirPath, { recursive: true });
+        console.log(`Created temp directory: ${tempDirPath}`);
+      }
+
+      // Generate the PDF
+      const writeStream = fs.createWriteStream(tempFilePath);
+      pdfDoc.pipe(writeStream);
+      pdfDoc.fontSize(20).text(`Event Report`, { align: 'center' });
+      pdfDoc.fontSize(16).text(`Event: ${event.eventName}`);
+      pdfDoc.text(`Date: ${new Date(event.startDateTime).toLocaleDateString()}`);
+      pdfDoc.text(`Brand Ambassador: ${event.brandAmbassador}`);
+      pdfDoc.end();
+
+      // Wait for the PDF to finish writing
+      await new Promise<void>((resolve, reject) => {
+        writeStream.on('finish', () => {
+          console.log('PDF writing finished.');
+          resolve();
+        });
+        writeStream.on('error', (err) => {
+          console.error('Error writing PDF:', err);
+          reject(err);
+        });
+      });
+
+      // Upload to S3
+      console.log('Uploading PDF to S3...');
+      const pdfKey = `reports/${uuidv4()}.pdf`;
+      const pdfContent = fs.readFileSync(tempFilePath);
+      const uploadParams = {
+        Bucket: process.env.AWS_S3_REPORT_BUCKET_NAME!,
+        Key: pdfKey,
+        Body: pdfContent,
+        ContentType: 'application/pdf',
+      };
+      await s3.send(new PutObjectCommand(uploadParams));
+      console.log('PDF uploaded to S3.');
+
+      // Delete the temp file
+      fs.unlinkSync(tempFilePath);
+      console.log('Temporary PDF file deleted.');
+
+      // Store the PDF information in the database
+      const reportName = `${event.eventName.replace(/ /g, '_')}_${eventId}.pdf`;
+      const s3Path = `https://${process.env.AWS_S3_REPORT_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
+      await transaction.request()
+        .input('event_id', sql.Int, eventId)
+        .input('report_name', sql.NVarChar, reportName)
+        .input('s3_path', sql.NVarChar, s3Path)
+        .query(`
+          INSERT INTO EventReports (event_id, report_name, s3_path)
+          VALUES (@event_id, @report_name, @s3_path)
+        `);
+
       // Update the event to mark the report as submitted
       await transaction.request()
         .input('eventId', sql.Int, eventId)
@@ -482,20 +559,18 @@ export const submitReport = async (req: Request, res: Response) => {
           WHERE event_id = @eventId
         `);
 
-      // Commit the transaction
       await transaction.commit();
-
-      res.status(200).json({ message: 'Report successfully submitted and event marked as complete.' });
+      res.status(200).json({ message: 'Report successfully submitted, PDF generated, and event marked as complete.' });
     } else {
       res.status(400).json({ message: 'All sections must be completed before submitting the report.' });
     }
   } catch (error) {
-    console.error('Error submitting report:', error);
+    console.error('Error generating and submitting report:', error);
 
     if (transaction) {
       await transaction.rollback();
     }
 
-    res.status(500).json({ message: 'Error submitting report.' });
+    res.status(500).json({ message: 'Error generating and submitting report.' });
   }
 };

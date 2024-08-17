@@ -272,3 +272,116 @@ export const getMyEvents = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching events' });
   }
 };
+
+export const getPendingEventsForApproval = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .query(`
+        WITH BA_Wages AS (
+          SELECT 
+            e.event_id,
+            SUM(u.wage * (e.duration_hours + e.duration_minutes / 60.0)) AS totalWages
+          FROM 
+            Events e
+          JOIN 
+            EventBrandAmbassadors eba ON e.event_id = eba.event_id
+          JOIN 
+            Users u ON eba.ba_id = u.id
+          GROUP BY 
+            e.event_id
+        )
+        SELECT 
+          e.event_id AS id,
+          e.event_name AS eventName,
+          c.name AS campaigns,
+          v.region AS region,
+          t.name AS team,
+          u.name AS baName,
+          u.avatar_url AS baAvatarUrl,
+          e.start_date_time AS startDate,
+          e.updated_at AS reportDate, 
+          (
+            ISNULL(
+              (
+                SELECT SUM(r.total_amount)
+                FROM Receipts r
+                WHERE r.event_id = e.event_id
+              ), 0
+            ) + 
+            ISNULL(
+              (
+                SELECT SUM(mr.TotalFee)
+                FROM MileageReports mr
+                WHERE mr.EventId = e.event_id
+              ), 0
+            ) + 
+            ISNULL(
+              (
+                SELECT SUM(oe.Amount)
+                FROM OtherExpenses oe
+                WHERE oe.EventId = e.event_id
+              ), 0
+            )
+          ) AS totalExpense,
+          (
+            SELECT COUNT(r.receipt_id)
+            FROM Receipts r
+            WHERE r.event_id = e.event_id
+          ) AS expensesCount,
+          COUNT(ep.photo_id) AS photosCount,
+          (
+            baw.totalWages + 
+            ISNULL(
+              (
+                SELECT SUM(r.total_amount)
+                FROM Receipts r
+                WHERE r.event_id = e.event_id
+              ), 0
+            ) + 
+            ISNULL(
+              (
+                SELECT SUM(mr.TotalFee)
+                FROM MileageReports mr
+                WHERE mr.EventId = e.event_id
+              ), 0
+            ) + 
+            ISNULL(
+              (
+                SELECT SUM(oe.Amount)
+                FROM OtherExpenses oe
+                WHERE oe.EventId = e.event_id
+              ), 0
+            )
+          ) AS totalDue
+        FROM 
+          Events e
+        JOIN 
+          EventBrandAmbassadors eba ON e.event_id = eba.event_id
+        JOIN 
+          Users u ON eba.ba_id = u.id
+        JOIN 
+          Teams t ON e.team_id = t.id
+        JOIN 
+          Venues v ON e.venue_id = v.id
+        JOIN 
+          Campaigns c ON e.campaign_id = c.id
+        LEFT JOIN 
+          EventPhotos ep ON e.event_id = ep.event_id
+        LEFT JOIN 
+          BA_Wages baw ON e.event_id = baw.event_id
+        WHERE 
+          e.report_submitted = 1
+          AND (eba.inventory = 1 OR eba.qa = 1)  -- Main BA filtering logic
+        GROUP BY 
+          e.event_id, e.event_name, c.name, v.region, t.name, u.name, u.avatar_url, e.start_date_time, e.updated_at, baw.totalWages
+        ORDER BY 
+          e.updated_at DESC
+      `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching pending events:', error);
+    res.status(500).json({ message: 'Error fetching pending events' });
+  }
+};

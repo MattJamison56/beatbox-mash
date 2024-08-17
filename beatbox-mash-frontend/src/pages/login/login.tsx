@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import './login.css';
 import logo from '../../assets/beatboxlogo.png';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthContext';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,17 +23,19 @@ const LoginPage: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Login failed');
+        const message = await response.text(); // Parse the error message
+        throw new Error(message || 'Login failed');
       }
 
       const data = await response.json();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('role', data.role);
-      localStorage.setItem('ba_id', data.ba_id);
+
+      // Use login from the context to update the state
+      login(data.role, data.token);
+      localStorage.setItem('ba_id', data.ba_id); // This can stay in localStorage
 
       navigate('/');
-    } catch (error) {
-      console.error('Error logging in:', error);
+    } catch {
+      console.error('Error logging in');
     }
   };
 
