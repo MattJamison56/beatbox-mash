@@ -190,7 +190,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     <CreditCardIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                     Accounting
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Manage Payroll</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Manage Payroll')}>Manage Payroll</button>
                 <button className="subcat" style={{ width: '100%' }}>Payment History</button>
             </Box>
             </>

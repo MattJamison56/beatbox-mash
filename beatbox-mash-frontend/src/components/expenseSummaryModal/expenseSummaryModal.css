@@ -1,0 +1,61 @@
+.modalStyle {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+    outline: none;
+    color: black;
+    display: flex;
+    flex-direction: column;
+    justify-content: left;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 10vh;
+    height: auto;
+    max-width: 500px;
+  }
+  
+  .modalTitle {
+    margin-bottom: 20px;
+  }
+  
+  .baInfo {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .baAvatar {
+    width: 50px;
+    height: 50px;
+    margin-right: 15px;
+  }
+  
+  .baName {
+    font-weight: bold;
+  }
+  
+  .eventDetail {
+    margin-bottom: 20px;
+  }
+  
+  .eventName {
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+  
+  .eventTime {
+    margin-bottom: 15px;
+    color: gray;
+  }
+  
+  .eventTable {
+    margin-bottom: 20px;
+  }
+  
+  .modalActions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+  

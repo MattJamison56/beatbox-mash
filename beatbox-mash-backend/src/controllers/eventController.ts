@@ -385,3 +385,250 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
     res.status(500).json({ message: 'Error fetching pending events' });
   }
 };
+
+export const approveEvent = async (req: Request, res: Response) => {
+  const { id, message } = req.body;
+
+  try {
+    const pool = await poolPromise;
+
+    // Update the event as approved in the database
+    await pool.request()
+      .input('event_id', id)
+      .query(`
+        UPDATE Events
+        SET report_approved = 1, report_submitted = NULL, updated_at = GETDATE()
+        WHERE event_id = @event_id
+      `);
+
+    // Get the email of the Brand Ambassador associated with the event
+    const result = await pool.request()
+      .input('event_id', id)
+      .query(`
+        SELECT U.email
+        FROM EventBrandAmbassadors EBA
+        JOIN Users U ON EBA.ba_id = U.id
+        WHERE EBA.event_id = @event_id
+      `);
+
+    const email = result.recordset[0]?.email;
+
+    if (!email) {
+      return res.status(400).json({ message: 'No Brand Ambassador found for this event' });
+    }
+
+    const accessToken = await oauth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: process.env.EMAIL_USER,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken: process.env.REFRESH_TOKEN,
+        accessToken: accessToken.token as string,
+      },
+    });
+
+    const mailOptions = {
+      to: email,
+      from: process.env.EMAIL_USER,
+      subject: 'Event Approved',
+      text: `Your event has been approved.\n\nMessage: ${message || 'No additional message.'}`,
+    };
+
+    transporter.sendMail(mailOptions, (err: any) => {
+      if (err) {
+        console.error('Error sending email:', err);
+        return res.status(500).json({ message: 'Error sending email' });
+      }
+      res.status(200).json({ message: 'Event approved and email sent successfully' });
+    });
+  } catch (error) {
+    console.error('Error approving event:', error);
+    res.status(500).json({ message: 'Error approving event' });
+  }
+};
+
+
+export const rejectEvent = async (req: Request, res: Response) => {
+  const { id, message } = req.body;
+
+  try {
+    const pool = await poolPromise;
+
+    // Update the event as rejected in the database
+    await pool.request()
+      .input('event_id', id)
+      .query(`
+        UPDATE Events
+        SET report_approved = 0, report_submitted = NULL, updated_at = GETDATE()
+        WHERE event_id = @event_id
+      `);
+
+    // Get the email of the Brand Ambassador associated with the event
+    const result = await pool.request()
+      .input('event_id', id)
+      .query(`
+        SELECT U.email
+        FROM EventBrandAmbassadors EBA
+        JOIN Users U ON EBA.ba_id = U.id
+        WHERE EBA.event_id = @event_id
+      `);
+
+    const email = result.recordset[0]?.email;
+
+    if (!email) {
+      return res.status(400).json({ message: 'No Brand Ambassador found for this event' });
+    }
+
+    const accessToken = await oauth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: process.env.EMAIL_USER,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken: process.env.REFRESH_TOKEN,
+        accessToken: accessToken.token as string,
+      },
+    });
+
+    const mailOptions = {
+      to: email,
+      from: process.env.EMAIL_USER,
+      subject: 'Event Rejected',
+      text: `Your event has been rejected.\n\nMessage: ${message || 'No additional message.'}`,
+    };
+
+    transporter.sendMail(mailOptions, (err: any) => {
+      if (err) {
+        console.error('Error sending email:', err);
+        return res.status(500).json({ message: 'Error sending email' });
+      }
+      res.status(200).json({ message: 'Event rejected and email sent successfully' });
+    });
+  } catch (error) {
+    console.error('Error rejecting event:', error);
+    res.status(500).json({ message: 'Error rejecting event' });
+  }
+};
+
+export const getApprovedEvents = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    // SQL Query to fetch approved events, grouped by BA
+    const result = await pool.request().query(`
+      SELECT 
+        U.id AS baId,
+        U.name AS baName,
+        U.avatar_url AS baAvatarUrl,  -- Avatar URL
+        COUNT(DISTINCT E.event_id) AS eventCount,
+        SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0)) AS reimb,
+        SUM(U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS eventFee,
+        SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0) + U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS totalDue,
+        E.start_date_time AS startDateTime,
+        DATEADD(MINUTE, E.duration_minutes, DATEADD(HOUR, E.duration_hours, E.start_date_time)) AS endDateTime,
+        E.duration_hours AS durationHours,
+        E.duration_minutes AS durationMinutes,
+        V.name AS venueName,  -- Venue name
+        E.event_name AS eventName  -- Event name
+      FROM 
+        Events E
+      INNER JOIN 
+        EventBrandAmbassadors EBA ON E.event_id = EBA.event_id
+      INNER JOIN 
+        Users U ON EBA.ba_id = U.id
+      LEFT JOIN 
+        Venues V ON E.venue_id = V.id  -- Correct JOIN for Venues table
+      LEFT JOIN 
+        Receipts R ON E.event_id = R.event_id
+      LEFT JOIN 
+        MileageReports MR ON E.event_id = MR.EventId
+      LEFT JOIN 
+        OtherExpenses OE ON E.event_id = OE.EventId
+      WHERE 
+        E.report_approved = 1 AND E.report_submitted IS NULL
+      GROUP BY 
+        U.id, U.name, U.avatar_url, E.start_date_time, E.duration_hours, E.duration_minutes, V.name, E.event_name
+      ORDER BY 
+        U.name ASC;
+    `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('Error fetching approved events:', error.message);
+      res.status(500).json({ message: 'Error fetching approved events', error: error.message });
+    } else {
+      console.error('Unknown error fetching approved events:', error);
+      res.status(500).json({ message: 'An unknown error occurred' });
+    }
+  }
+};
+
+export const getEventsWithReimbursements = async (req: Request, res: Response) => {
+  const { ba_id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT 
+          E.event_id AS id,
+          E.event_name AS eventName,
+          E.start_date_time AS startDateTime,
+          DATEADD(MINUTE, E.duration_minutes, DATEADD(HOUR, E.duration_hours, E.start_date_time)) AS endDateTime,
+          T.name AS team,
+          V.name AS venue,
+          C.name AS campaign,
+          EBA.inventory,
+          EBA.qa,
+          EBA.photos,
+          EBA.expenses,
+          ISNULL(SUM(MR.TotalFee), 0) + ISNULL(SUM(R.total_amount), 0) + ISNULL(SUM(OE.Amount), 0) AS reimbursedAmount, -- Calculate the reimbursed amount
+          U.wage AS hourlyRate,
+          -- Calculate the event fee based on duration and hourly rate
+          (E.duration_hours + E.duration_minutes / 60.0) * U.wage AS eventFee,
+          -- Calculate the total due amount
+          ISNULL(SUM(MR.TotalFee), 0) + ISNULL(SUM(R.total_amount), 0) + ISNULL(SUM(OE.Amount), 0) + 
+          ((E.duration_hours + E.duration_minutes / 60.0) * U.wage) AS totalDue
+        FROM 
+          Events E
+        JOIN 
+          EventBrandAmbassadors EBA ON E.event_id = EBA.event_id
+        JOIN 
+          Teams T ON E.team_id = T.id
+        JOIN 
+          Venues V ON E.venue_id = V.id
+        JOIN 
+          Campaigns C ON E.campaign_id = C.id
+        JOIN
+          Users U ON EBA.ba_id = U.id -- Assuming wage is in the Users table
+        LEFT JOIN 
+          MileageReports MR ON E.event_id = MR.EventId
+        LEFT JOIN 
+          Receipts R ON E.event_id = R.event_id
+        LEFT JOIN 
+          OtherExpenses OE ON E.event_id = OE.EventId
+        WHERE 
+          EBA.ba_id = @ba_id AND E.report_approved = 1
+        GROUP BY 
+          E.event_id, E.event_name, E.start_date_time, E.duration_minutes, E.duration_hours, 
+          T.name, V.name, C.name, EBA.inventory, EBA.qa, EBA.photos, EBA.expenses, U.wage
+        ORDER BY 
+          E.start_date_time DESC
+      `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching events with reimbursements:', error);
+    res.status(500).json({ message: 'Error fetching events with reimbursements' });
+  }
+};

@@ -28,4 +28,21 @@
     color: #635b9a;
   }
   
-  
+  .modalStyle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  .modalContent {
+      display: flex;
+      flex-direction: column;
+      background: white;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      align-items: center;
+      justify-content: center;
+  }
