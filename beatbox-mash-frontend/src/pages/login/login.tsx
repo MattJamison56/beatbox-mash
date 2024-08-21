@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/AuthContext';
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState(''); // State to hold error message
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -23,8 +24,9 @@ const LoginPage: React.FC = () => {
       });
 
       if (!response.ok) {
-        const message = await response.text(); // Parse the error message
-        throw new Error(message || 'Login failed');
+        const message = await response.json(); // Parse the error message
+        setErrorMessage(message.message || 'Login failed'); // Set the error message
+        return;
       }
 
       const data = await response.json();
@@ -34,8 +36,9 @@ const LoginPage: React.FC = () => {
       localStorage.setItem('ba_id', data.ba_id); // This can stay in localStorage
 
       navigate('/');
-    } catch {
-      console.error('Error logging in');
+    } catch (error) {
+      setErrorMessage('An error occurred during login. Please try again.'); // Set a generic error message
+      console.error('Error logging in:', error);
     }
   };
 
@@ -64,6 +67,7 @@ const LoginPage: React.FC = () => {
               required
             />
           </div>
+          {errorMessage && <div className="error-message">{errorMessage}</div>} {/* Display error message */}
           <button type="submit" className="login-button">Sign In</button>
         </form>
         <a href="/forgot-password" className="forgot-password">Forgot Password?</a>

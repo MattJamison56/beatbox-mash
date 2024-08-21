@@ -387,17 +387,17 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
 };
 
 export const approveEvent = async (req: Request, res: Response) => {
-  const { id, message } = req.body;
+  const { id, message, payrollGroup } = req.body;
 
   try {
     const pool = await poolPromise;
 
-    // Update the event as approved in the database
     await pool.request()
       .input('event_id', id)
+      .input('payroll_group', payrollGroup || 'Approved Events')
       .query(`
         UPDATE Events
-        SET report_approved = 1, report_submitted = NULL, updated_at = GETDATE()
+        SET report_approved = 1, report_submitted = NULL, payroll_group = @payroll_group, updated_at = GETDATE()
         WHERE event_id = @event_id
       `);
 
@@ -443,14 +443,13 @@ export const approveEvent = async (req: Request, res: Response) => {
         console.error('Error sending email:', err);
         return res.status(500).json({ message: 'Error sending email' });
       }
-      res.status(200).json({ message: 'Event approved and email sent successfully' });
+      res.status(200).json({ message: 'Event approved, payroll group set, and email sent successfully' });
     });
   } catch (error) {
     console.error('Error approving event:', error);
     res.status(500).json({ message: 'Error approving event' });
   }
 };
-
 
 export const rejectEvent = async (req: Request, res: Response) => {
   const { id, message } = req.body;
@@ -630,5 +629,96 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
   } catch (error) {
     console.error('Error fetching events with reimbursements:', error);
     res.status(500).json({ message: 'Error fetching events with reimbursements' });
+  }
+};
+
+export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request().query(`
+      SELECT 
+        U.id AS baId,
+        U.name AS baName,
+        U.avatar_url AS baAvatarUrl,
+        E.payroll_group AS payrollGroup,
+        COUNT(E.event_id) AS eventCount,
+        SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0)) AS reimb,
+        SUM(U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS eventFee,
+        SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0) + U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS totalDue,
+        STRING_AGG(E.event_id, ',') AS eventIds -- Collect all event IDs for this BA
+      FROM 
+        Events E
+      INNER JOIN 
+        EventBrandAmbassadors EBA ON E.event_id = EBA.event_id
+      INNER JOIN 
+        Users U ON EBA.ba_id = U.id
+      LEFT JOIN 
+        Receipts R ON E.event_id = R.event_id
+      LEFT JOIN 
+        MileageReports MR ON E.event_id = MR.EventId
+      LEFT JOIN 
+        OtherExpenses OE ON E.event_id = OE.EventId
+      WHERE 
+        E.report_approved = 1
+      GROUP BY 
+        U.id, U.name, U.avatar_url, E.payroll_group
+      ORDER BY 
+        E.payroll_group ASC, U.name ASC;
+    `);
+
+    const events = result.recordset;
+
+    // Group events by payrollGroup and add events array
+    const groupedEvents = events.reduce((acc: any, event: any) => {
+      if (!acc[event.payrollGroup]) {
+        acc[event.payrollGroup] = [];
+      }
+
+      // Add event IDs as an array
+      const baWithEvents = {
+        ...event,
+        events: event.eventIds.split(',').map((id: string) => ({ id: parseInt(id) })) // convert eventIds into an array of event objects
+      };
+
+      acc[event.payrollGroup].push(baWithEvents);
+      return acc;
+    }, {});
+
+    res.status(200).json(groupedEvents);
+  } catch (error) {
+    console.error('Error fetching events by payroll groups:', error);
+    res.status(500).json({ message: 'Error fetching events by payroll groups' });
+  }
+};
+
+export const updatePayrollGroup = async (req: Request, res: Response) => {
+  const { eventIds, payrollGroup } = req.body;
+
+  if (!Array.isArray(eventIds) || eventIds.length === 0) {
+    console.error('Invalid event IDs provided');
+    return res.status(400).json({ message: 'Invalid event IDs provided' });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    // Log the SQL query that will be executed
+    const query = `
+      UPDATE Events
+      SET payroll_group = @payrollGroup, updated_at = GETDATE()
+      WHERE event_id IN (${eventIds.map(id => `'${id}'`).join(", ")})
+    `;
+    console.log("Executing query:", query);
+
+    await pool.request()
+      .input('payrollGroup', sql.NVarChar, payrollGroup)
+      .query(query);
+
+    console.log('Payroll group updated successfully');
+    res.status(200).json({ message: 'Payroll group updated successfully' });
+  } catch (error) {
+    console.error('Error updating payroll group:', error);
+    res.status(500).json({ message: 'Error updating payroll group' });
   }
 };
