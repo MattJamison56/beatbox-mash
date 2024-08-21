@@ -5,7 +5,7 @@ import sql from 'mssql';
 export const getVenues = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM Venues');
+    const result = await pool.request().query('SELECT * FROM Venues WHERE is_deleted = 0');
     res.json(result.recordset);
   } catch (err) {
     const error = err as Error;
@@ -95,36 +95,38 @@ export const createVenue = async (req: Request, res: Response) => {
 export const deleteVenue = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
-    const request = new sql.Request(pool);
     const { id } = req.body;
 
-    // Delete related records in VenueTeams first
-    const requestDeleteTeams = new sql.Request(pool);
-    await requestDeleteTeams
-      .input('venueId', sql.Int, id)
-      .query(`
-        DELETE FROM VenueTeams WHERE venue_id = @venueId
-      `);
-
-    // Delete the venue record
-    await request
+    // Soft delete the venue by setting is_deleted = 1
+    await pool.request()
       .input('id', sql.Int, id)
-      .query('DELETE FROM Venues WHERE id = @id');
+      .query('UPDATE Venues SET is_deleted = 1, updated_at = GETDATE() WHERE id = @id');
 
-    res.status(200).json({ message: 'Venue deleted successfully' });
+    res.status(200).json({ message: 'Venue soft deleted successfully' });
   } catch (error) {
-    console.error('Error deleting venue:', error);
-    const err = error as Error;
-    res.status(500).json({ message: err.message });
+    console.error('Error soft deleting venue:', error);
+    res.status(500).json({ message: 'Error soft deleting venue' });
   }
 };
+
 
 export const getVenuesWithTeams = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
       SELECT 
-        Venues.*, 
+        Venues.id,
+        Venues.name,
+        Venues.address,
+        Venues.region,
+        Venues.comment,
+        Venues.contact1_name,
+        Venues.contact1_phone,
+        Venues.contact2_name,
+        Venues.contact2_phone,
+        Venues.last_time_visited,
+        Venues.created_at,
+        Venues.updated_at,
         COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams
       FROM 
         Venues
@@ -132,8 +134,21 @@ export const getVenuesWithTeams = async (req: Request, res: Response) => {
         VenueTeams ON Venues.id = VenueTeams.venue_id
       LEFT JOIN 
         Teams ON VenueTeams.team_id = Teams.id
+      WHERE 
+        Venues.is_deleted = 0  -- Only include venues that are not deleted
       GROUP BY 
-        Venues.id, Venues.name, Venues.address, Venues.region, Venues.comment, Venues.contact1_name, Venues.contact1_phone, Venues.contact2_name, Venues.contact2_phone, Venues.last_time_visited, Venues.created_at, Venues.updated_at
+        Venues.id,
+        Venues.name,
+        Venues.address,
+        Venues.region,
+        Venues.comment,
+        Venues.contact1_name,
+        Venues.contact1_phone,
+        Venues.contact2_name,
+        Venues.contact2_phone,
+        Venues.last_time_visited,
+        Venues.created_at,
+        Venues.updated_at
     `);
     res.status(200).json(result.recordset);
   } catch (error) {

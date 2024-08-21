@@ -15,6 +15,8 @@ export const getCampaigns = async (req: Request, res: Response) => {
         CampaignTeams ON Campaigns.id = CampaignTeams.campaign_id
       LEFT JOIN 
         Teams ON CampaignTeams.team_id = Teams.id
+      WHERE 
+        Campaigns.is_deleted = 0
       GROUP BY 
         Campaigns.id, Campaigns.name, Campaigns.owners, Campaigns.report_template, 
         Campaigns.pre_event_instructions, Campaigns.first_ba_inventory, Campaigns.first_ba_post_event, 
@@ -319,18 +321,10 @@ export const deleteCampaign = async (req: Request, res: Response) => {
     const request = new sql.Request(pool);
     const { id } = req.body;
 
-    // Delete related records in CampaignTeams first
-    const requestDeleteTeams = new sql.Request(pool);
-    await requestDeleteTeams
-      .input('campaignId', sql.Int, id)
-      .query(`
-        DELETE FROM CampaignTeams WHERE campaign_id = @campaignId
-      `);
-
     // Delete the campaign record
     await request
       .input('id', sql.Int, id)
-      .query('DELETE FROM Campaigns WHERE id = @id');
+      .query('UPDATE Campaigns SET is_deleted = 1 WHERE id = @id');
 
     res.status(200).json({ message: 'Campaign deleted successfully' });
   } catch (error) {
@@ -411,7 +405,7 @@ export const getCampaignByName = async (req: Request, res: Response) => {
         LEFT JOIN 
           Teams ON CampaignTeams.team_id = Teams.id
         WHERE 
-          Campaigns.name = @name
+          Campaigns.name = @name AND Campaigns.is_deleted = 0
         GROUP BY 
           Campaigns.id, Campaigns.name, Campaigns.owners, Campaigns.report_template, 
           Campaigns.pre_event_instructions, Campaigns.first_ba_inventory, Campaigns.first_ba_post_event, 

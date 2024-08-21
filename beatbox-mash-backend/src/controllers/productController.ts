@@ -3,18 +3,20 @@ import { poolPromise } from '../database';
 import sql from 'mssql';
 
 export const getProducts = async (req: Request, res: Response) => {
-    try {
-      const pool = await poolPromise;
-      const request = new sql.Request(pool);
-  
-      const result = await request.query('SELECT * FROM Products');
-      res.status(200).json(result.recordset);
-    } catch (error) {
-      console.error('Error retrieving products:', error);
-      const err = error as Error;
-      res.status(500).json({ message: err.message });
-    }
-  };
+  try {
+    const pool = await poolPromise;
+    const request = new sql.Request(pool);
+
+    // Filter out products where is_deleted = 1
+    const result = await request.query('SELECT * FROM Products WHERE is_deleted = 0');
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error retrieving products:', error);
+    const err = error as Error;
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 export const createProducts = async (req: Request, res: Response) => {
   try {
@@ -63,15 +65,10 @@ export const deleteProduct = async (req: Request, res: Response) => {
     // Begin the transaction
     await transaction.begin();
 
-    // Delete the product from the CampaignProducts table
+    // Mark the product as deleted instead of actually deleting it
     await transaction.request()
       .input('id', sql.Int, id)
-      .query('DELETE FROM CampaignProducts WHERE product_id = @id');
-
-    // Delete the product from the Products table
-    await transaction.request()
-      .input('id', sql.Int, id)
-      .query('DELETE FROM Products WHERE ProductID = @id');
+      .query('UPDATE Products SET is_deleted = 1 WHERE ProductID = @id');
 
     // Commit the transaction
     await transaction.commit();

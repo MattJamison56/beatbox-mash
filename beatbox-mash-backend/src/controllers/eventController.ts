@@ -67,7 +67,7 @@ export const getEvents = async (req: Request, res: Response) => {
       SELECT 
         e.event_id AS id,
         t.name AS team,
-        e.event_type AS eventType, -- Fetch eventType directly from Events table
+        e.event_type AS eventType,
         e.event_name AS eventName,
         e.start_date_time AS startDateTime,
         DATEADD(MINUTE, e.duration_minutes, DATEADD(HOUR, e.duration_hours, e.start_date_time)) AS endDateTime,
@@ -76,7 +76,7 @@ export const getEvents = async (req: Request, res: Response) => {
         CASE 
           WHEN DATEADD(MINUTE, e.duration_minutes, DATEADD(HOUR, e.duration_hours, e.start_date_time)) < GETDATE() THEN 'Completed'
           ELSE 'Active'
-        END AS status, -- Calculate status based on end date
+        END AS status,
         v.name AS venue,
         c.name AS campaign,
         STUFF((
@@ -84,12 +84,14 @@ export const getEvents = async (req: Request, res: Response) => {
           FROM Users ba
           JOIN EventBrandAmbassadors eba ON ba.id = eba.ba_id
           WHERE eba.event_id = e.event_id
+            AND ba.is_deleted = 0 -- Only include active Brand Ambassadors
           FOR XML PATH(''), TYPE
-        ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS staffing -- Concatenate BA names
+        ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS staffing
       FROM Events e
-      JOIN Teams t ON e.team_id = t.id
-      JOIN Venues v ON e.venue_id = v.id
-      JOIN Campaigns c ON e.campaign_id = c.id
+      JOIN Teams t ON e.team_id = t.id AND t.is_deleted = 0 -- Only include active Teams
+      JOIN Venues v ON e.venue_id = v.id AND v.is_deleted = 0 -- Only include active Venues
+      JOIN Campaigns c ON e.campaign_id = c.id AND c.is_deleted = 0 -- Only include active Campaigns
+      WHERE e.is_deleted = 0 -- Only include active Events
     `);
 
     res.status(200).json(result.recordset);
@@ -98,6 +100,7 @@ export const getEvents = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching events' });
   }
 };
+
 
 // Function to create an event
 export const createEvent = async (req: Request, res: Response) => {
@@ -210,17 +213,11 @@ export const deleteEvent = async (req: Request, res: Response) => {
 
     await transaction.begin();
 
-    // Delete brand ambassadors associated with the event
-    const requestBA = new sql.Request(transaction);
-    await requestBA
-      .input('event_id', sql.Int, eventId)
-      .query('DELETE FROM EventBrandAmbassadors WHERE event_id = @event_id');
-
     // Delete the event
     const requestEvent = new sql.Request(transaction);
     await requestEvent
       .input('event_id', sql.Int, eventId)
-      .query('DELETE FROM Events WHERE event_id = @event_id');
+      .query('UPDATE Events SET is_deleted = 1 WHERE event_id = @event_id');
 
     await transaction.commit();
     res.status(200).json({ message: 'Event deleted successfully' });
@@ -247,7 +244,7 @@ export const getMyEvents = async (req: Request, res: Response) => {
           t.name AS team,
           v.name AS venue,
           c.name AS campaign,
-          e.report_submitted AS report_submitted,  -- Add this line
+          e.report_submitted AS report_submitted,
           eba.inventory,
           eba.qa,
           eba.photos,
@@ -257,13 +254,15 @@ export const getMyEvents = async (req: Request, res: Response) => {
         JOIN 
           EventBrandAmbassadors eba ON e.event_id = eba.event_id
         JOIN 
-          Teams t ON e.team_id = t.id
+          Teams t ON e.team_id = t.id AND t.is_deleted = 0 -- Only include active Teams
         JOIN 
-          Venues v ON e.venue_id = v.id
+          Venues v ON e.venue_id = v.id AND v.is_deleted = 0 -- Only include active Venues
         JOIN 
-          Campaigns c ON e.campaign_id = c.id
+          Campaigns c ON e.campaign_id = c.id AND c.is_deleted = 0 -- Only include active Campaigns
         WHERE 
           eba.ba_id = @ba_id
+          AND e.is_deleted = 0 -- Only include active Events
+          AND eba.is_deleted = 0 -- Only include active EventBrandAmbassadors
       `);
 
     res.status(200).json(result.recordset);
@@ -288,6 +287,8 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
             EventBrandAmbassadors eba ON e.event_id = eba.event_id
           JOIN 
             Users u ON eba.ba_id = u.id
+          WHERE 
+            e.is_deleted = 0 AND eba.is_deleted = 0 AND u.is_deleted = 0  -- Filter for active records
           GROUP BY 
             e.event_id
         )
@@ -306,28 +307,28 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
               (
                 SELECT SUM(r.total_amount)
                 FROM Receipts r
-                WHERE r.event_id = e.event_id
+                WHERE r.event_id = e.event_id AND r.is_deleted = 0  -- Only include active receipts
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(mr.TotalFee)
                 FROM MileageReports mr
-                WHERE mr.EventId = e.event_id
+                WHERE mr.EventId = e.event_id AND mr.is_deleted = 0  -- Only include active mileage reports
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(oe.Amount)
                 FROM OtherExpenses oe
-                WHERE oe.EventId = e.event_id
+                WHERE oe.EventId = e.event_id AND oe.is_deleted = 0  -- Only include active other expenses
               ), 0
             )
           ) AS totalExpense,
           (
             SELECT COUNT(r.receipt_id)
             FROM Receipts r
-            WHERE r.event_id = e.event_id
+            WHERE r.event_id = e.event_id AND r.is_deleted = 0  -- Only include active receipts
           ) AS expensesCount,
           COUNT(ep.photo_id) AS photosCount,
           (
@@ -336,21 +337,21 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
               (
                 SELECT SUM(r.total_amount)
                 FROM Receipts r
-                WHERE r.event_id = e.event_id
+                WHERE r.event_id = e.event_id AND r.is_deleted = 0  -- Only include active receipts
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(mr.TotalFee)
                 FROM MileageReports mr
-                WHERE mr.EventId = e.event_id
+                WHERE mr.EventId = e.event_id AND mr.is_deleted = 0  -- Only include active mileage reports
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(oe.Amount)
                 FROM OtherExpenses oe
-                WHERE oe.EventId = e.event_id
+                WHERE oe.EventId = e.event_id AND oe.is_deleted = 0  -- Only include active other expenses
               ), 0
             )
           ) AS totalDue
@@ -372,6 +373,12 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
           BA_Wages baw ON e.event_id = baw.event_id
         WHERE 
           e.report_submitted = 1
+          AND e.is_deleted = 0  -- Only include active events
+          AND eba.is_deleted = 0  -- Only include active event-brand ambassador associations
+          AND u.is_deleted = 0  -- Only include active users
+          AND t.is_deleted = 0  -- Only include active teams
+          AND v.is_deleted = 0  -- Only include active venues
+          AND c.is_deleted = 0  -- Only include active campaigns
           AND (eba.inventory = 1 OR eba.qa = 1)  -- Main BA filtering logic
         GROUP BY 
           e.event_id, e.event_name, c.name, v.region, t.name, u.name, u.avatar_url, e.start_date_time, e.updated_at, baw.totalWages
@@ -398,7 +405,7 @@ export const approveEvent = async (req: Request, res: Response) => {
       .query(`
         UPDATE Events
         SET report_approved = 1, report_submitted = NULL, payroll_group = @payroll_group, updated_at = GETDATE()
-        WHERE event_id = @event_id
+        WHERE event_id = @event_id AND is_deleted = 0
       `);
 
     // Get the email of the Brand Ambassador associated with the event
@@ -408,7 +415,7 @@ export const approveEvent = async (req: Request, res: Response) => {
         SELECT U.email
         FROM EventBrandAmbassadors EBA
         JOIN Users U ON EBA.ba_id = U.id
-        WHERE EBA.event_id = @event_id
+        WHERE EBA.event_id = @event_id AND EBA.is_deleted = 0 AND U.is_deleted = 0
       `);
 
     const email = result.recordset[0]?.email;
@@ -463,7 +470,7 @@ export const rejectEvent = async (req: Request, res: Response) => {
       .query(`
         UPDATE Events
         SET report_approved = 0, report_submitted = NULL, updated_at = GETDATE()
-        WHERE event_id = @event_id
+        WHERE event_id = @event_id AND is_deleted = 0
       `);
 
     // Get the email of the Brand Ambassador associated with the event
@@ -473,7 +480,7 @@ export const rejectEvent = async (req: Request, res: Response) => {
         SELECT U.email
         FROM EventBrandAmbassadors EBA
         JOIN Users U ON EBA.ba_id = U.id
-        WHERE EBA.event_id = @event_id
+        WHERE EBA.event_id = @event_id AND EBA.is_deleted = 0 AND U.is_deleted = 0
       `);
 
     const email = result.recordset[0]?.email;
@@ -520,12 +527,11 @@ export const getApprovedEvents = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
 
-    // SQL Query to fetch approved events, grouped by BA
     const result = await pool.request().query(`
       SELECT 
         U.id AS baId,
         U.name AS baName,
-        U.avatar_url AS baAvatarUrl,  -- Avatar URL
+        U.avatar_url AS baAvatarUrl,
         COUNT(DISTINCT E.event_id) AS eventCount,
         SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0)) AS reimb,
         SUM(U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS eventFee,
@@ -534,8 +540,8 @@ export const getApprovedEvents = async (req: Request, res: Response) => {
         DATEADD(MINUTE, E.duration_minutes, DATEADD(HOUR, E.duration_hours, E.start_date_time)) AS endDateTime,
         E.duration_hours AS durationHours,
         E.duration_minutes AS durationMinutes,
-        V.name AS venueName,  -- Venue name
-        E.event_name AS eventName  -- Event name
+        V.name AS venueName,
+        E.event_name AS eventName
       FROM 
         Events E
       INNER JOIN 
@@ -543,7 +549,7 @@ export const getApprovedEvents = async (req: Request, res: Response) => {
       INNER JOIN 
         Users U ON EBA.ba_id = U.id
       LEFT JOIN 
-        Venues V ON E.venue_id = V.id  -- Correct JOIN for Venues table
+        Venues V ON E.venue_id = V.id
       LEFT JOIN 
         Receipts R ON E.event_id = R.event_id
       LEFT JOIN 
@@ -552,6 +558,7 @@ export const getApprovedEvents = async (req: Request, res: Response) => {
         OtherExpenses OE ON E.event_id = OE.EventId
       WHERE 
         E.report_approved = 1 AND E.report_submitted IS NULL
+        AND E.is_deleted = 0 AND EBA.is_deleted = 0 AND U.is_deleted = 0
       GROUP BY 
         U.id, U.name, U.avatar_url, E.start_date_time, E.duration_hours, E.duration_minutes, V.name, E.event_name
       ORDER BY 
@@ -591,11 +598,9 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
           EBA.qa,
           EBA.photos,
           EBA.expenses,
-          ISNULL(SUM(MR.TotalFee), 0) + ISNULL(SUM(R.total_amount), 0) + ISNULL(SUM(OE.Amount), 0) AS reimbursedAmount, -- Calculate the reimbursed amount
+          ISNULL(SUM(MR.TotalFee), 0) + ISNULL(SUM(R.total_amount), 0) + ISNULL(SUM(OE.Amount), 0) AS reimbursedAmount,
           U.wage AS hourlyRate,
-          -- Calculate the event fee based on duration and hourly rate
           (E.duration_hours + E.duration_minutes / 60.0) * U.wage AS eventFee,
-          -- Calculate the total due amount
           ISNULL(SUM(MR.TotalFee), 0) + ISNULL(SUM(R.total_amount), 0) + ISNULL(SUM(OE.Amount), 0) + 
           ((E.duration_hours + E.duration_minutes / 60.0) * U.wage) AS totalDue
         FROM 
@@ -609,7 +614,7 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
         JOIN 
           Campaigns C ON E.campaign_id = C.id
         JOIN
-          Users U ON EBA.ba_id = U.id -- Assuming wage is in the Users table
+          Users U ON EBA.ba_id = U.id
         LEFT JOIN 
           MileageReports MR ON E.event_id = MR.EventId
         LEFT JOIN 
@@ -618,6 +623,7 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
           OtherExpenses OE ON E.event_id = OE.EventId
         WHERE 
           EBA.ba_id = @ba_id AND E.report_approved = 1
+          AND E.is_deleted = 0 AND EBA.is_deleted = 0 AND U.is_deleted = 0
         GROUP BY 
           E.event_id, E.event_name, E.start_date_time, E.duration_minutes, E.duration_hours, 
           T.name, V.name, C.name, EBA.inventory, EBA.qa, EBA.photos, EBA.expenses, U.wage
@@ -646,7 +652,7 @@ export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
         SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0)) AS reimb,
         SUM(U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS eventFee,
         SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0) + U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS totalDue,
-        STRING_AGG(E.event_id, ',') AS eventIds -- Collect all event IDs for this BA
+        STRING_AGG(E.event_id, ',') AS eventIds
       FROM 
         Events E
       INNER JOIN 
@@ -661,6 +667,7 @@ export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
         OtherExpenses OE ON E.event_id = OE.EventId
       WHERE 
         E.report_approved = 1
+        AND E.is_deleted = 0 AND EBA.is_deleted = 0 AND U.is_deleted = 0
       GROUP BY 
         U.id, U.name, U.avatar_url, E.payroll_group
       ORDER BY 
@@ -669,16 +676,14 @@ export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
 
     const events = result.recordset;
 
-    // Group events by payrollGroup and add events array
     const groupedEvents = events.reduce((acc: any, event: any) => {
       if (!acc[event.payrollGroup]) {
         acc[event.payrollGroup] = [];
       }
 
-      // Add event IDs as an array
       const baWithEvents = {
         ...event,
-        events: event.eventIds.split(',').map((id: string) => ({ id: parseInt(id) })) // convert eventIds into an array of event objects
+        events: event.eventIds.split(',').map((id: string) => ({ id: parseInt(id) }))
       };
 
       acc[event.payrollGroup].push(baWithEvents);
@@ -703,11 +708,10 @@ export const updatePayrollGroup = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
 
-    // Log the SQL query that will be executed
     const query = `
       UPDATE Events
       SET payroll_group = @payrollGroup, updated_at = GETDATE()
-      WHERE event_id IN (${eventIds.map(id => `'${id}'`).join(", ")})
+      WHERE event_id IN (${eventIds.map(id => `'${id}'`).join(", ")}) AND is_deleted = 0
     `;
     console.log("Executing query:", query);
 

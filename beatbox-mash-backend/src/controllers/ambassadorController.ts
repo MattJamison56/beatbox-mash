@@ -42,7 +42,7 @@ export const getAmbassadorsWithTeams = async (req: Request, res: Response) => {
       LEFT JOIN 
         Teams ON UserTeams.team_id = Teams.id
       WHERE 
-        Users.role = 'ambassador'
+        Users.role = 'ambassador' AND Users.is_deleted = 0
       GROUP BY 
         Users.id, 
         Users.name, 
@@ -160,23 +160,16 @@ const sendAccountCreationEmail = async (email: string, token: string) => {
 export const deleteAmbassador = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
-    const request = new sql.Request(pool);
     const { id } = req.body;
-    
-    const requestDelete = new sql.Request(pool);
-    await requestDelete
-      .input('userId', sql.Int, id)
-      .query(`
-        DELETE FROM UserTeams WHERE user_id = @userId
-      `);
 
-    await request
+    // Soft delete by setting is_deleted to 1
+    await pool.request()
       .input('id', sql.Int, id)
-      .query('DELETE FROM Users WHERE id = @id');
+      .query('UPDATE Users SET is_deleted = 1 WHERE id = @id');
 
-    res.status(200).json({ message: 'Ambassador deleted successfully' });
+    res.status(200).json({ message: 'Ambassador deleted (soft delete) successfully' });
   } catch (error) {
-    console.error('Error deleting ambassador:', error);
+    console.error('Error deleting (soft delete) ambassador:', error);
     const err = error as Error;
     res.status(500).json({ message: err.message });
   }
@@ -190,9 +183,6 @@ export const updateAmbassadorTeams = async (req: Request, res: Response) => {
     await transaction.begin();
 
     const { id, teams } = req.body;
-
-    console.log('Updating teams for ambassador ID:', id);
-    console.log('New teams:', teams);
 
     // Delete existing teams for the ambassador
     const requestDelete = new sql.Request(transaction);

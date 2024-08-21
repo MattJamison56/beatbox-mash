@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
+import sql from 'mssql';
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
-    const result = await pool.request().query('SELECT * FROM Users');
+    const result = await pool.request().query('SELECT * FROM Users WHERE is_deleted = 0');
     res.json(result.recordset);
   } catch (err) {
     const error = err as Error;
@@ -26,9 +27,11 @@ export const getAmbassadorsWithTeams = async (req: Request, res: Response) => {
       LEFT JOIN 
         Teams ON UserTeams.team_id = Teams.id
       WHERE 
-        Users.role = 'ambassador'
+        Users.role = 'ambassador' AND Users.is_deleted = 0
       GROUP BY 
-        Users.id, Users.name, Users.email, Users.address, Users.password_hash, Users.role, Users.phone_number, Users.wage, Users.date_of_last_request, Users.avatar_url, Users.created_at, Users.updated_at, Users.reset_token
+        Users.id, Users.name, Users.email, Users.address, Users.password_hash, 
+        Users.role, Users.phone_number, Users.wage, Users.date_of_last_request, 
+        Users.avatar_url, Users.created_at, Users.updated_at, Users.reset_token
     `);
     res.status(200).json(result.recordset);
   } catch (error) {
@@ -51,7 +54,7 @@ export const getManagersWithTeams = async (req: Request, res: Response) => {
       FROM 
         Users
       WHERE 
-        Users.role = 'manager'
+        Users.role = 'manager' AND Users.is_deleted = 0
     `);
     res.status(200).json(result.recordset);
   } catch (error) {
@@ -88,37 +91,18 @@ export const updateManagerTeams = async (req: Request, res: Response) => {
 
 export const deleteManager = async (req: Request, res: Response) => {
   const { id } = req.body;
-  let transaction;
 
   try {
     const pool = await poolPromise;
-    transaction = pool.transaction();
 
-    // Begin the transaction
-    await transaction.begin();
+    // Soft delete the manager by setting is_deleted = 1
+    await pool.request()
+      .input('id', sql.Int, id)
+      .query('UPDATE Users SET is_deleted = 1, updated_at = GETDATE() WHERE id = @id');
 
-    // Delete the manager from the UserTeams table
-    await transaction.request()
-      .input('user_id', id)
-      .query('DELETE FROM UserTeams WHERE user_id = @user_id');
-
-    // Delete the manager from the Users table
-    await transaction.request()
-      .input('id', id)
-      .query('DELETE FROM Users WHERE id = @id');
-
-    // Commit the transaction
-    await transaction.commit();
-
-    res.status(200).json({ message: 'Manager deleted successfully' });
+    res.status(200).json({ message: 'Manager soft deleted successfully' });
   } catch (error) {
-    console.error('Error deleting manager:', error);
-
-    // Rollback the transaction in case of error
-    if (transaction) {
-      await transaction.rollback();
-    }
-
-    res.status(500).json({ message: 'Error deleting manager' });
+    console.error('Error soft deleting manager:', error);
+    res.status(500).json({ message: 'Error soft deleting manager' });
   }
 };

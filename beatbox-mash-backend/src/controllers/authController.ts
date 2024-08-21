@@ -16,7 +16,7 @@ export const login = async (req: Request, res: Response) => {
     const pool = await poolPromise;
     const result = await pool.request()
       .input('email', email)
-      .query('SELECT * FROM Users WHERE email = @email');
+      .query('SELECT * FROM Users WHERE email = @email AND Users.is_deleted = 0');
 
     const user = result.recordset[0];
 

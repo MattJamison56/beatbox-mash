@@ -14,7 +14,12 @@ interface PrivateRouteProps {
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, roles }) => {
-  const { isAuthenticated, role } = useAuth();
+  const { isAuthenticated, role } = useAuth(); // needs to be const when temporary access is disabled
+
+  // allows temporary access
+  // isAuthenticated = true;
+  // role = "manager";
+
   const navigate = useNavigate();
 
   React.useEffect(() => {

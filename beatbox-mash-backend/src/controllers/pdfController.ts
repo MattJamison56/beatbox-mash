@@ -68,6 +68,7 @@ export const generateReportPDF = async (req: Request, res: Response) => {
           EventPhotos ep ON e.event_id = ep.event_id
         WHERE 
           e.event_id = @eventId
+          AND e.is_deleted = 0 AND eba.is_deleted = 0 AND u.is_deleted = 0 AND v.is_deleted = 0 AND c.is_deleted = 0
       `);
 
     const event = result.recordset[0];
@@ -87,6 +88,7 @@ export const generateReportPDF = async (req: Request, res: Response) => {
           Products p ON ei.product_id = p.ProductID
         WHERE 
           ei.event_id = @eventId
+          AND ei.is_deleted = 0 AND p.is_deleted = 0
       `);
     console.log('Inventory data fetched:', inventoryResult.recordset);
 
@@ -221,6 +223,7 @@ export const getEventPdf = async (req: Request, res: Response) => {
         SELECT s3_path 
         FROM EventReports 
         WHERE event_id = @eventId
+        AND is_deleted = 0
       `);
 
     if (result.recordset.length === 0) {
