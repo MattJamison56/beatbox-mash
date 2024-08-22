@@ -55,13 +55,19 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
 
   const fetchCampaigns = async () => {
     try {
-      const response = await fetch('http://localhost:5000/campaigns');
-      const data = await response.json();
-      setCampaigns(data);
+        const response = await fetch('http://localhost:5000/campaigns');
+        const data = await response.json();
+
+        if (Array.isArray(data) && data.length === 0) {
+            setCampaigns([]);
+        } else {
+            setCampaigns(data);
+        }
     } catch (error) {
-      console.error('Error fetching campaigns:', error);
+        console.error('Error fetching campaigns:', error);
     }
   };
+
 
   useEffect(() => {
     fetchCampaigns();

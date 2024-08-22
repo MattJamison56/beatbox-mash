@@ -4,7 +4,10 @@ import sql from 'mssql';
 
 export const getCampaigns = async (req: Request, res: Response) => {
   try {
+    console.log('Connecting to the database...');
     const pool = await poolPromise;
+
+    console.log('Executing SQL query...');
     const result = await pool.request().query(`
       SELECT 
         Campaigns.*, 
@@ -25,17 +28,24 @@ export const getCampaigns = async (req: Request, res: Response) => {
         Campaigns.ba_check_in_out, Campaigns.photo_check_in, Campaigns.photo_check_out, 
         Campaigns.show_check_photos_in_report, Campaigns.set_time_duration_presets, 
         Campaigns.allow_ba_to_schedule, Campaigns.override_wage, Campaigns.exclude_expenses_from_report, 
-        Campaigns.hide_ba_contact_info, Campaigns.created_at, Campaigns.updated_at
+        Campaigns.hide_ba_contact_info, Campaigns.created_at, Campaigns.updated_at, 
+        Campaigns.is_deleted  -- Add this to the GROUP BY clause
     `);
+
+    console.log('SQL query executed successfully.');
+    console.log('Result:', result.recordset);
 
     const campaigns = result.recordset.map(campaign => ({
       ...campaign,
       owners: campaign.owners ? campaign.owners.split(',') : []
     }));
 
-    res.json(campaigns);
+    console.log('Campaigns processed:', campaigns);
+
+    res.json(campaigns.length > 0 ? campaigns : []);
   } catch (err) {
     const error = err as Error;
+    console.error('Error occurred in getCampaigns:', error.message);
     res.status(500).send(error.message);
   }
 };

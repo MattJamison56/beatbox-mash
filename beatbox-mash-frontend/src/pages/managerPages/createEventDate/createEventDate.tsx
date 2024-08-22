@@ -40,10 +40,10 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
   const [campaigns, setCampaigns] = useState<string[]>([]);
   const [venues, setVenues] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
-  const [selectedVenue, setSelectedVenue] = useState<string | null>(null);
-  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [eventType, setEventType] = useState<string | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<string | ''>('');
+  const [selectedVenue, setSelectedVenue] = useState<string | ''>('');
+  const [selectedTeam, setSelectedTeam] = useState<string | ''>('');
+  const [eventType, setEventType] = useState<string | ''>('');
   const [whoSchedules, setWhoSchedules] = useState('Specific Date');
   const [startDateTime, setStartDateTime] = useState<Dayjs | null>(null);
   const [durationHours, setDurationHours] = useState<number>(3);
@@ -54,6 +54,9 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [editBaId, setEditBaId] = useState<number | null>(null);
   const [preEventInstructions, setPreEventInstructions] = useState<string>('');
+  const [selectedProgram, setSelectedProgram] = useState<string>('');
+  const [selectedWholesaler, setSelectedWholesaler] = useState<string>('');
+
 
   useEffect(() => {
     // Fetch campaigns, venues, teams, and brand ambassadors from the backend
@@ -129,7 +132,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
     );
   };
 
-  const notifyBrandAmbassadors = async (brandAmbassadors: BrandAmbassador[], eventName: any, startDateTime: Dayjs | null, venue: string | null, preEventInstructions: any) => {
+  const notifyBrandAmbassadors = async (brandAmbassadors: BrandAmbassador[], eventName: any, startDateTime: Dayjs | null, venue: string | '', preEventInstructions: any) => {
     try {
       const response = await fetch('http://localhost:5000/events/notifybas', {
         method: 'POST',
@@ -156,7 +159,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
   };
 
   const handleCampaignChange = async (_event: React.ChangeEvent<{}>, value: string | null) => {
-    setSelectedCampaign(value);
+    setSelectedCampaign(value ?? '');
   
     if (value) {
       try {
@@ -242,7 +245,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <Autocomplete
             options={venues}
             value={selectedVenue}
-            onChange={(_event, value) => setSelectedVenue(value)}
+            onChange={(_event, value) => setSelectedVenue(value ?? '')}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -255,7 +258,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <Autocomplete
             options={teams}
             value={selectedTeam}
-            onChange={(_event, value) => setSelectedTeam(value)}
+            onChange={(_event, value) => setSelectedTeam(value ?? '')}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -284,7 +287,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <TextField
             select
             label="Event Type"
-            value={eventType}
+            value={eventType || ''}
             onChange={(event) => setEventType(event.target.value)}
             fullWidth
             margin="normal"
@@ -473,6 +476,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <TextField
             label="Event Type"
             select
+            value={eventType || ''}
+            onChange={(event) => setEventType(event.target.value)}
             fullWidth
             margin="normal"
           >
@@ -488,6 +493,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <TextField
             label="Primary Program"
             select
+            value={selectedProgram || ''}
+            onChange={(event) => setSelectedProgram(event.target.value)}
             fullWidth
             margin="normal"
           >
@@ -498,6 +505,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <TextField
             label="Wholesaler"
             select
+            value={selectedWholesaler || ''}
+            onChange={(event) => setSelectedWholesaler(event.target.value)}
             fullWidth
             margin="normal"
           >
@@ -512,7 +521,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
             Create
           </Button>
           {/* Despite saying on event creation just doesn't submit and sets back to list view for cancel button*/}
-          <Button variant="outlined" color="secondary" onSubmit={onEventCreation} style={{ margin: '10px' }}>
+          <Button variant="outlined" color="secondary" onClick={onEventCreation} style={{ margin: '10px' }}>
             Cancel
           </Button>
         </Box>

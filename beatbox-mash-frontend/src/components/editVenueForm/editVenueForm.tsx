@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 
-// TODO: Make edit form actually autofill with correct info. Rn the autocomplete text fields refuse to be changed.
+// All fucked up. Note: parks give correct info for some reason???? For name and address.
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { debounce } from "lodash";
@@ -45,6 +45,7 @@ const EditVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenues:
       fetchTeams();
       if (venueData) {
         setVenue({ ...venueData, teams: Array.isArray(venueData.teams) ? venueData.teams : [] });
+        updateMapCenterWithAddress(venueData.address);
       } else {
         getUserLocation();
       }
@@ -98,6 +99,19 @@ const EditVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenues:
     }
   };
 
+  const updateMapCenterWithAddress = useCallback((address: string) => {
+    if (placesService.current && address) {
+      placesService.current.textSearch({ query: address }, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0].geometry?.location) {
+          const lat = results[0].geometry.location.lat();
+          const lng = results[0].geometry.location.lng();
+          setMapCenter({ lat, lng });
+          setMarkerPosition({ lat, lng });
+        }
+      });
+    }
+  }, []);
+
   const updateMapCenter = useCallback((placeId: string) => {
     if (placesService.current) {
       placesService.current.getDetails(
@@ -109,12 +123,12 @@ const EditVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenues:
             setMapCenter({ lat, lng });
             setMarkerPosition({ lat, lng });
 
-            const name = place.name || '';
-            const formattedName = name ? `${name} - ${place.formatted_address}` : place.formatted_address || '';
+            // const name = place.name || '';
+            // const formattedName = name ? `${name} - ${place.formatted_address}` : place.formatted_address || '';
 
             setVenue(prevVenue => ({
               ...prevVenue,
-              name: formattedName,
+              // name: formattedName,
               address: place.formatted_address || '',
             }));
           }
@@ -140,7 +154,7 @@ const EditVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenues:
   );
 
   const onMarkerDragEnd = useCallback((_event: google.maps.MapMouseEvent) => {
-    console.log('drag end');
+    console.log('Marker dragged');
   }, []);
 
   return (
@@ -183,14 +197,15 @@ const EditVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenues:
                 geocoder.geocode({ location: { lat, lng } }, (results, status) => {
                   if (status === 'OK' && results && results[0]) {
                     const address = results[0].formatted_address;
-                    const name = results[0].address_components.find(component => component.types.includes('point_of_interest'))?.long_name || '';
-                    const city = results[0].address_components.find(component => component.types.includes('locality'))?.long_name || '';
-                    const formattedName = name && city ? `${name} - ${city}` : address;
-                    
+                    // Need to find a away to isolate these
+                    // const name = results[0].address_components.find(component => component.types.includes('point_of_interest'))?.long_name || '';
+                    // const city = results[0].address_components.find(component => component.types.includes('locality'))?.long_name || '';
+                    // const formattedName = name && city ? `${name} - ${city}` : address;
+
                     setVenue(prevVenue => ({
                       ...prevVenue,
                       address: address,
-                      name: formattedName
+                      // name: formattedName
                     }));
                   }
                 });

@@ -254,15 +254,17 @@ export const getMyEvents = async (req: Request, res: Response) => {
         JOIN 
           EventBrandAmbassadors eba ON e.event_id = eba.event_id
         JOIN 
-          Teams t ON e.team_id = t.id AND t.is_deleted = 0 -- Only include active Teams
+          Teams t ON e.team_id = t.id -- Teams table has is_deleted column
         JOIN 
-          Venues v ON e.venue_id = v.id AND v.is_deleted = 0 -- Only include active Venues
+          Venues v ON e.venue_id = v.id -- Venues table has is_deleted column
         JOIN 
-          Campaigns c ON e.campaign_id = c.id AND c.is_deleted = 0 -- Only include active Campaigns
+          Campaigns c ON e.campaign_id = c.id -- Campaigns table has is_deleted column
         WHERE 
           eba.ba_id = @ba_id
-          AND e.is_deleted = 0 -- Only include active Events
-          AND eba.is_deleted = 0 -- Only include active EventBrandAmbassadors
+          AND e.is_deleted = 0 -- Events table has is_deleted column
+          AND t.is_deleted = 0 -- Teams table has is_deleted column
+          AND v.is_deleted = 0 -- Venues table has is_deleted column
+          AND c.is_deleted = 0 -- Campaigns table has is_deleted column
       `);
 
     res.status(200).json(result.recordset);
@@ -288,7 +290,7 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
           JOIN 
             Users u ON eba.ba_id = u.id
           WHERE 
-            e.is_deleted = 0 AND eba.is_deleted = 0 AND u.is_deleted = 0  -- Filter for active records
+            e.is_deleted = 0 AND u.is_deleted = 0  -- Filter for active records
           GROUP BY 
             e.event_id
         )
@@ -307,28 +309,28 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
               (
                 SELECT SUM(r.total_amount)
                 FROM Receipts r
-                WHERE r.event_id = e.event_id AND r.is_deleted = 0  -- Only include active receipts
+                WHERE r.event_id = e.event_id  -- Only include receipts
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(mr.TotalFee)
                 FROM MileageReports mr
-                WHERE mr.EventId = e.event_id AND mr.is_deleted = 0  -- Only include active mileage reports
+                WHERE mr.EventId = e.event_id  -- Only include mileage reports
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(oe.Amount)
                 FROM OtherExpenses oe
-                WHERE oe.EventId = e.event_id AND oe.is_deleted = 0  -- Only include active other expenses
+                WHERE oe.EventId = e.event_id  -- Only include other expenses
               ), 0
             )
           ) AS totalExpense,
           (
             SELECT COUNT(r.receipt_id)
             FROM Receipts r
-            WHERE r.event_id = e.event_id AND r.is_deleted = 0  -- Only include active receipts
+            WHERE r.event_id = e.event_id  -- Only include receipts
           ) AS expensesCount,
           COUNT(ep.photo_id) AS photosCount,
           (
@@ -337,21 +339,21 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
               (
                 SELECT SUM(r.total_amount)
                 FROM Receipts r
-                WHERE r.event_id = e.event_id AND r.is_deleted = 0  -- Only include active receipts
+                WHERE r.event_id = e.event_id  -- Only include receipts
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(mr.TotalFee)
                 FROM MileageReports mr
-                WHERE mr.EventId = e.event_id AND mr.is_deleted = 0  -- Only include active mileage reports
+                WHERE mr.EventId = e.event_id  -- Only include mileage reports
               ), 0
             ) + 
             ISNULL(
               (
                 SELECT SUM(oe.Amount)
                 FROM OtherExpenses oe
-                WHERE oe.EventId = e.event_id AND oe.is_deleted = 0  -- Only include active other expenses
+                WHERE oe.EventId = e.event_id  -- Only include other expenses
               ), 0
             )
           ) AS totalDue
@@ -374,7 +376,6 @@ export const getPendingEventsForApproval = async (req: Request, res: Response) =
         WHERE 
           e.report_submitted = 1
           AND e.is_deleted = 0  -- Only include active events
-          AND eba.is_deleted = 0  -- Only include active event-brand ambassador associations
           AND u.is_deleted = 0  -- Only include active users
           AND t.is_deleted = 0  -- Only include active teams
           AND v.is_deleted = 0  -- Only include active venues
@@ -667,7 +668,7 @@ export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
         OtherExpenses OE ON E.event_id = OE.EventId
       WHERE 
         E.report_approved = 1
-        AND E.is_deleted = 0 AND EBA.is_deleted = 0 AND U.is_deleted = 0
+        AND E.is_deleted = 0 AND U.is_deleted = 0
       GROUP BY 
         U.id, U.name, U.avatar_url, E.payroll_group
       ORDER BY 

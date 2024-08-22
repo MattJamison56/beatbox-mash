@@ -14,7 +14,6 @@ const EventsList: React.FC = () => {
     try {
       const response = await fetch('http://localhost:5000/events');
       const data = await response.json();
-      console.log('Fetched events:', data);
       setEvents(data);
     } catch (error) {
       console.error('Error fetching events:', error);
