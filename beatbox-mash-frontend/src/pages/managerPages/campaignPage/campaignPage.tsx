@@ -1,3 +1,5 @@
+// TODO: rn ba can schedule doesn't mean anything
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, IconButton, Menu, MenuItem, Switch } from '@mui/material';
@@ -97,6 +99,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
 
   const handleEdit = (campaign: any) => {
     onCreateCampaign(campaign);
+    console.log('Campaign being edited:', campaign);
     handleMenuClose();
   };
 

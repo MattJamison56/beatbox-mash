@@ -39,9 +39,10 @@ export const createProducts = async (req: Request, res: Response) => {
         .input('barcode', sql.NVarChar, product.barcode)
         .input('msrp', sql.Decimal(10, 2), product.msrp)
         .input('productGroup', sql.NVarChar, product.productGroup)
+        .input('productWorth', sql.Int, product.productWorth) // Add input for ProductWorth
         .query(`
-          INSERT INTO Products (ProductName, Barcode, MSRP, ProductGroup)
-          VALUES (@productName, @barcode, @msrp, @productGroup)
+          INSERT INTO Products (ProductName, Barcode, MSRP, ProductGroup, ProductWorth)
+          VALUES (@productName, @barcode, @msrp, @productGroup, @productWorth)
         `);
     }
 

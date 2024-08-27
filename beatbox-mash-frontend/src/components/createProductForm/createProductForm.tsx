@@ -1,11 +1,19 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem } from '@mui/material';
 
 const CreateProductForm: React.FC<{ open: boolean; onClose: () => void; fetchProducts: () => void }> = ({ open, onClose, fetchProducts }) => {
   const [products, setProducts] = useState<any[]>([
-    { productName: '', barcode: '', msrp: 0, productGroup: '' }
+    { productName: '', barcode: '', msrp: 0, productGroup: '', productWorth: 1 }
   ]);
+  const initialProductState = { productName: '', barcode: '', msrp: 0, productGroup: '', productWorth: 1 };
+  
+  useEffect(() => {
+    if (open) {
+      setProducts([initialProductState]);
+    }
+  }, [open]);
 
   const handleChange = (index: number, field: string, value: any) => {
     const newProducts = [...products];
@@ -14,7 +22,7 @@ const CreateProductForm: React.FC<{ open: boolean; onClose: () => void; fetchPro
   };
 
   const handleAddMore = () => {
-    setProducts([...products, { productName: '', barcode: '', msrp: 0, productGroup: '' }]);
+    setProducts([...products, { productName: '', barcode: '', msrp: 0, productGroup: '', productWorth: 1 }]);
   };
 
   const handleRemove = (index: number) => {
@@ -48,7 +56,7 @@ const CreateProductForm: React.FC<{ open: boolean; onClose: () => void; fetchPro
       <DialogTitle>Create Products</DialogTitle>
       <DialogContent>
         {products.map((product, index) => (
-          <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
+          <div key={index} style={{ display: 'flex', alignItems: 'center', marginBottom: '20px', marginTop: '10px' }}>
             <TextField
               select
               label="Group"
@@ -79,6 +87,14 @@ const CreateProductForm: React.FC<{ open: boolean; onClose: () => void; fetchPro
               label="MSRP"
               value={product.msrp}
               onChange={(e) => handleChange(index, 'msrp', e.target.value)}
+              style={{ marginRight: '10px', flex: 1 }}
+              fullWidth
+            />
+            <TextField
+              label="Worth"
+              type="number"
+              value={product.productWorth}
+              onChange={(e) => handleChange(index, 'productWorth', e.target.value)}
               style={{ marginRight: '10px', flex: 1 }}
               fullWidth
             />

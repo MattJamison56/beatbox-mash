@@ -1,11 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { Button, TextField, Autocomplete, Switch, FormControlLabel, Typography, Box, Divider } from '@mui/material';
+import { Button, TextField, Autocomplete, Switch, FormControlLabel, Typography, Box, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Checkbox } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useParams } from 'react-router-dom';
 
 interface CreateCampaignPageProps {
   onBackToCampaigns: () => void;
+  campaign?: any;
+}
+
+interface Product {
+  ProductID: number;
+  ProductName: string;
+  Barcode: string;
+  MSRP: number;
+  ProductGroup: string;
 }
 
 const Section = styled(Box)(({ theme }) => ({
@@ -18,89 +27,81 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
   color: '#6f65ac',
 }));
 
-const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaigns }) => {
+const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaigns, campaign }) => {
   const { id } = useParams<{ id: string }>();
-  const [name, setName] = useState('');
-  const [owners, setOwners] = useState<string[]>([]);
+  const [name, setName] = useState(campaign?.name || '');
+  const [owners, setOwners] = useState<string[]>(Array.isArray(campaign?.owners) ? campaign.owners : []);
+  const [teams, setTeams] = useState<string[]>(Array.isArray(campaign?.teams) ? campaign.teams : []);
   const [availableManagers, setAvailableManagers] = useState<string[]>([]);
-  const [reportTemplate, setReportTemplate] = useState('');
-  const [preEventInstructions, setPreEventInstructions] = useState('');
-  const [firstBaInventory, setFirstBaInventory] = useState(false);
-  const [firstBaPostEvent, setFirstBaPostEvent] = useState(false);
-  const [subsequentBaInventory, setSubsequentBaInventory] = useState(false);
-  const [subsequentBaPostEvent, setSubsequentBaPostEvent] = useState(false);
-  const [baEditEventName, setBaEditEventName] = useState(false);
-  const [baChangeVenue, setBaChangeVenue] = useState(false);
-  const [baReschedule, setBaReschedule] = useState(false);
-  const [baCheckInOut, setBaCheckInOut] = useState(false);
-  const [photoCheckIn, setPhotoCheckIn] = useState('disabled');
-  const [photoCheckOut, setPhotoCheckOut] = useState('disabled');
-  const [showCheckPhotosInReport, setShowCheckPhotosInReport] = useState(false);
-  const [timeDurationPresets, setTimeDurationPresets] = useState(false);
-  const [allowBaToSchedule, setAllowBaToSchedule] = useState(false);
-  const [excludeExpensesFromReport, setExcludeExpensesFromReport] = useState(false);
-  const [hideBaContactInfo, setHideBaContactInfo] = useState(false);
-  const [teams, setTeams] = useState<string[]>([]);
+  const [reportTemplate, setReportTemplate] = useState(campaign?.report_template || '');
+  const [preEventInstructions, setPreEventInstructions] = useState(campaign?.pre_event_instructions || '');
+  const [firstBaInventory, setFirstBaInventory] = useState(campaign?.first_ba_inventory || false);
+  const [firstBaPostEvent, setFirstBaPostEvent] = useState(campaign?.first_ba_post_event || false);
+  const [subsequentBaInventory, setSubsequentBaInventory] = useState(campaign?.subsequent_ba_inventory || false);
+  const [subsequentBaPostEvent, setSubsequentBaPostEvent] = useState(campaign?.subsequent_ba_post_event || false);
+  const [baCheckInOut, setBaCheckInOut] = useState(campaign?.ba_check_in_out || false);
+  const [photoCheckIn, setPhotoCheckIn] = useState(campaign?.photo_check_in || 'disabled');
+  const [photoCheckOut, setPhotoCheckOut] = useState(campaign?.photo_check_out || 'disabled');
+  const [showCheckPhotosInReport, setShowCheckPhotosInReport] = useState(campaign?.show_check_photos_in_report || false);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
-  const [products, setProducts] = useState<string[]>([]);
-  const [availableProducts, setAvailableProducts] = useState<string[]>([]);
+  const [products, setProducts] = useState<Product[]>(campaign?.products || []);
+  const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
+  const [productModalOpen, setProductModalOpen] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:5000/teams')
-      .then(response => response.json())
-      .then(data => setAvailableTeams(data.map((team: any) => team.name)))
-      .catch(error => console.error('Error fetching teams:', error));
-
-    fetch('http://localhost:5000/products')
-      .then(response => response.json())
-      .then(data => setAvailableProducts(data.map((product: any) => product.ProductName)))
-      .catch(error => console.error('Error fetching products:', error));
-
-    fetch('http://localhost:5000/managers')
-      .then(response => response.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          setAvailableManagers(data.map((manager: any) => manager.name));
+    const fetchData = async () => {
+      try {
+        // Fetch available teams
+        const teamsResponse = await fetch('http://localhost:5000/teams');
+        const teamsData = await teamsResponse.json();
+        setAvailableTeams(teamsData.map((team: any) => team.name));
+  
+        // Fetch available products
+        const productsResponse = await fetch('http://localhost:5000/products');
+        const productsData = await productsResponse.json();
+        setAvailableProducts(productsData);
+  
+        // Fetch available managers
+        const managersResponse = await fetch('http://localhost:5000/managers');
+        const managersData = await managersResponse.json();
+        if (Array.isArray(managersData)) {
+          setAvailableManagers(managersData.map((manager: any) => manager.name));
         } else {
-          console.error('Unexpected response format:', data);
+          console.error('Unexpected response format:', managersData);
         }
-      })
-      .catch(error => console.error('Error fetching managers:', error));
-
-    if (id) {
-      fetch(`http://localhost:5000/campaigns/${id}`)
-        .then(response => response.json())
-        .then(data => {
-          setName(data.name);
-          setOwners(data.owners);
-          setReportTemplate(data.report_template);
-          setPreEventInstructions(data.pre_event_instructions);
-          setFirstBaInventory(data.first_ba_inventory);
-          setFirstBaPostEvent(data.first_ba_post_event);
-          setSubsequentBaInventory(data.subsequent_ba_inventory);
-          setSubsequentBaPostEvent(data.subsequent_ba_post_event);
-          setBaEditEventName(data.ba_edit_event_name);
-          setBaChangeVenue(data.ba_change_venue);
-          setBaReschedule(data.ba_reschedule);
-          setBaCheckInOut(data.ba_check_in_out);
-          setPhotoCheckIn(data.photo_check_in);
-          setPhotoCheckOut(data.photo_check_out);
-          setShowCheckPhotosInReport(data.show_check_photos_in_report);
-          setTimeDurationPresets(data.set_time_duration_presets);
-          setAllowBaToSchedule(data.allow_ba_to_schedule);
-          setExcludeExpensesFromReport(data.exclude_expenses_from_report);
-          setHideBaContactInfo(data.hide_ba_contact_info);
-          setTeams(data.teams || []);
-          setProducts(data.products || []);
-        })
-        .catch(error => console.error('Error fetching campaign:', error));
-    }
-  }, [id]);
+  
+        // Fetch campaign details along with associated products
+        if (campaign) {
+          const campaignResponse = await fetch(`http://localhost:5000/campaigns/${campaign.id}`);
+          const campaignData = await campaignResponse.json();
+  
+          setName(campaignData.name);
+          setOwners(Array.isArray(campaignData.owners) ? campaignData.owners : [campaignData.owners]);
+          setReportTemplate(campaignData.report_template);
+          setPreEventInstructions(campaignData.pre_event_instructions);
+          setFirstBaInventory(campaignData.first_ba_inventory);
+          setFirstBaPostEvent(campaignData.first_ba_post_event);
+          setSubsequentBaInventory(campaignData.subsequent_ba_inventory);
+          setSubsequentBaPostEvent(campaignData.subsequent_ba_post_event);
+          setBaCheckInOut(campaignData.ba_check_in_out);
+          setPhotoCheckIn(campaignData.photo_check_in);
+          setPhotoCheckOut(campaignData.photo_check_out);
+          setShowCheckPhotosInReport(campaignData.show_check_photos_in_report);
+          setTeams([...new Set((campaignData.teams || []).filter(Boolean) as string[])]);
+          setProducts(campaignData.products || []);
+        }
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+  
+    fetchData();
+  }, [campaign]);
 
   const handleSave = async () => {
     try {
-      const url = id ? `http://localhost:5000/campaigns/update` : `http://localhost:5000/campaigns/create`;
-      const method = id ? 'PUT' : 'POST';
+      const url = campaign.id ? `http://localhost:5000/campaigns/update` : `http://localhost:5000/campaigns/create`;
+      const method = 'POST';
 
       const response = await fetch(url, {
         method,
@@ -108,16 +109,23 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id, name, owners, report_template: reportTemplate, pre_event_instructions: preEventInstructions,
-          first_ba_inventory: firstBaInventory, first_ba_post_event: firstBaPostEvent,
-          subsequent_ba_inventory: subsequentBaInventory, subsequent_ba_post_event: subsequentBaPostEvent,
-          ba_edit_event_name: baEditEventName, ba_change_venue: baChangeVenue, ba_reschedule: baReschedule,
-          ba_check_in_out: baCheckInOut, photo_check_in: photoCheckIn, photo_check_out: photoCheckOut,
-          show_check_photos_in_report: showCheckPhotosInReport, set_time_duration_presets: timeDurationPresets,
-          allow_ba_to_schedule: allowBaToSchedule, override_wage: false, exclude_expenses_from_report: excludeExpensesFromReport,
-          hide_ba_contact_info: hideBaContactInfo, teams, products
-        }),
-      });
+          id: campaign.id,
+          name, 
+          owners, 
+          report_template: reportTemplate, 
+          pre_event_instructions: preEventInstructions,
+          first_ba_inventory: firstBaInventory,
+          first_ba_post_event: firstBaPostEvent,
+          subsequent_ba_inventory: subsequentBaInventory,
+          subsequent_ba_post_event: subsequentBaPostEvent,
+          ba_check_in_out: baCheckInOut, 
+          photo_check_in: photoCheckIn, 
+          photo_check_out: photoCheckOut,
+          show_check_photos_in_report: showCheckPhotosInReport, 
+          teams, 
+          products
+      }),
+    });
 
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -127,6 +135,22 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
     } catch (error) {
       console.error('Error saving campaign:', error);
     }
+  };
+
+  const toggleProductModal = () => {
+    setProductModalOpen(!productModalOpen);
+  };
+
+  const handleProductSelect = (selectedProduct: Product) => {
+    setProducts(prevProducts => 
+      prevProducts.some(product => product.ProductID === selectedProduct.ProductID)
+        ? prevProducts.filter(product => product.ProductID !== selectedProduct.ProductID)
+        : [...prevProducts, selectedProduct]
+    );
+  };
+
+  const handleRemoveAllProducts = () => {
+    setProducts([]);
   };
 
   return (
@@ -237,39 +261,40 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
 
         <Section>
           <SectionTitle variant="h6">Campaign Products</SectionTitle>
-          <Autocomplete
-            multiple
-            options={availableProducts}
-            value={products}
-            onChange={(_e, value) => setProducts(value)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Select products you want to use in this campaign"
-                fullWidth
-                margin="normal"
-              />
-            )}
-          />
-        </Section>
-
-        <Divider />
-
-        <Section>
-          <SectionTitle variant="h6">BA Editing Permissions</SectionTitle>
-          <Box display="flex" flexDirection="column">
-            <FormControlLabel
-              control={<Switch checked={baEditEventName} onChange={() => setBaEditEventName(!baEditEventName)} />}
-              label="Edit Event Name"
-            />
-            <FormControlLabel
-              control={<Switch checked={baChangeVenue} onChange={() => setBaChangeVenue(!baChangeVenue)} />}
-              label="Change Venue"
-            />
-            <FormControlLabel
-              control={<Switch checked={baReschedule} onChange={() => setBaReschedule(!baReschedule)} />}
-              label="Reschedule"
-            />
+          <Box display="flex" alignItems="center">
+            <Button variant="outlined" onClick={toggleProductModal}>
+              Select Products
+            </Button>
+            <Button variant="outlined" color="secondary" onClick={handleRemoveAllProducts} style={{ marginLeft: '10px' }}>
+              Remove All Products
+            </Button>
+          </Box>
+          <Box marginTop={2}>
+            <Typography variant="body2">
+              Selected Products:
+            </Typography>
+            <TableContainer component={Paper} style={{ marginTop: '10px' }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Product Name</TableCell>
+                    <TableCell>Barcode</TableCell>
+                    <TableCell>MSRP</TableCell>
+                    <TableCell>Group</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {products.map((product, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{product.ProductName}</TableCell>
+                      <TableCell>{product.Barcode}</TableCell>
+                      <TableCell>{product.MSRP}</TableCell>
+                      <TableCell>{product.ProductGroup}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Box>
         </Section>
 
@@ -319,30 +344,6 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
           </Box>
         </Section>
 
-        <Divider />
-
-        <Section>
-          <SectionTitle variant="h6">Other Settings</SectionTitle>
-          <Box display="flex" flexDirection="column">
-            <FormControlLabel
-              control={<Switch checked={timeDurationPresets} onChange={() => setTimeDurationPresets(!timeDurationPresets)} />}
-              label="Set Time/Duration Presets for Quick Selection"
-            />
-            <FormControlLabel
-              control={<Switch checked={allowBaToSchedule} onChange={() => setAllowBaToSchedule(!allowBaToSchedule)} />}
-              label="Allow Ambassadors to Schedule Events"
-            />
-            <FormControlLabel
-              control={<Switch checked={excludeExpensesFromReport} onChange={() => setExcludeExpensesFromReport(!excludeExpensesFromReport)} />}
-              label="Exclude Expenses From PDF Report"
-            />
-            <FormControlLabel
-              control={<Switch checked={hideBaContactInfo} onChange={() => setHideBaContactInfo(!hideBaContactInfo)} />}
-              label="Hide BA Contact Information from Event Report"
-            />
-          </Box>
-        </Section>
-
         <Box display="flex" justifyContent="center" marginTop="20px">
           <Button variant="contained" color="primary" onClick={handleSave} style={{ margin: '10px' }}>
             {id ? 'Update Campaign' : 'Create Campaign'}
@@ -352,6 +353,39 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
           </Button>
         </Box>
       </form>
+
+      {/* Product Selection Modal */}
+      <Dialog open={productModalOpen} onClose={toggleProductModal} maxWidth="md" fullWidth>
+        <DialogTitle>Select Products</DialogTitle>
+        <DialogContent>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Select</TableCell>
+                  <TableCell>Product Name</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {availableProducts.map((product, index) => (
+                  <TableRow key={index}>
+                    <TableCell>
+                      <Checkbox
+                        checked={products.some(p => p.ProductID === product.ProductID)}
+                        onChange={() => handleProductSelect(product)}
+                      />
+                    </TableCell>
+                    <TableCell>{product.ProductName}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={toggleProductModal} color="primary">Close</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

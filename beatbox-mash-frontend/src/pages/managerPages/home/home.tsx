@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState } from 'react';
 import Navbar from '../../../components/managerNavbar/managerNavbar';
@@ -16,18 +17,21 @@ import ManagePayrollPage from '../managePayrollPage/managePayrollPage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
 
   const handleSubcategoryChange = (subcategory: string | null) => {
     setCurrentSubcategory(subcategory);
     console.log(subcategory);
   };
 
-  const handleCreateCampaign = () => {
+  const handleCreateCampaign = (campaign: any = null) => { 
+    setSelectedCampaign(campaign);
     setCurrentSubcategory('Create Campaign');
   };
 
   const handleBackToCampaignPage = () => {
     setCurrentSubcategory('Campaigns');
+    setSelectedCampaign(null);
   };
 
   const handleEventCreation = () => {
@@ -48,7 +52,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Venues' && <CreateVenuesPage />}
         {currentSubcategory === 'Products' && <CreateProductsPage />}
         {currentSubcategory === 'Campaigns' && <CampaignsPage onCreateCampaign={handleCreateCampaign} />}
-        {currentSubcategory === 'Create Campaign' && <CreateCampaignPage onBackToCampaigns={handleBackToCampaignPage} />}
+        {currentSubcategory === 'Create Campaign' && <CreateCampaignPage onBackToCampaigns={handleBackToCampaignPage} campaign={selectedCampaign}/>}
         {currentSubcategory === 'Create Event Date' && <CreateEventDate onEventCreation={handleEventCreation} />}
         {currentSubcategory === 'List Events' && <ListEventsPage />}
         {currentSubcategory === 'Brand Managers' && <ManageAccountsPage />}
