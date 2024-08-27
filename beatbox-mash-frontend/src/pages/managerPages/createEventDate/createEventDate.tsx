@@ -30,6 +30,7 @@ interface BrandAmbassador {
   qa: boolean;
   photos: boolean;
   expenses: boolean;
+  mileageExpense: boolean;
 }
 
 interface CreateEventDateProps {
@@ -73,7 +74,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
         const basData = await basResponse.json();
 
         setCampaigns(campaignsData.map((campaign: any) => campaign.name));
-        setVenues(venuesData.map((venue: any) => venue.name));
+        setVenues(venuesData.map((venue: any) => `${venue.name} // ${venue.address}`));
         setTeams(teamsData.map((team: any) => team.name));
         setAvailableBas(basData); // Set available brand ambassadors
       } catch (error) {
@@ -99,7 +100,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
         inventory: brandAmbassadors.length === 0,
         qa: brandAmbassadors.length === 0,
         photos: true,
-        expenses: true
+        expenses: true,
+        mileageExpense: false,
       };
       setBrandAmbassadors((prev) => [...prev, newBa]);
       setSelectedBa(null);
@@ -130,7 +132,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
         ba.id === id ? { ...ba, [field]: !ba[field] } : ba
       )
     );
-  };
+  };  
 
   const notifyBrandAmbassadors = async (brandAmbassadors: BrandAmbassador[], eventName: any, startDateTime: Dayjs | null, venue: string | '', preEventInstructions: any) => {
     try {
@@ -245,7 +247,10 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           <Autocomplete
             options={venues}
             value={selectedVenue}
-            onChange={(_event, value) => setSelectedVenue(value ?? '')}
+            onChange={(_event, value) => {
+              const name = value?.split(' // ')[0] || ''; // Extract the name
+              setSelectedVenue(name); // Store only the name
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -294,7 +299,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           >
             <MenuItem value="On Premise">On Premise</MenuItem>
             <MenuItem value="Off Premise">Off Premise</MenuItem>
-            {/* Add other event types as needed */}
+            <MenuItem value="Festival">Festivals/Events</MenuItem>
+            <MenuItem value="Local Event">Local Event</MenuItem>
           </TextField>
           <Box display="flex" gap={2} mt={2} flexDirection={'column'}>
             <FormControl component="fieldset" margin="normal">
@@ -397,6 +403,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
                   <TableCell>Q&A</TableCell>
                   <TableCell>Photos</TableCell>
                   <TableCell>Expenses</TableCell>
+                  <TableCell>Mileage Expense</TableCell>
                   <TableCell>Options</TableCell>
                 </TableRow>
               </TableHead>
@@ -433,6 +440,12 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
                       <Checkbox
                         checked={ba.expenses}
                         onChange={() => handleCheckboxChange(ba.id, 'expenses')}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Checkbox
+                        checked={ba.mileageExpense}
+                        onChange={() => handleCheckboxChange(ba.id, 'mileageExpense')}
                       />
                     </TableCell>
                     <TableCell>
@@ -473,18 +486,6 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
 
         <Section>
           <SectionTitle variant="h6">Additional Info</SectionTitle>
-          <TextField
-            label="Event Type"
-            select
-            value={eventType || ''}
-            onChange={(event) => setEventType(event.target.value)}
-            fullWidth
-            margin="normal"
-          >
-            <MenuItem value="On Premise">On Premise</MenuItem>
-            <MenuItem value="Off Premise">Off Premise</MenuItem>
-            {/* Add other event types as needed */}
-          </TextField>
           <TextField
             label="Sales Rep Notes 2"
             fullWidth

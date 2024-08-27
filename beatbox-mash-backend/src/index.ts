@@ -18,12 +18,23 @@ import pdfRoutes from './routes/pdfRoutes';
 import fileUpload from 'express-fileupload';
 import { authenticateToken, getUserProfile } from './controllers/authController';
 import path from 'path';
+import refreshGmailToken from './refreshToken';
 
 dotenv.config();
 
 const app = express();
+
 const PORT = process.env.PORT || 5000;
 
+// app.use(async (req, res, next) => {
+//     try {
+//       await refreshGmailToken();
+//       next();
+//     } catch (error) {
+//       res.status(500).send('Failed to refresh Gmail token');
+//     }
+//   });
+  
 app.use(cors());
 app.use(express.json());
 app.use(fileUpload());

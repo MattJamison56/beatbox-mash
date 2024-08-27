@@ -1,11 +1,11 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 // src/pages/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
-import { Button, Box, Typography, Avatar } from '@mui/material';
+import { Button, Box, Typography, Avatar, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { styled } from '@mui/system';
 import EditProfileForm from '../../../components/editProfileForm/editProfileForm';
 import { useAuth } from '../../../auth/AuthContext';
-import { Dayjs } from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 
 const ProfileContainer = styled('div')({
   display: 'flex',
@@ -67,18 +67,30 @@ const ProfilePage: React.FC = () => {
     name: string;
     email: string;
     role: string;
-    age?: string;
-    height?: string;
+    date_of_birth?: Dayjs | null;
+    height_ft?: string;
+    height_in?: string;
     shirt_size?: string;
     hair_color?: string;
     gender?: string;
     primary_language?: string;
     secondary_language?: string;
     address?: string;
-    availability?: Record<string, { start: Dayjs | null, end: Dayjs | null }[]>;
   } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const { token } = useAuth();
+
+  const [openDialog, setOpenDialog] = useState(false);
+  const [dialogMessage, setDialogMessage] = useState('');
+
+  const handleOpenDialog = (message: string) => {
+    setDialogMessage(message);
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+  };
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -97,8 +109,13 @@ const ProfilePage: React.FC = () => {
         }
     
         const data = await response.json();
+
+        // Convert date_of_birth to a Dayjs object if it's valid
+        if (data.date_of_birth) {
+          data.date_of_birth = dayjs(data.date_of_birth);
+        }
+        
         setUserProfile(data);
-        console.log(userProfile);
       } catch (error) {
         console.error('Error fetching user profile:', error);
       }
@@ -117,9 +134,30 @@ const ProfilePage: React.FC = () => {
           </Typography>
         </Box>
         <Box>
-          <Button variant="contained" color="primary" style={{ margin: '10px' }} onClick={() => setIsEditing(true)}>Edit profile</Button>
-          <Button variant="contained" color="primary" style={{ margin: '10px' }}>Change email</Button>
-          <Button variant="contained" color="primary" style={{ margin: '10px' }}>Change password</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={{ margin: '10px' }}
+            onClick={() => setIsEditing(true)}
+          >
+            Edit profile
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={{ margin: '10px' }}
+            onClick={() => handleOpenDialog('Change email: To be implemented')}
+          >
+            Change email
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            style={{ margin: '10px' }}
+            onClick={() => handleOpenDialog('Change password: To be implemented')}
+          >
+            Change password
+          </Button>
         </Box>
       </Header>
       <Content>
@@ -127,12 +165,12 @@ const ProfilePage: React.FC = () => {
           <Section>
             <Typography variant="h6">Personal traits</Typography>
             <InfoItem>
-              <span>Age</span>
-              <span>{userProfile?.age || 'Not Entered'}</span>
+              <span>Date of Birth</span>
+              <span>{userProfile?.date_of_birth ? userProfile.date_of_birth.format('MM/DD/YYYY') : 'Not Entered'}</span>
             </InfoItem>
             <InfoItem>
               <span>Height</span>
-              <span>{userProfile?.height || 'Not Entered'}</span>
+              <span>{userProfile ? `${userProfile.height_ft || 'Not Entered'} ft ${userProfile.height_in || 'Not Entered'} in` : 'Not Entered'}</span>
             </InfoItem>
             <InfoItem>
               <span>Shirt Size</span>
@@ -171,10 +209,6 @@ const ProfilePage: React.FC = () => {
               <span>Address</span>
               <span>{userProfile?.address || 'Not Entered'}</span>
             </InfoItem>
-            <InfoItem>
-              <span>Availability</span>
-              <span>Not Entered</span>
-            </InfoItem>
           </Section>
         </RightColumn>
       </Content>
@@ -199,6 +233,12 @@ const ProfilePage: React.FC = () => {
               }
 
               const data = await response.json();
+
+              // Convert date_of_birth to a Dayjs object if it's valid
+              if (data.date_of_birth) {
+                data.date_of_birth = dayjs(data.date_of_birth);
+              }
+
               setUserProfile(data);
             } catch (error) {
               console.error('Error fetching user profile:', error);
@@ -206,6 +246,19 @@ const ProfilePage: React.FC = () => {
           }}
         />
       )}
+
+      {/* Dialog for showing "To be implemented" messages */}
+      <Dialog open={openDialog} onClose={handleCloseDialog}>
+        <DialogTitle>Information</DialogTitle>
+        <DialogContent>
+          <Typography>{dialogMessage}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </ProfileContainer>
   );
 };

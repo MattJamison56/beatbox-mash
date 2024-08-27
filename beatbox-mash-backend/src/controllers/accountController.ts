@@ -119,27 +119,35 @@ export const setPassword = async (req: Request, res: Response) => {
 };
 
 export const saveProfileInfo = async (req: Request, res: Response) => {
-  const { id, age, height, shirt_size, hair_color, gender, primary_language, secondary_language, address, availability } = req.body;
+  const { id, date_of_birth, height_ft, height_in, shirt_size, hair_color, gender, primary_language, secondary_language, address } = req.body;
 
   try {
     console.log("In backend");
-    console.log({ id, age, height, shirt_size, hair_color, gender, primary_language, secondary_language, address, availability });
+    console.log({ id, date_of_birth, height_ft, height_in, shirt_size, hair_color, gender, primary_language, secondary_language, address });
+
     const pool = await poolPromise;
     await pool.request()
       .input('id', id)
-      .input('age', age)
-      .input('height', height)
+      .input('date_of_birth', date_of_birth)
+      .input('height_ft', height_ft)
+      .input('height_in', height_in)
       .input('shirt_size', shirt_size)
       .input('hair_color', hair_color)
       .input('gender', gender)
       .input('primary_language', primary_language)
       .input('secondary_language', secondary_language)
       .input('address', address)
-      .input('availability', JSON.stringify(availability))
       .query(`
         UPDATE Users
-        SET age = @age, height = @height, shirt_size = @shirt_size, hair_color = @hair_color, gender = @gender,
-            primary_language = @primary_language, secondary_language = @secondary_language, address = @address, availability = @availability
+        SET date_of_birth = @date_of_birth, 
+            height_ft = @height_ft, 
+            height_in = @height_in, 
+            shirt_size = @shirt_size, 
+            hair_color = @hair_color, 
+            gender = @gender,
+            primary_language = @primary_language, 
+            secondary_language = @secondary_language, 
+            address = @address
         WHERE id = @id
       `);
 
@@ -149,3 +157,4 @@ export const saveProfileInfo = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error updating profile' });
   }
 };
+

@@ -84,8 +84,9 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
     const result = await pool.request()
       .input('id', req.user.userId)
       .query(`
-        SELECT id, name, email, role, age, height, shirt_size, hair_color, gender, primary_language, secondary_language, address, availability
-        FROM Users WHERE id = @id
+        SELECT id, name, email, role, date_of_birth, height_ft, height_in, shirt_size, hair_color, gender, primary_language, secondary_language, address
+        FROM Users
+        WHERE id = @id
       `);
 
     const user = result.recordset[0];
@@ -97,4 +98,5 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
     res.status(500).json({ message: 'Error fetching user profile' });
   }
 };
+
 

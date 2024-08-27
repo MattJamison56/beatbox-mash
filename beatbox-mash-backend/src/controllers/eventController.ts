@@ -188,9 +188,10 @@ export const createEvent = async (req: Request, res: Response) => {
         .input('qa', sql.Bit, ba.qa)
         .input('photos', sql.Bit, ba.photos)
         .input('expenses', sql.Bit, ba.expenses)
+        .input('mileage_allowed', sql.Bit, ba.mileageExpense)
         .query(`
-          INSERT INTO EventBrandAmbassadors (event_id, ba_id, inventory, qa, photos, expenses)
-          VALUES (@event_id, @ba_id, @inventory, @qa, @photos, @expenses)
+          INSERT INTO EventBrandAmbassadors (event_id, ba_id, inventory, qa, photos, expenses, mileage_allowed)
+          VALUES (@event_id, @ba_id, @inventory, @qa, @photos, @expenses, @mileage_allowed)
         `);
     }
 
