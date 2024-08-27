@@ -164,7 +164,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
     if (value) {
       try {
         const encodedValue = encodeURIComponent(value);
-        const response = await fetch(`http://localhost:5000/campaigns/campaigns/${encodedValue}`);
+        const response = await fetch(`http://localhost:5000/campaigns/name/${encodedValue}`);
         if (!response.ok) {
           throw new Error('Failed to fetch campaign details');
         }

@@ -335,6 +335,7 @@ export const updateCampaignTeams = async (req: Request, res: Response) => {
 
 export const getCampaignByName = async (req: Request, res: Response) => {
   const { name } = req.params;
+  console.log(name);
   try {
     const pool = await poolPromise;
     const result = await pool.request()
@@ -356,7 +357,7 @@ export const getCampaignByName = async (req: Request, res: Response) => {
           Campaigns.pre_event_instructions, Campaigns.first_ba_inventory, Campaigns.first_ba_post_event, 
           Campaigns.subsequent_ba_inventory, Campaigns.subsequent_ba_post_event, Campaigns.ba_check_in_out, 
           Campaigns.photo_check_in, Campaigns.photo_check_out, Campaigns.show_check_photos_in_report, 
-          Campaigns.created_at, Campaigns.updated_at
+          Campaigns.created_at, Campaigns.updated_at, Campaigns.is_deleted
       `);
 
     if (result.recordset.length === 0) {

@@ -8,7 +8,7 @@ router.post('/create', createCampaign);
 router.post('/delete', deleteCampaign);
 router.post('/update', updateCampaign); // Add this line for updating a campaign
 router.post('/updatecampaignteams', updateCampaignTeams); // Add this line for updating campaign teams
-router.get('/campaigns/:name', getCampaignByName);
+router.get('/name/:name', getCampaignByName);
 router.get('/:id', getCampaignById);
 
 export default router;
