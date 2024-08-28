@@ -1,15 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, List, Divider, Button, Card, CardContent, Grid, IconButton
+  Box, Typography, List, Divider, Button, Card, CardContent, Grid, IconButton, Tooltip, Modal,
+  styled
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { styled } from '@mui/system';
+import { Worker, Viewer } from '@react-pdf-viewer/core';
+import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import ReportForm from '../../../components/reportForm/reportForm';
 
 interface Event {
   report_submitted: any;
+  personal_report_submitted: boolean;
   id: number;
   eventName: string;
   startDateTime: string;
@@ -51,6 +56,13 @@ const isReportOverdue = (endDateTime: string) => {
   return diffInHours > 24;
 };
 
+const isEventWithinOneWeek = (startDateTime: string) => {
+  const startDate = new Date(startDateTime);
+  const now = new Date();
+  const diffInDays = (startDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  return diffInDays < 7;
+};
+
 interface ReportStatusProps {
   status: 'overdue' | 'required' | 'submitted';
 }
@@ -71,6 +83,8 @@ const Events = () => {
   const [expandedEventIds, setExpandedEventIds] = useState<number[]>([]);
   const [openModal, setOpenModal] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null); // Add PDF URL state
+  const defaultLayoutPluginInstance = defaultLayoutPlugin(); // Initialize PDF plugin
 
   const fetchEvents = async () => {
     const ba_id = localStorage.getItem('ba_id');
@@ -103,7 +117,10 @@ const Events = () => {
     setOpenModal(true);
   };
 
-  const handleCloseModal = () => setOpenModal(false);
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setPdfUrl(null); // Clear the PDF URL when modal closes
+  };
 
   const handleReportSubmitted = () => {
     fetchEvents();
@@ -111,17 +128,51 @@ const Events = () => {
 
   const handleViewReport = async (event: Event) => {
     try {
-      const response = await fetch(`http://localhost:5000/pdf/generateReport/${event.id}`);
+      console.log(`Fetching PDF for event ID: ${event.id}`); // Log the event ID
+      const response = await fetch(`http://localhost:5000/pdf/getpdf/${event.id}`);
+      console.log('Response status:', response.status); // Log the status of the response
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch PDF');
+      }
+  
       const data = await response.json();
-      if (data.filePath) {
-        const fileUrl = `http://localhost:5000${data.filePath}`;
-        window.open(fileUrl, '_blank');
+      console.log('Response data:', data); // Log the response data
+  
+      if (data.pdfUrl) {
+        console.log('PDF URL received:', data.pdfUrl); // Log the received PDF URL
+        setPdfUrl(data.pdfUrl); // Set PDF URL for viewing in modal
+        setOpenModal(true);
+      } else {
+        console.error('No PDF URL found in response data');
       }
     } catch (error) {
       console.error('Error fetching report:', error);
     }
   };
   
+
+  const handleDeclineEvent = async (event: Event) => {
+    try {
+      const response = await fetch(`http://localhost:5000/events/decline/${event.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ba_id: localStorage.getItem('ba_id'),
+        }),
+      });
+      if (response.ok) {
+        fetchEvents();
+        alert('Event declined and email sent to campaign owner(s).');
+      } else {
+        console.error('Error declining event:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error declining event:', error);
+    }
+  };
 
   return (
     <Box padding={2}>
@@ -133,7 +184,7 @@ const Events = () => {
               <CardContent>
                 <Grid container spacing={1} alignItems="center">
                   <Grid item xs={2}>
-                    {event.report_submitted ? (
+                    {event.personal_report_submitted ? (
                       <ReportStatus status="submitted">Submitted</ReportStatus>
                     ) : isReportOverdue(event.endDateTime) ? (
                       <ReportStatus status="overdue">Report Overdue</ReportStatus>
@@ -158,7 +209,7 @@ const Events = () => {
                           variant="contained"
                           color="primary"
                           style={{ marginRight: '8px' }}
-                          onClick={() => handleViewReport(event)}
+                          onClick={() => handleViewReport(event)} // Updated functionality
                         >
                           View Report
                         </Button>
@@ -198,9 +249,18 @@ const Events = () => {
                           >
                             Fill Out Report
                           </Button>
-                          <Button variant="outlined" color="secondary">
-                            Decline
-                          </Button>
+                          <Tooltip title={isEventWithinOneWeek(event.startDateTime) ? "Event within one week. Please reach out to manager if something has come up." : ""}>
+                            <span>
+                              <Button
+                                variant="outlined"
+                                color="secondary"
+                                onClick={() => handleDeclineEvent(event)}
+                                disabled={isEventWithinOneWeek(event.startDateTime)}
+                              >
+                                Decline
+                              </Button>
+                            </span>
+                          </Tooltip>
                         </div>
                       </Grid>
                     </>
@@ -222,6 +282,27 @@ const Events = () => {
           onReportSubmitted={handleReportSubmitted}
         />
       )}
+      <Modal open={openModal} onClose={handleCloseModal}>
+        <Box className="modalStyle" onClick={handleCloseModal}>
+          <div className="modalContent" onClick={(e) => e.stopPropagation()}>
+            {pdfUrl ? (
+              <>
+                <p>Loading PDF from: {pdfUrl}</p> {/* Log the PDF URL being loaded */}
+                <Worker workerUrl="https://unpkg.com/pdfjs-dist@2.15.349/build/pdf.worker.js">
+                  <div style={{ height: '80vh', width: '900px' }}>
+                    <Viewer
+                      fileUrl={pdfUrl}
+                      plugins={[defaultLayoutPluginInstance]}
+                    />
+                  </div>
+                </Worker>
+              </>
+            ) : (
+              <p>Loading...</p>
+            )}
+          </div>
+        </Box>
+      </Modal>
     </Box>
   );
 };

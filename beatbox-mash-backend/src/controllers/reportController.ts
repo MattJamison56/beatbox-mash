@@ -5,9 +5,11 @@ import path from 'path';
 import fs from 'fs';
 import s3 from '../awsConfig';
 import { v4 as uuidv4 } from 'uuid';
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from 'dotenv';
 import PDFDocument from 'pdfkit';
+import stream from 'stream';
+import util from 'util';
 
 dotenv.config();
 
@@ -462,8 +464,10 @@ export const saveOtherExpense = async (req: Request, res: Response) => {
   }
 };
 
+const pipeline = util.promisify(stream.pipeline);
+
 export const submitAndGenerateReport = async (req: Request, res: Response) => {
-  const { eventId, inventoryFilled, questionsFilled, photosFilled, expensesFilled } = req.body;
+  const { eventId, baId, inventoryFilled, questionsFilled, photosFilled, expensesFilled } = req.body;
   let transaction;
 
   try {
@@ -472,25 +476,74 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
     await transaction.begin();
 
     if (inventoryFilled && questionsFilled && photosFilled && expensesFilled) {
+      // Fetch event and ambassador details
       const result = await pool.request()
         .input('eventId', sql.Int, eventId)
         .query(`
           SELECT 
             e.event_name AS eventName,
             e.start_date_time AS startDateTime,
-            u.name AS brandAmbassador
+            e.duration_hours,
+            e.duration_minutes,
+            c.name AS campaign,
+            v.name AS venue,
+            v.address,
+            u.name AS brandAmbassador,
+            erq.sampled_flavors,
+            erq.price,
+            erq.consumers_sampled,
+            erq.consumers_engaged,
+            erq.total_attendees,
+            erq.beatboxes_purchased,
+            erq.first_time_consumers,
+            erq.product_sampled_how,
+            erq.top_reason_bought,
+            erq.top_reason_didnt_buy,
+            erq.qr_scans,
+            erq.table_location,
+            erq.swag,
+            erq.customer_feedback,
+            erq.other_feedback,
+            ep.file_name,
+            ep.file_path
           FROM 
             Events e
+          JOIN 
+            Venues v ON e.venue_id = v.id
+          JOIN 
+            Campaigns c ON e.campaign_id = c.id
           JOIN 
             EventBrandAmbassadors eba ON e.event_id = eba.event_id
           JOIN 
             Users u ON eba.ba_id = u.id
+          JOIN 
+            EventReportQuestions erq ON e.event_id = erq.event_id
+          LEFT JOIN 
+            EventPhotos ep ON e.event_id = ep.event_id
           WHERE 
             e.event_id = @eventId
         `);
 
       const event = result.recordset[0];
-      const pdfDoc = new PDFDocument();
+
+      const inventoryResult = await pool.request()
+        .input('eventId', sql.Int, eventId)
+        .query(`
+          SELECT 
+            p.ProductName,
+            ei.beginning_inventory,
+            ei.ending_inventory,
+            ei.sold
+          FROM 
+            EventInventory ei
+          JOIN 
+            Products p ON ei.product_id = p.ProductID
+          WHERE 
+            ei.event_id = @eventId
+        `);
+
+      // Create a new PDF document
+      const doc = new PDFDocument();
       const tempDirPath = path.join(__dirname, '../../temp');
       const tempFilePath = path.join(tempDirPath, `${uuidv4()}.pdf`);
 
@@ -502,24 +555,112 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
 
       // Generate the PDF
       const writeStream = fs.createWriteStream(tempFilePath);
-      pdfDoc.pipe(writeStream);
-      pdfDoc.fontSize(20).text(`Event Report`, { align: 'center' });
-      pdfDoc.fontSize(16).text(`Event: ${event.eventName}`);
-      pdfDoc.text(`Date: ${new Date(event.startDateTime).toLocaleDateString()}`);
-      pdfDoc.text(`Brand Ambassador: ${event.brandAmbassador}`);
-      pdfDoc.end();
+      doc.pipe(writeStream);
+      doc.fontSize(20).text(`Event Report`, { align: 'center' });
+      doc.fontSize(16).text(`Event: ${event.eventName}`);
+      doc.text(`Date: ${new Date(event.startDateTime).toLocaleDateString()}`);
+      doc.text(`Duration: ${event.duration_hours} hrs ${event.duration_minutes} min`);
+      doc.text(`Campaign: ${event.campaign}`);
+      doc.text(`Venue: ${event.venue}`);
+      doc.text(`Address: ${event.address}`);
+      doc.text(`Brand Ambassador: ${event.brandAmbassador}`);
 
-      // Wait for the PDF to finish writing
-      await new Promise<void>((resolve, reject) => {
-        writeStream.on('finish', () => {
-          console.log('PDF writing finished.');
-          resolve();
-        });
-        writeStream.on('error', (err) => {
-          console.error('Error writing PDF:', err);
-          reject(err);
-        });
+      doc.moveDown();
+      doc.fontSize(18).text(`Brand Ambassador Report`, { underline: true });
+
+      // Add event report questions and answers
+      const reportQuestions = [
+        'sampled_flavors', 'price', 'consumers_sampled', 'consumers_engaged', 'total_attendees',
+        'beatboxes_purchased', 'first_time_consumers', 'product_sampled_how', 'top_reason_bought',
+        'top_reason_didnt_buy', 'qr_scans', 'table_location', 'swag', 'customer_feedback', 'other_feedback'
+      ];
+
+      reportQuestions.forEach(key => {
+        if (event[key]) {
+          doc.fontSize(14).text(`${key.replace(/_/g, ' ')}: ${event[key]}`);
+        }
       });
+
+      if (inventoryResult.recordset.length > 0) {
+        doc.moveDown();
+        doc.fontSize(18).text(`Inventory Report`, { underline: true });
+      
+        // Create table header
+        doc.fontSize(14).text(`Product Name`, 72, doc.y);
+        doc.text(`Beginning Inventory`, 180, doc.y);
+        doc.text(`Ending Inventory`, 320, doc.y);
+        doc.text(`# Sold`, 440, doc.y);
+        doc.text(`Total (with Product Worth)`, 540, doc.y); // New column header
+        doc.moveDown();
+      
+        // Add inventory data
+        inventoryResult.recordset.forEach((item, index) => {
+          const totalSold = String(item.sold * item.ProductWorth); // Calculate total with ProductWorth
+      
+          doc.fontSize(12).text(item.ProductName, 72, doc.y);
+          doc.text(item.beginning_inventory, 180, doc.y);
+          doc.text(item.ending_inventory, 320, doc.y);
+          doc.text(item.sold, 440, doc.y);
+          doc.text(totalSold, 540, doc.y); // Display total with ProductWorth
+          doc.moveDown();
+        });
+        console.log('Inventory data added to PDF');
+      }
+
+      // Fetch and add event photos from all ambassadors
+      const photoResult = await pool.request()
+        .input('eventId', sql.Int, eventId)
+        .query(`
+          SELECT 
+            file_name,
+            file_path
+          FROM 
+            EventPhotos
+          WHERE 
+            event_id = @eventId
+        `);
+
+      const uniquePhotos = new Set(photoResult.recordset.map(photo => photo.file_path));
+      if (uniquePhotos.size > 0) {
+        doc.addPage();
+        doc.fontSize(18).text(`Event Photos`, { underline: true });
+
+        let x = 72;
+        let y = doc.y + 20;
+        const imageHeight = 200;
+        const imageWidth = 250;
+        const margin = 20;
+
+        for (const filePath of uniquePhotos) {
+          const imagePath = path.join(tempDirPath, `${uuidv4()}${path.extname(filePath)}`);
+          const command = new GetObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET_NAME!,
+            Key: filePath.split('/').pop()
+          });
+
+          const { Body } = await s3.send(command);
+          await pipeline(Body as stream.Readable, fs.createWriteStream(imagePath));
+          console.log('Downloaded image:', imagePath);
+
+          if (x + imageWidth > doc.page.width - margin) {
+            x = 72;
+            y += imageHeight + margin;
+            if (y + imageHeight > doc.page.height - margin) {
+              doc.addPage();
+              y = 72;
+            }
+          }
+
+          doc.image(imagePath, x, y, { fit: [imageWidth, imageHeight], align: 'center' });
+          x += imageWidth + margin;
+
+          fs.unlinkSync(imagePath);
+          console.log('Image added to PDF and deleted:', imagePath);
+        }
+      }
+
+      doc.end();
+      console.log('PDF generation completed:', tempFilePath);
 
       // Upload to S3
       console.log('Uploading PDF to S3...');
@@ -559,6 +700,16 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
           WHERE event_id = @eventId
         `);
 
+      // Update the personal report submission for the ambassador
+      await transaction.request()
+        .input('eventId', sql.Int, eventId)
+        .input('baId', sql.Int, baId)
+        .query(`
+          UPDATE EventBrandAmbassadors
+          SET personal_report_submitted = 1
+          WHERE event_id = @eventId AND ba_id = @baId
+        `);
+
       await transaction.commit();
       res.status(200).json({ message: 'Report successfully submitted, PDF generated, and event marked as complete.' });
     } else {
@@ -572,5 +723,39 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
     }
 
     res.status(500).json({ message: 'Error generating and submitting report.' });
+  }
+};
+
+export const partialSubmit = async (req: Request, res: Response) => {
+  const { eventId, baId, photosFilled, expensesFilled } = req.body;
+  let transaction;
+
+  try {
+    const pool = await poolPromise;
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    // Update the personal report submission for the ambassador
+    await transaction.request()
+      .input('eventId', sql.Int, eventId)
+      .input('baId', sql.Int, baId)
+      .query(`
+        UPDATE EventBrandAmbassadors
+        SET personal_report_submitted = 1
+        WHERE event_id = @eventId AND ba_id = @baId
+      `);
+
+    // Perform any other partial submission-related tasks (e.g., storing photos or expenses separately)
+
+    await transaction.commit();
+    res.status(200).json({ message: 'Partial report successfully submitted.' });
+  } catch (error) {
+    console.error('Error in partial submission:', error);
+
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    res.status(500).json({ message: 'Error in partial submission.' });
   }
 };

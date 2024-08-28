@@ -55,6 +55,15 @@ const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
     setAccountMenuAnchorEl(null);
   };
 
+  const handleSwitchToManager = () => {
+    handleAccountMenuClose();
+    if (userProfile?.role === 'manager') {
+      navigate('/manager');
+    } else {
+      window.location.href = 'https://beatboxbeverages.com/';
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
@@ -100,7 +109,7 @@ const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
             >
               <MenuItem onClick={handleAccountMenuClose}>Notifications</MenuItem>
               <MenuItem onClick={() => handleTabClick('Profile')}>My Profile</MenuItem>
-              <MenuItem onClick={handleAccountMenuClose}>Switch to Manager</MenuItem>
+              <MenuItem onClick={handleSwitchToManager}>BeatBox Beverages</MenuItem>
               <MenuItem onClick={handleLogout}>Log Out</MenuItem>
             </Menu>
           </Box>

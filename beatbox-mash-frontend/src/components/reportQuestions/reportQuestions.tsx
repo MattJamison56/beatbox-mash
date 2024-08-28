@@ -1,7 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { Box, Modal, Paper, Button, IconButton, Typography, TextField, FormControlLabel, Checkbox, Grid, FormGroup } from '@mui/material';
+import { Box, Modal, Paper, Button, IconButton, Typography, TextField, FormControlLabel, Checkbox, Grid, FormGroup, Autocomplete } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+
+const swagOptions = [
+  'Stickers',
+  'T-Shirts',
+  'Hats',
+  'Keychains',
+  'Posters',
+  'Coupons',
+  'Sample Packs',
+];
 
 const modalStyle = {
   position: 'absolute',
@@ -48,7 +58,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
     customer_feedback: '',
     other_feedback: ''
   });
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -66,13 +76,21 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
 
   useEffect(() => {
     const fetchInventoryProducts = async () => {
+      if (products.length === 0) return; // Wait until products are fetched
+
       try {
         const response = await fetch(`http://localhost:5000/reports/getInventorySalesData/${eventId}`);
         const data = await response.json();
-        const totalPurchased = data.reduce((total: number, item: any) => total + (item.sold || 0), 0);
-
+  
+        // Calculate totalPurchased considering ProductWorth
+        const totalPurchased = data.reduce((total: number, item: any) => {
+          const product = products.find(p => p.ProductID === item.product_id);
+          const productWorth = product ? product.ProductWorth : 1;
+          return total + (item.sold || 0) * productWorth;
+        }, 0);
+  
         setInventoryProducts(data.map((item: any) => item.ProductName));
-
+  
         setFormData((prevData: any) => ({
           ...prevData,
           beatboxes_purchased: String(totalPurchased),
@@ -82,11 +100,11 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
         console.error('Error fetching inventory products:', error);
       }
     };
-
+  
     if (open) {
       fetchInventoryProducts();
     }
-  }, [open, eventId]);
+  }, [open, eventId, products]);  
 
   useEffect(() => {
     if (open) {
@@ -153,10 +171,6 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
       console.error('Error saving data:', error);
     }
   };
-
-  if (loading || !formData) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <Modal
@@ -330,14 +344,23 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
                 />
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="h6">13. Was any swag handed out? If so, what kind of swag?</Typography>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  name="swag"
-                  value={formData.swag}
-                  onChange={handleChange}
-                  required
+                <Typography variant="h6">
+                  13. Was any swag handed out? If so, what kind of swag?
+                </Typography>
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  options={swagOptions}
+                  value={formData.swag.split(',')}
+                  onChange={(_event, newValue) => {
+                    setFormData((prevData: any) => ({
+                      ...prevData,
+                      swag: newValue.join(','),
+                    }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField {...params} variant="outlined" placeholder="Select or type swag" />
+                  )}
                 />
               </Grid>
               <Grid item xs={12}>

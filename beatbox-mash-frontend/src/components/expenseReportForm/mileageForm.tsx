@@ -89,17 +89,17 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId })
     if (locations.length < 2 || locations.some(location => location.lat === 0 || location.lng === 0)) {
       return;
     }
-
+  
     setIsLoading(true);
-
+  
     const waypoints = locations.slice(1, -1).map(location => ({
       location: { lat: location.lat, lng: location.lng },
       stopover: true,
     }));
-
+  
     const origin = { lat: locations[0].lat, lng: locations[0].lng };
     const destination = { lat: locations[locations.length - 1].lat, lng: locations[locations.length - 1].lng };
-
+  
     const service = new google.maps.DirectionsService();
     service.route(
       {
@@ -112,8 +112,8 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId })
         if (status === google.maps.DirectionsStatus.OK && result) {
           setDirections(result);
           const totalDistance = result.routes[0].legs.reduce((sum, leg) => sum + (leg.distance?.value || 0), 0);
-          const distanceInMiles = totalDistance * 0.000621371; // Convert meters to miles
-          setMileageInput(distanceInMiles);
+          const distanceInMiles = (totalDistance * 0.000621371).toFixed(1); // Convert meters to miles and round to one decimal place
+          setMileageInput(parseFloat(distanceInMiles));
         } else {
           console.error(`Error fetching directions: ${status}`);
         }
@@ -187,14 +187,8 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId })
 
         <Button variant="outlined" onClick={addLocation}>Add Location</Button>
 
-        <Box display="flex" flexDirection="column" alignItems="center" mb={2} sx={{ width: '100%', margin: '20px'}}>
-          <TextField
-            label="Miles"
-            value={mileageInput}
-            onChange={(e) => setMileageInput(parseFloat(e.target.value))}
-            type="number"
-            sx={{ mb: 2 }}
-          />
+        <Box display="flex" flexDirection="column" alignItems="center" mb={2} sx={{ width: '100%', margin: '20px' }}>
+          <Typography variant="h6">Miles: {mileageInput.toFixed(1)}</Typography>
           <Typography variant="h6">Fee: ${fee.toFixed(2)}</Typography>
         </Box>
 

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Modal, Paper, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Switch, FormControlLabel } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import ProductSelectionForm from './productSelectionForm'; // Import the ProductSelectionForm component
+import ProductSelectionForm from './productSelectionForm';
 
 const modalStyle = {
   position: 'absolute',
@@ -55,14 +55,14 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
           const response = await fetch(`http://localhost:5000/reports/getInventorySalesData/${eventId}`);
           const data = await response.json();
 
-          // Map the fetched data to match the expected structure
           const mappedData = data.map((item: any) => ({
             ProductID: item.product_id,
             ProductName: products.find(p => p.ProductID === item.product_id)?.ProductName || 'Unknown',
-            beginningInventory: item.beginning_inventory,
-            endingInventory: item.ending_inventory
+            ProductWorth: products.find(p => p.ProductID === item.product_id)?.ProductWorth || 1,
+            beginningInventory: item.beginning_inventory || 0,
+            endingInventory: item.ending_inventory || 0
           }));
-
+          
           setSelectedProducts(mappedData);
         } catch (error) {
           console.error('Error fetching saved data:', error);
@@ -89,7 +89,10 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
   };
 
   const calculateTotal = (field: string) => {
-    return selectedProducts.reduce((total, product) => total + (product[field] || 0), 0);
+    return selectedProducts.reduce((total, product) => {
+      const worth = product.ProductWorth || 1;
+      return total + ((product[field] || 0) * worth);
+    }, 0);
   };
 
   const handleSave = async () => {
@@ -99,6 +102,8 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
       ending_inventory: product.endingInventory || 0,
       sold: (product.beginningInventory || 0) - (product.endingInventory || 0)
     }));
+
+    console.log(inventoryData);
 
     try {
       const response = await fetch('http://localhost:5000/reports/saveInventorySalesData', {
@@ -122,12 +127,7 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={handleClose}
-      aria-labelledby="modal-title"
-      aria-describedby="modal-description"
-    >
+    <Modal open={open} onClose={handleClose} aria-labelledby="modal-title" aria-describedby="modal-description">
       <Paper sx={modalStyle}>
         <Box display="flex" justifyContent="right" alignItems="right" mb={2}>
           <IconButton onClick={handleClose} aria-label="close">
@@ -136,10 +136,7 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
         </Box>
         <Box display="flex" justifyContent="left" alignItems="center" mb={2}>
           <Button variant="contained" color="primary" style={{ margin: '10px' }} onClick={() => setIsProductSelectionOpen(true)}>Add Manually</Button>
-          <FormControlLabel style={{ margin: '10px' }}
-            control={<Switch />}
-            label="Bulk Update"
-          />
+          <FormControlLabel style={{ margin: '10px' }} control={<Switch />} label="Bulk Update" />
         </Box>
         <TableContainer>
           <Table>
@@ -156,20 +153,15 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
                 <TableRow key={product.ProductID}>
                   <TableCell>{product.ProductName}</TableCell>
                   <TableCell>
-                    <input
-                      type="number"
-                      value={product.beginningInventory || ''}
-                      onChange={(e) => handleInventoryChange(index, 'beginningInventory', parseInt(e.target.value))}
-                    />
+                    <input type="number" value={product.beginningInventory || ''} onChange={(e) => handleInventoryChange(index, 'beginningInventory', parseInt(e.target.value))} />
                   </TableCell>
                   <TableCell>
-                    <input
-                      type="number"
-                      value={product.endingInventory || ''}
-                      onChange={(e) => handleInventoryChange(index, 'endingInventory', parseInt(e.target.value))}
-                    />
+                    <input type="number" value={product.endingInventory || ''} onChange={(e) => handleInventoryChange(index, 'endingInventory', parseInt(e.target.value))} />
                   </TableCell>
-                  <TableCell>{(product.beginningInventory || 0) - (product.endingInventory || 0)}</TableCell>
+                  <TableCell>
+                    {(product.beginningInventory || 0) - (product.endingInventory || 0)}
+                    {product.ProductWorth > 1 && ` x ${product.ProductWorth}`}
+                  </TableCell>
                 </TableRow>
               ))}
               <TableRow>

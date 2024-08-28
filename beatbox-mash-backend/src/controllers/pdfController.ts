@@ -223,7 +223,6 @@ export const getEventPdf = async (req: Request, res: Response) => {
         SELECT s3_path 
         FROM EventReports 
         WHERE event_id = @eventId
-        AND is_deleted = 0
       `);
 
     if (result.recordset.length === 0) {

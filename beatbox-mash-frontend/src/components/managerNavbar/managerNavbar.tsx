@@ -92,6 +92,11 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
     setAccountMenuAnchorEl(null);
   };
 
+  const handleSwitchToBA = () => {
+    handleAccountMenuClose();
+    navigate('/ambassadors');
+  }
+  
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
@@ -124,7 +129,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
           >
             <MenuItem onClick={handleAccountMenuClose}>Notifications</MenuItem>
             <MenuItem onClick={() => handleSubcatClick('Profile')}>My Profile</MenuItem>
-            <MenuItem onClick={handleAccountMenuClose}>Switch to BA</MenuItem>
+            <MenuItem onClick={handleSwitchToBA}>Switch to BA</MenuItem>
             <MenuItem onClick={handleLogout}>Log Out</MenuItem>
           </Menu>
         </Toolbar>

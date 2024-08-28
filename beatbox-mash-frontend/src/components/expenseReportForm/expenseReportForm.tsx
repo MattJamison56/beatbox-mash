@@ -7,6 +7,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ReceiptForm from './receiptForm';
 import MileageForm from './mileageForm';
 import OtherForm from './otherForm';
+import { Tooltip } from '@mui/material';
 
 const modalStyle = {
   position: 'absolute',
@@ -33,9 +34,10 @@ interface ExpenseFormProps {
   eventName: string;
   startTime: string;
   onComplete: () => void;
+  mileageAllowed: boolean;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, eventName, startTime, onComplete }) => {
+const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, eventName, startTime, onComplete, mileageAllowed }) => {
   const [openReceiptForm, setOpenReceiptForm] = useState(false);
   const [openMileageForm, setOpenMileageForm] = useState(false);
   const [openOtherForm, setOpenOtherForm] = useState(false);
@@ -96,17 +98,28 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
           <Grid container spacing={2} justifyContent="center">
             {[
               { text: 'Receipt', color: '#83E8E1', icon: <ReceiptIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenReceiptForm },
-              { text: 'Mileage', color: '#AAD1F9', icon: <DirectionsCarIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenMileageForm },
+              {
+                text: 'Mileage', 
+                color: '#AAD1F9', 
+                icon: <DirectionsCarIcon sx={{ fontSize: 40, color: 'white' }} />, 
+                onClick: handleOpenMileageForm,
+                disabled: !mileageAllowed, // Disable if mileage is not allowed
+                tooltip: "Mileage expense must be allowed by manager.", // Tooltip message
+              },
               { text: 'Other', color: '#FEBED6', icon: <AttachMoneyIcon sx={{ fontSize: 40, color: 'white' }} />, onClick: handleOpenOtherForm }
             ].map((item, index) => (
               <Grid key={index} item xs={4} md={1} display="flex" flexDirection="column" alignItems="center">
-                <ButtonBase onClick={item.onClick}>
-                  <Card sx={{ minHeight: '6em', minWidth: '6em', backgroundColor: item.color, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <CardContent sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      {item.icon}
-                    </CardContent>
-                  </Card>
-                </ButtonBase>
+                <Tooltip title={item.disabled ? item.tooltip : ''} disableHoverListener={!item.disabled}>
+                  <span>
+                    <ButtonBase onClick={item.onClick} disabled={item.disabled}>
+                      <Card sx={{ minHeight: '6em', minWidth: '6em', backgroundColor: item.color, display: 'flex', justifyContent: 'center', alignItems: 'center', opacity: item.disabled ? 0.5 : 1 }}>
+                        <CardContent sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                          {item.icon}
+                        </CardContent>
+                      </Card>
+                    </ButtonBase>
+                  </span>
+                </Tooltip>
                 <Typography variant="body2" mt={1} textAlign="center" style={{ color: '#555' }}>{item.text}</Typography>
               </Grid>
             ))}
@@ -125,3 +138,4 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
 };
 
 export default ExpenseForm;
+

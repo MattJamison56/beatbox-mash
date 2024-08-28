@@ -249,23 +249,24 @@ export const getMyEvents = async (req: Request, res: Response) => {
           eba.inventory,
           eba.qa,
           eba.photos,
-          eba.expenses
+          eba.expenses,
+          eba.personal_report_submitted -- Include the personal_report_submitted status
         FROM 
           Events e
         JOIN 
           EventBrandAmbassadors eba ON e.event_id = eba.event_id
         JOIN 
-          Teams t ON e.team_id = t.id -- Teams table has is_deleted column
+          Teams t ON e.team_id = t.id
         JOIN 
-          Venues v ON e.venue_id = v.id -- Venues table has is_deleted column
+          Venues v ON e.venue_id = v.id
         JOIN 
-          Campaigns c ON e.campaign_id = c.id -- Campaigns table has is_deleted column
+          Campaigns c ON e.campaign_id = c.id
         WHERE 
           eba.ba_id = @ba_id
-          AND e.is_deleted = 0 -- Events table has is_deleted column
-          AND t.is_deleted = 0 -- Teams table has is_deleted column
-          AND v.is_deleted = 0 -- Venues table has is_deleted column
-          AND c.is_deleted = 0 -- Campaigns table has is_deleted column
+          AND e.is_deleted = 0
+          AND t.is_deleted = 0
+          AND v.is_deleted = 0
+          AND c.is_deleted = 0
       `);
 
     res.status(200).json(result.recordset);
@@ -726,5 +727,193 @@ export const updatePayrollGroup = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error updating payroll group:', error);
     res.status(500).json({ message: 'Error updating payroll group' });
+  }
+};
+
+export const sendDeclineEmail = async (to: string[], subject: string, text: string) => {
+  try {
+    const accessToken = await oauth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: process.env.EMAIL_USER,
+        clientId: process.env.CLIENT_ID,
+        clientSecret: process.env.CLIENT_SECRET,
+        refreshToken: process.env.REFRESH_TOKEN,
+        accessToken: accessToken.token as string,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to,
+      subject,
+      text,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+  }
+};
+
+export const declineEvent = async (req: Request, res: Response) => {
+  const { ba_id } = req.body;
+  const { event_id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+
+    // Get event details
+    const eventResult = await pool.request()
+      .input('event_id', sql.Int, event_id)
+      .query('SELECT * FROM Events WHERE event_id = @event_id');
+
+    if (eventResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const event = eventResult.recordset[0];
+
+    // Calculate the end time
+    const startTime = new Date(event.start_date_time);
+    const endTime = new Date(startTime.getTime());
+    endTime.setHours(endTime.getHours() + event.duration_hours);
+    endTime.setMinutes(endTime.getMinutes() + event.duration_minutes);
+
+    // Get the ambassador's assignment details
+    const baAssignmentResult = await pool.request()
+      .input('event_id', sql.Int, event_id)
+      .input('ba_id', sql.Int, ba_id)
+      .query('SELECT * FROM EventBrandAmbassadors WHERE event_id = @event_id AND ba_id = @ba_id');
+
+    if (baAssignmentResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Ambassador assignment not found' });
+    }
+
+    const baAssignment = baAssignmentResult.recordset[0]; // This line ensures that `baAssignment` is declared and assigned.
+
+    // Get the ambassador's name and email
+    const ambassadorResult = await pool.request()
+      .input('ba_id', sql.Int, ba_id)
+      .query('SELECT name, email FROM Users WHERE id = @ba_id');
+
+    if (ambassadorResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Ambassador not found' });
+    }
+
+    const ambassador = ambassadorResult.recordset[0];
+
+    // Get the campaign owners' emails
+    const campaignOwnersResult = await pool.request()
+      .input('campaign_id', sql.Int, event.campaign_id)
+      .query(`
+        SELECT owner_ids
+        FROM Campaigns
+        WHERE id = @campaign_id
+      `);
+
+    if (campaignOwnersResult.recordset.length === 0) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+
+    const ownerIds = campaignOwnersResult.recordset[0].owner_ids.split(',');
+
+    // Fetch the emails of the owners
+    const ownersEmailsResult = await pool.request()
+      .input('ownerIds', sql.NVarChar(sql.MAX), ownerIds.join(','))
+      .query(`
+        SELECT email
+        FROM Users
+        WHERE id IN (${ownerIds.map((id: string) => `'${id.trim()}'`).join(',')})
+      `);
+
+    const ownerEmails = ownersEmailsResult.recordset.map((row: any) => row.email);
+
+    if (ownerEmails.length === 0) {
+      return res.status(404).json({ message: 'No owner emails found' });
+    }
+
+    // Prepare email content
+    let emailContent = `The following event has been declined by ambassador ${ambassador.name} (${ambassador.email}):\n\nEvent: ${event.event_name}\nStart: ${startTime}\nEnd: ${endTime}`;
+
+    // Check if the ambassador was responsible for inventory and QA
+    if (baAssignment.inventory) emailContent += "\n\nNote: This ambassador was assigned inventory responsibilities.";
+    if (baAssignment.qa) emailContent += "\n\nNote: This ambassador was assigned QA responsibilities.";
+
+    // If they were the only ambassador, add a note
+    const otherAmbassadorsResult = await pool.request()
+      .input('event_id', sql.Int, event_id)
+      .input('ba_id', sql.Int, ba_id)
+      .query('SELECT COUNT(*) as count FROM EventBrandAmbassadors WHERE event_id = @event_id AND ba_id <> @ba_id');
+
+    if (otherAmbassadorsResult.recordset[0].count === 0) {
+      emailContent += "\n\nNote: This was the only ambassador assigned to this event.";
+    } else {
+      // Reassign inventory and QA to another ambassador
+      await pool.request()
+        .input('event_id', sql.Int, event_id)
+        .input('ba_id', sql.Int, ba_id)
+        .query(`
+          WITH CTE AS (
+            SELECT TOP 1 * 
+            FROM EventBrandAmbassadors 
+            WHERE event_id = @event_id AND ba_id <> @ba_id AND (inventory = 0 OR inventory IS NULL OR qa = 0 OR qa IS NULL)
+            ORDER BY NEWID()  -- Randomly pick an ambassador if more than one is available
+          )
+          UPDATE CTE 
+          SET inventory = ISNULL(inventory, 1), qa = ISNULL(qa, 1);
+        `);
+    }
+
+    // Remove the declining ambassador's assignment from the EventBrandAmbassadors table
+    await pool.request()
+      .input('event_id', sql.Int, event_id)
+      .input('ba_id', sql.Int, ba_id)
+      .query('DELETE FROM EventBrandAmbassadors WHERE event_id = @event_id AND ba_id = @ba_id');
+
+    // Send the email using the sendDeclineEmail function
+    await sendDeclineEmail(ownerEmails, 'Event Declined', emailContent);
+
+    res.status(200).json({ message: 'Event declined, assignment removed, and email sent successfully' });
+  } catch (error: any) {
+    console.error('Error in declineEvent:', error);
+    res.status(500).json({ message: 'Error declining event', error: error.message });
+  }
+};
+
+export const getBrandAmbassadorData = async (req: Request, res: Response) => {
+  try {
+    const { eventId, baId } = req.params;
+
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('event_id', sql.Int, eventId)
+      .input('ba_id', sql.Int, baId)
+      .query(`
+        SELECT 
+          inventory,
+          qa,
+          photos,
+          expenses,
+          mileage_allowed
+        FROM 
+          EventBrandAmbassadors
+        WHERE 
+          event_id = @event_id AND ba_id = @ba_id
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Brand ambassador assignment not found for this event.' });
+    }
+
+    res.status(200).json(result.recordset[0]);
+  } catch (error) {
+    console.error('Error fetching brand ambassador data:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 };

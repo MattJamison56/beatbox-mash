@@ -11,17 +11,20 @@ export const getCampaigns = async (req: Request, res: Response) => {
     const result = await pool.request().query(`
       SELECT 
         Campaigns.*, 
-        COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams
+        COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams,
+        COALESCE(STRING_AGG(Users.name, ', '), '') AS owners
       FROM 
         Campaigns
       LEFT JOIN 
         CampaignTeams ON Campaigns.id = CampaignTeams.campaign_id
       LEFT JOIN 
         Teams ON CampaignTeams.team_id = Teams.id
+      LEFT JOIN 
+        Users ON CHARINDEX(',' + CAST(Users.id AS NVARCHAR(255)) + ',', ',' + Campaigns.owner_ids + ',') > 0
       WHERE 
         Campaigns.is_deleted = 0
       GROUP BY 
-        Campaigns.id, Campaigns.name, Campaigns.owners, Campaigns.report_template, 
+        Campaigns.id, Campaigns.name, Campaigns.owners, Campaigns.owner_ids, Campaigns.report_template, 
         Campaigns.pre_event_instructions, Campaigns.first_ba_inventory, Campaigns.first_ba_post_event, 
         Campaigns.subsequent_ba_inventory, Campaigns.subsequent_ba_post_event, Campaigns.ba_check_in_out, 
         Campaigns.photo_check_in, Campaigns.photo_check_out, Campaigns.show_check_photos_in_report, 
@@ -30,18 +33,14 @@ export const getCampaigns = async (req: Request, res: Response) => {
 
     console.log('SQL query executed successfully.');
 
-    const campaigns = result.recordset.map(campaign => ({
-      ...campaign,
-      owners: campaign.owners ? campaign.owners.split(',') : []
-    }));
-
-    res.json(campaigns.length > 0 ? campaigns : []);
+    res.json(result.recordset);
   } catch (err) {
     const error = err as Error;
     console.error('Error occurred in getCampaigns:', error.message);
     res.status(500).send(error.message);
   }
 };
+
 
 export const createCampaign = async (req: Request, res: Response) => {
   try {
@@ -51,7 +50,7 @@ export const createCampaign = async (req: Request, res: Response) => {
     await transaction.begin();
 
     const {
-      name, owners, report_template, pre_event_instructions,
+      name, owners, owner_ids, report_template, pre_event_instructions,
       first_ba_inventory, first_ba_post_event, subsequent_ba_inventory, subsequent_ba_post_event,
       ba_check_in_out, photo_check_in, photo_check_out, show_check_photos_in_report, teams, products
     } = req.body;
@@ -59,12 +58,15 @@ export const createCampaign = async (req: Request, res: Response) => {
     console.log('Creating campaign:', req.body); // Log input data
 
     const ownersString = owners.join(',');
+    const ownerIdsString = owner_ids.join(',');
+
 
     const requestCampaign = new sql.Request(transaction);
 
     const result = await requestCampaign
       .input('name', sql.NVarChar, name)
       .input('owners', sql.NVarChar, ownersString || null)
+      .input('owner_ids', sql.NVarChar, ownerIdsString || null)
       .input('report_template', sql.NVarChar, report_template || null)
       .input('pre_event_instructions', sql.NVarChar, pre_event_instructions || null)
       .input('first_ba_inventory', sql.Bit, first_ba_inventory || 0)
@@ -76,12 +78,12 @@ export const createCampaign = async (req: Request, res: Response) => {
       .input('photo_check_out', sql.NVarChar, photo_check_out || 'disabled')
       .input('show_check_photos_in_report', sql.Bit, show_check_photos_in_report || 0)
       .query(`
-        INSERT INTO Campaigns (name, owners, report_template, pre_event_instructions,
+        INSERT INTO Campaigns (name, owners, owner_ids, report_template, pre_event_instructions,
           first_ba_inventory, first_ba_post_event, subsequent_ba_inventory, subsequent_ba_post_event,
           ba_check_in_out, photo_check_in, photo_check_out, show_check_photos_in_report,
           created_at, updated_at)
         OUTPUT INSERTED.id
-        VALUES (@name, @owners, @report_template, @pre_event_instructions,
+        VALUES (@name, @owners, @owner_ids, @report_template, @pre_event_instructions,
           @first_ba_inventory, @first_ba_post_event, @subsequent_ba_inventory, @subsequent_ba_post_event,
           @ba_check_in_out, @photo_check_in, @photo_check_out, @show_check_photos_in_report,
           GETDATE(), GETDATE())
@@ -156,6 +158,7 @@ export const createCampaign = async (req: Request, res: Response) => {
 };
 
 
+
 export const updateCampaign = async (req: Request, res: Response) => {
   const transaction = new sql.Transaction(await poolPromise);
 
@@ -163,7 +166,7 @@ export const updateCampaign = async (req: Request, res: Response) => {
     await transaction.begin();
 
     const {
-      id, name, owners, report_template, pre_event_instructions,
+      id, name, owners, owner_ids, report_template, pre_event_instructions,
       first_ba_inventory, first_ba_post_event, subsequent_ba_inventory, subsequent_ba_post_event,
       ba_check_in_out, photo_check_in, photo_check_out, show_check_photos_in_report, teams, products
     } = req.body;
@@ -173,6 +176,7 @@ export const updateCampaign = async (req: Request, res: Response) => {
     }
 
     const ownersString = owners.join(',');
+    const ownerIdsString = owner_ids.join(',');
 
     const requestCampaign = new sql.Request(transaction);
 
@@ -180,6 +184,7 @@ export const updateCampaign = async (req: Request, res: Response) => {
       .input('id', sql.Int, id)
       .input('name', sql.NVarChar, name)
       .input('owners', sql.NVarChar, ownersString || null)
+      .input('owner_ids', sql.NVarChar, ownerIdsString || null)
       .input('report_template', sql.NVarChar, report_template || null)
       .input('pre_event_instructions', sql.NVarChar, pre_event_instructions || null)
       .input('first_ba_inventory', sql.Bit, first_ba_inventory || 0)
@@ -194,6 +199,7 @@ export const updateCampaign = async (req: Request, res: Response) => {
         UPDATE Campaigns SET
           name = @name,
           owners = @owners,
+          owner_ids = @owner_ids,
           report_template = @report_template,
           pre_event_instructions = @pre_event_instructions,
           first_ba_inventory = @first_ba_inventory,
@@ -335,7 +341,6 @@ export const updateCampaignTeams = async (req: Request, res: Response) => {
 
 export const getCampaignByName = async (req: Request, res: Response) => {
   const { name } = req.params;
-  console.log(name);
   try {
     const pool = await poolPromise;
     const result = await pool.request()
@@ -343,17 +348,20 @@ export const getCampaignByName = async (req: Request, res: Response) => {
       .query(`
         SELECT 
           Campaigns.*, 
-          COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams
+          COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams,
+          COALESCE(STRING_AGG(Users.name, ', '), '') AS owners
         FROM 
           Campaigns
         LEFT JOIN 
           CampaignTeams ON Campaigns.id = CampaignTeams.campaign_id
         LEFT JOIN 
           Teams ON CampaignTeams.team_id = Teams.id
+        LEFT JOIN 
+          Users ON CHARINDEX(',' + CAST(Users.id AS NVARCHAR(255)) + ',', ',' + Campaigns.owner_ids + ',') > 0
         WHERE 
           Campaigns.name = @name AND Campaigns.is_deleted = 0
         GROUP BY 
-          Campaigns.id, Campaigns.name, Campaigns.owners, Campaigns.report_template, 
+          Campaigns.id, Campaigns.name, Campaigns.owners, Campaigns.owner_ids, Campaigns.report_template, 
           Campaigns.pre_event_instructions, Campaigns.first_ba_inventory, Campaigns.first_ba_post_event, 
           Campaigns.subsequent_ba_inventory, Campaigns.subsequent_ba_post_event, Campaigns.ba_check_in_out, 
           Campaigns.photo_check_in, Campaigns.photo_check_out, Campaigns.show_check_photos_in_report, 
@@ -373,86 +381,102 @@ export const getCampaignByName = async (req: Request, res: Response) => {
 
 export const getCampaignById = async (req: Request, res: Response) => {
   try {
-      const pool = await poolPromise;
-      const campaignId = req.params.id;
+    const pool = await poolPromise;
+    const campaignId = req.params.id;
 
-      // SQL query to fetch campaign details along with associated teams and products
-      const result = await pool.request()
-          .input('campaignId', sql.Int, campaignId)
-          .query(`
-              SELECT 
-                  c.*,
-                  COALESCE(STRING_AGG(t.name, ', '), '') AS teams,
-                  p.ProductID,
-                  p.ProductName,
-                  p.Barcode,
-                  p.MSRP,
-                  p.ProductGroup
-              FROM 
-                  Campaigns c
-              LEFT JOIN 
-                  CampaignTeams ct ON c.id = ct.campaign_id
-              LEFT JOIN 
-                  Teams t ON ct.team_id = t.id
-              LEFT JOIN 
-                  CampaignProducts cp ON c.id = cp.campaign_id
-              LEFT JOIN 
-                  Products p ON cp.product_id = p.ProductID
-              WHERE 
-                  c.id = @campaignId AND c.is_deleted = 0
-              GROUP BY 
-                  c.id, c.name, c.owners, c.report_template, 
-                  c.pre_event_instructions, c.first_ba_inventory, 
-                  c.first_ba_post_event, c.subsequent_ba_inventory, 
-                  c.subsequent_ba_post_event, c.ba_check_in_out, 
-                  c.photo_check_in, c.photo_check_out, 
-                  c.show_check_photos_in_report, c.created_at, 
-                  c.updated_at, c.is_deleted,
-                  p.ProductID, p.ProductName, p.Barcode, p.MSRP, p.ProductGroup
-          `);
+    const result = await pool.request()
+      .input('campaignId', sql.Int, campaignId)
+      .query(`
+        SELECT 
+          c.id,
+          c.name,
+          c.owner_ids,
+          c.report_template,
+          c.pre_event_instructions,
+          c.first_ba_inventory,
+          c.first_ba_post_event,
+          c.subsequent_ba_inventory,
+          c.subsequent_ba_post_event,
+          c.ba_check_in_out,
+          c.photo_check_in,
+          c.photo_check_out,
+          c.show_check_photos_in_report,
+          c.created_at,
+          c.updated_at,
+          COALESCE(STRING_AGG(t.name, ', '), '') AS teams,
+          COALESCE(STRING_AGG(u.name, ', '), '') AS owners,
+          p.ProductID,
+          p.ProductName,
+          p.Barcode,
+          p.MSRP,
+          p.ProductGroup
+        FROM 
+          Campaigns c
+        LEFT JOIN 
+          CampaignTeams ct ON c.id = ct.campaign_id
+        LEFT JOIN 
+          Teams t ON ct.team_id = t.id
+        LEFT JOIN 
+          CampaignProducts cp ON c.id = cp.campaign_id
+        LEFT JOIN 
+          Products p ON cp.product_id = p.ProductID
+        LEFT JOIN 
+          Users u ON CHARINDEX(',' + CAST(u.id AS NVARCHAR(255)) + ',', ',' + c.owner_ids + ',') > 0
+        WHERE 
+          c.id = @campaignId AND c.is_deleted = 0
+        GROUP BY 
+          c.id, c.name, c.owner_ids, c.report_template, 
+          c.pre_event_instructions, c.first_ba_inventory, 
+          c.first_ba_post_event, c.subsequent_ba_inventory, 
+          c.subsequent_ba_post_event, c.ba_check_in_out, 
+          c.photo_check_in, c.photo_check_out, 
+          c.show_check_photos_in_report, c.created_at, 
+          c.updated_at, c.is_deleted,
+          p.ProductID, p.ProductName, p.Barcode, p.MSRP, p.ProductGroup
+      `);
 
-      // Check if the campaign was found
-      if (result.recordset.length === 0) {
-          return res.status(404).json({ message: 'Campaign not found' });
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Campaign not found' });
+    }
+
+    const campaign = result.recordset.reduce((acc, row) => {
+      if (!acc) {
+        acc = {
+          id: row.id,
+          name: row.name,
+          owners: row.owners ? row.owners.split(',').map((owner: string) => owner.trim()) : [],
+          owner_ids: row.owner_ids ? row.owner_ids.split(',').map((id: string) => parseInt(id.trim())) : [],
+          report_template: row.report_template,
+          pre_event_instructions: row.pre_event_instructions,
+          first_ba_inventory: row.first_ba_inventory,
+          first_ba_post_event: row.first_ba_post_event,
+          subsequent_ba_inventory: row.subsequent_ba_inventory,
+          subsequent_ba_post_event: row.subsequent_ba_post_event,
+          ba_check_in_out: row.ba_check_in_out,
+          photo_check_in: row.photo_check_in,
+          photo_check_out: row.photo_check_out,
+          show_check_photos_in_report: row.show_check_photos_in_report,
+          teams: row.teams ? row.teams.split(', ').map((team: string) => team.trim()) : [],
+          products: []
+        };
       }
 
-      const campaign = result.recordset.reduce((acc, row) => {
-          if (!acc) {
-              acc = {
-                  id: row.id,
-                  name: row.name,
-                  owners: row.owners ? row.owners.split(',').map((owner: string) => owner.trim()) : [],
-                  report_template: row.report_template,
-                  pre_event_instructions: row.pre_event_instructions,
-                  first_ba_inventory: row.first_ba_inventory,
-                  first_ba_post_event: row.first_ba_post_event,
-                  subsequent_ba_inventory: row.subsequent_ba_inventory,
-                  subsequent_ba_post_event: row.subsequent_ba_post_event,
-                  ba_check_in_out: row.ba_check_in_out,
-                  photo_check_in: row.photo_check_in,
-                  photo_check_out: row.photo_check_out,
-                  show_check_photos_in_report: row.show_check_photos_in_report,
-                  teams: row.teams ? row.teams.split(', ').map((team: string) => team.trim()) : [],
-                  products: []
-              };
-          }
+      if (row.ProductID) {
+        acc.products.push({
+          ProductID: row.ProductID,
+          ProductName: row.ProductName,
+          Barcode: row.Barcode,
+          MSRP: row.MSRP,
+          ProductGroup: row.ProductGroup,
+        });
+      }
 
-          if (row.ProductID) {
-              acc.products.push({
-                  ProductID: row.ProductID,
-                  ProductName: row.ProductName,
-                  Barcode: row.Barcode,
-                  MSRP: row.MSRP,
-                  ProductGroup: row.ProductGroup,
-              });
-          }
+      return acc;
+    }, null);
 
-          return acc;
-      }, null);
-
-      res.json(campaign);
+    res.json(campaign);
   } catch (err) {
-      console.error('Error in getCampaignById:', err);
-      res.status(500).json({ error: 'Internal Server Error' });
+    console.error('Error in getCampaignById:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 };

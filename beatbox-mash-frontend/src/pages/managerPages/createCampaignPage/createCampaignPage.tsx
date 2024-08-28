@@ -17,6 +17,11 @@ interface Product {
   ProductGroup: string;
 }
 
+interface Manager {
+  id: number;
+  name: string;
+}
+
 const Section = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(4),
 }));
@@ -31,8 +36,9 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
   const { id } = useParams<{ id: string }>();
   const [name, setName] = useState(campaign?.name || '');
   const [owners, setOwners] = useState<string[]>(Array.isArray(campaign?.owners) ? campaign.owners : []);
+  const [ownerIds, setOwnerIds] = useState<number[]>([]);
   const [teams, setTeams] = useState<string[]>(Array.isArray(campaign?.teams) ? campaign.teams : []);
-  const [availableManagers, setAvailableManagers] = useState<string[]>([]);
+  const [availableManagers, setAvailableManagers] = useState<Manager[]>([]);
   const [reportTemplate, setReportTemplate] = useState(campaign?.report_template || '');
   const [preEventInstructions, setPreEventInstructions] = useState(campaign?.pre_event_instructions || '');
   const [firstBaInventory, setFirstBaInventory] = useState(campaign?.first_ba_inventory || false);
@@ -55,28 +61,29 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
         const teamsResponse = await fetch('http://localhost:5000/teams');
         const teamsData = await teamsResponse.json();
         setAvailableTeams(teamsData.map((team: any) => team.name));
-  
+
         // Fetch available products
         const productsResponse = await fetch('http://localhost:5000/products');
         const productsData = await productsResponse.json();
         setAvailableProducts(productsData);
-  
+
         // Fetch available managers
         const managersResponse = await fetch('http://localhost:5000/managers');
         const managersData = await managersResponse.json();
         if (Array.isArray(managersData)) {
-          setAvailableManagers(managersData.map((manager: any) => manager.name));
+          setAvailableManagers(managersData.map((manager: any) => ({ id: manager.id, name: manager.name })));
         } else {
           console.error('Unexpected response format:', managersData);
         }
-  
+
         // Fetch campaign details along with associated products
         if (campaign) {
           const campaignResponse = await fetch(`http://localhost:5000/campaigns/${campaign.id}`);
           const campaignData = await campaignResponse.json();
-  
+
           setName(campaignData.name);
           setOwners(Array.isArray(campaignData.owners) ? campaignData.owners : [campaignData.owners]);
+          setOwnerIds(Array.isArray(campaignData.owner_ids) ? campaignData.owner_ids : []);
           setReportTemplate(campaignData.report_template);
           setPreEventInstructions(campaignData.pre_event_instructions);
           setFirstBaInventory(campaignData.first_ba_inventory);
@@ -94,13 +101,13 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
         console.error('Error fetching data:', error);
       }
     };
-  
+
     fetchData();
   }, [campaign]);
 
   const handleSave = async () => {
     try {
-      const url = campaign.id ? `http://localhost:5000/campaigns/update` : `http://localhost:5000/campaigns/create`;
+      const url = campaign?.id ? `http://localhost:5000/campaigns/update` : `http://localhost:5000/campaigns/create`;
       const method = 'POST';
 
       const response = await fetch(url, {
@@ -109,9 +116,10 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: campaign.id,
+          id: campaign?.id,
           name, 
           owners, 
+          owner_ids: ownerIds,
           report_template: reportTemplate, 
           pre_event_instructions: preEventInstructions,
           first_ba_inventory: firstBaInventory,
@@ -124,8 +132,8 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
           show_check_photos_in_report: showCheckPhotosInReport, 
           teams, 
           products
-      }),
-    });
+        }),
+      });
 
       if (!response.ok) {
         throw new Error('Network response was not ok');
@@ -135,6 +143,15 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
     } catch (error) {
       console.error('Error saving campaign:', error);
     }
+  };
+
+  const handleOwnersChange = (_e: any, selectedOwners: string[]) => {
+    setOwners(selectedOwners);
+    const selectedOwnerIds = selectedOwners.map(ownerName => {
+      const owner = availableManagers.find(manager => manager.name === ownerName);
+      return owner ? owner.id : null;
+    }).filter(id => id !== null) as number[];
+    setOwnerIds(selectedOwnerIds);
   };
 
   const toggleProductModal = () => {
@@ -168,9 +185,9 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
           />
           <Autocomplete
             multiple
-            options={availableManagers}
+            options={availableManagers.map(manager => manager.name)}
             value={owners}
-            onChange={(_e, value) => setOwners(value)}
+            onChange={handleOwnersChange}
             renderInput={(params) => (
               <TextField
                 {...params}
