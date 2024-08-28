@@ -82,6 +82,7 @@ const Events = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [expandedEventIds, setExpandedEventIds] = useState<number[]>([]);
   const [openModal, setOpenModal] = useState<boolean>(false);
+  const [openModal2, setOpenModal2] = useState<boolean>(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null); // Add PDF URL state
   const defaultLayoutPluginInstance = defaultLayoutPlugin(); // Initialize PDF plugin
@@ -119,8 +120,13 @@ const Events = () => {
 
   const handleCloseModal = () => {
     setOpenModal(false);
+  };
+
+  const handleCloseModal2 = () => {
+    setOpenModal2(false);
     setPdfUrl(null); // Clear the PDF URL when modal closes
   };
+
 
   const handleReportSubmitted = () => {
     fetchEvents();
@@ -142,7 +148,7 @@ const Events = () => {
       if (data.pdfUrl) {
         console.log('PDF URL received:', data.pdfUrl); // Log the received PDF URL
         setPdfUrl(data.pdfUrl); // Set PDF URL for viewing in modal
-        setOpenModal(true);
+        setOpenModal2(true);
       } else {
         console.error('No PDF URL found in response data');
       }
@@ -282,14 +288,20 @@ const Events = () => {
           onReportSubmitted={handleReportSubmitted}
         />
       )}
-      <Modal open={openModal} onClose={handleCloseModal}>
-        <Box className="modalStyle" onClick={handleCloseModal}>
-          <div className="modalContent" onClick={(e) => e.stopPropagation()}>
+      <Modal open={openModal2} onClose={handleCloseModal2}>
+        <Box 
+          onClick={handleCloseModal2}
+          sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}  // Centering the content
+        >
+          <div 
+            className="modalContent" 
+            onClick={(e) => e.stopPropagation()} 
+            style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}  // Styling the modal content
+          >
             {pdfUrl ? (
               <>
-                <p>Loading PDF from: {pdfUrl}</p> {/* Log the PDF URL being loaded */}
                 <Worker workerUrl="https://unpkg.com/pdfjs-dist@2.15.349/build/pdf.worker.js">
-                  <div style={{ height: '80vh', width: '900px' }}>
+                  <div style={{ height: '80vh', width: '900px', overflow: 'hidden' }}>
                     <Viewer
                       fileUrl={pdfUrl}
                       plugins={[defaultLayoutPluginInstance]}

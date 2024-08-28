@@ -118,7 +118,7 @@ const ApproveEventsPage: React.FC = () => {
   };
 
   return (
-    <div className="container">
+    <Box padding={2} style={{border: 'solid', borderColor: 'black'}}>
       <div className="header">
         <h1 className="title">Approve Submitted Events</h1>
       </div>
@@ -183,11 +183,17 @@ const ApproveEventsPage: React.FC = () => {
         </Table>
       </TableContainer>
       <Modal open={openModal} onClose={handleCloseModal}>
-        <Box className="modalStyle" onClick={handleCloseModal}>
-          <div className="modalContent" onClick={(e) => e.stopPropagation()}>
+        <Box 
+          className="modalStyle" 
+          onClick={handleCloseModal}
+        >
+          <div 
+            className="modalContent" 
+            onClick={(e) => e.stopPropagation()} 
+          >
             {pdfUrl ? (
               <Worker workerUrl="https://unpkg.com/pdfjs-dist@2.15.349/build/pdf.worker.js">
-                <div style={{ height: '80vh', width: '900px' }}>
+                <div style={{ height: '60vh', width: '80vw', maxWidth: '900px', border: "1px solid black", overflow: 'hidden' }}>
                   <Viewer
                     fileUrl={pdfUrl}
                     plugins={[defaultLayoutPluginInstance]}
@@ -205,7 +211,7 @@ const ApproveEventsPage: React.FC = () => {
               fullWidth
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              style={{ marginTop: '20px' }}
+              style={{ marginTop: '20px', maxWidth: '900px' }}
             />
             <Box style={{ display: 'flex', justifyContent: 'center', marginTop: '20px' }}>
               <Button variant="contained" color="primary" onClick={handleApprove} style={{ margin: '0 10px' }}>
@@ -218,7 +224,7 @@ const ApproveEventsPage: React.FC = () => {
           </div>
         </Box>
       </Modal>
-    </div>
+    </Box>
   );
 };
 

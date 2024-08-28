@@ -468,7 +468,7 @@ const pipeline = util.promisify(stream.pipeline);
 
 export const submitAndGenerateReport = async (req: Request, res: Response) => {
   const { eventId, baId, inventoryFilled, questionsFilled, photosFilled, expensesFilled } = req.body;
-  let transaction;
+  let transaction: sql.Transaction | null = null;
 
   try {
     const pool = await poolPromise;
@@ -523,6 +523,8 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
           WHERE 
             e.event_id = @eventId
         `);
+      
+      console.log('Fetched event details:', result.recordset);
 
       const event = result.recordset[0];
 
@@ -531,6 +533,7 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
         .query(`
           SELECT 
             p.ProductName,
+            p.ProductWorth,
             ei.beginning_inventory,
             ei.ending_inventory,
             ei.sold
@@ -541,6 +544,8 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
           WHERE 
             ei.event_id = @eventId
         `);
+
+      console.log('Fetched inventory details:', inventoryResult.recordset);
 
       // Create a new PDF document
       const doc = new PDFDocument();
@@ -556,6 +561,8 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
       // Generate the PDF
       const writeStream = fs.createWriteStream(tempFilePath);
       doc.pipe(writeStream);
+      console.log('Started writing to PDF document');
+
       doc.fontSize(20).text(`Event Report`, { align: 'center' });
       doc.fontSize(16).text(`Event: ${event.eventName}`);
       doc.text(`Date: ${new Date(event.startDateTime).toLocaleDateString()}`);
@@ -585,24 +592,36 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
         doc.moveDown();
         doc.fontSize(18).text(`Inventory Report`, { underline: true });
       
+        // Set column positions
+        const startX = 72;
+        const colWidths = {
+          productName: 180,
+          beginningInventory: 100,
+          endingInventory: 100,
+          sold: 100,
+          total: 120,
+        };
+      
         // Create table header
-        doc.fontSize(14).text(`Product Name`, 72, doc.y);
-        doc.text(`Beginning Inventory`, 180, doc.y);
-        doc.text(`Ending Inventory`, 320, doc.y);
-        doc.text(`# Sold`, 440, doc.y);
-        doc.text(`Total (with Product Worth)`, 540, doc.y); // New column header
-        doc.moveDown();
+        doc.fontSize(14)
+          .text(`Product Name`, startX, doc.y)
+          .text(`Beginning Inventory`, startX + colWidths.productName, doc.y)
+          .text(`Ending Inventory`, startX + colWidths.productName + colWidths.beginningInventory, doc.y)
+          .text(`# Sold`, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory, doc.y)
+          .text(`Total (with Product Worth)`, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory + colWidths.sold, doc.y)
+          .moveDown();
       
         // Add inventory data
-        inventoryResult.recordset.forEach((item, index) => {
-          const totalSold = String(item.sold * item.ProductWorth); // Calculate total with ProductWorth
+        inventoryResult.recordset.forEach((item) => {
+          const totalSold = String(item.sold * item.ProductWorth)
       
-          doc.fontSize(12).text(item.ProductName, 72, doc.y);
-          doc.text(item.beginning_inventory, 180, doc.y);
-          doc.text(item.ending_inventory, 320, doc.y);
-          doc.text(item.sold, 440, doc.y);
-          doc.text(totalSold, 540, doc.y); // Display total with ProductWorth
-          doc.moveDown();
+          doc.fontSize(12)
+            .text(item.ProductName, startX, doc.y)
+            .text(item.beginning_inventory, startX + colWidths.productName, doc.y)
+            .text(item.ending_inventory, startX + colWidths.productName + colWidths.beginningInventory, doc.y)
+            .text(item.sold, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory, doc.y)
+            .text(totalSold, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory + colWidths.sold, doc.y)
+            .moveDown();
         });
         console.log('Inventory data added to PDF');
       }
@@ -619,6 +638,8 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
           WHERE 
             event_id = @eventId
         `);
+
+      console.log('Fetched event photos:', photoResult.recordset);
 
       const uniquePhotos = new Set(photoResult.recordset.map(photo => photo.file_path));
       if (uniquePhotos.size > 0) {
@@ -638,6 +659,8 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
             Key: filePath.split('/').pop()
           });
 
+          console.log('Downloading image from S3:', filePath);
+
           const { Body } = await s3.send(command);
           await pipeline(Body as stream.Readable, fs.createWriteStream(imagePath));
           console.log('Downloaded image:', imagePath);
@@ -654,64 +677,73 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
           doc.image(imagePath, x, y, { fit: [imageWidth, imageHeight], align: 'center' });
           x += imageWidth + margin;
 
+          console.log('Added image to PDF:', imagePath);
+
           fs.unlinkSync(imagePath);
-          console.log('Image added to PDF and deleted:', imagePath);
+          console.log('Deleted temporary image file:', imagePath);
         }
       }
 
+      // Close the document and make sure it's fully written
       doc.end();
-      console.log('PDF generation completed:', tempFilePath);
 
-      // Upload to S3
-      console.log('Uploading PDF to S3...');
-      const pdfKey = `reports/${uuidv4()}.pdf`;
-      const pdfContent = fs.readFileSync(tempFilePath);
-      const uploadParams = {
-        Bucket: process.env.AWS_S3_REPORT_BUCKET_NAME!,
-        Key: pdfKey,
-        Body: pdfContent,
-        ContentType: 'application/pdf',
-      };
-      await s3.send(new PutObjectCommand(uploadParams));
-      console.log('PDF uploaded to S3.');
+      // Wait until the PDF is fully written before uploading
+      writeStream.on('finish', async () => {
+        console.log('PDF generation completed:', tempFilePath);
 
-      // Delete the temp file
-      fs.unlinkSync(tempFilePath);
-      console.log('Temporary PDF file deleted.');
+        // Upload to S3
+        console.log('Uploading PDF to S3...');
+        const pdfKey = `reports/${uuidv4()}.pdf`;
+        const pdfContent = fs.readFileSync(tempFilePath);
+        const uploadParams = {
+          Bucket: process.env.AWS_S3_REPORT_BUCKET_NAME!,
+          Key: pdfKey,
+          Body: pdfContent,
+          ContentType: 'application/pdf',
+        };
+        await s3.send(new PutObjectCommand(uploadParams));
+        console.log('PDF uploaded to S3.');
 
-      // Store the PDF information in the database
-      const reportName = `${event.eventName.replace(/ /g, '_')}_${eventId}.pdf`;
-      const s3Path = `https://${process.env.AWS_S3_REPORT_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
-      await transaction.request()
-        .input('event_id', sql.Int, eventId)
-        .input('report_name', sql.NVarChar, reportName)
-        .input('s3_path', sql.NVarChar, s3Path)
-        .query(`
-          INSERT INTO EventReports (event_id, report_name, s3_path)
-          VALUES (@event_id, @report_name, @s3_path)
-        `);
-
-      // Update the event to mark the report as submitted
-      await transaction.request()
-        .input('eventId', sql.Int, eventId)
-        .query(`
-          UPDATE Events
-          SET report_submitted = 1
-          WHERE event_id = @eventId
-        `);
-
-      // Update the personal report submission for the ambassador
-      await transaction.request()
-        .input('eventId', sql.Int, eventId)
-        .input('baId', sql.Int, baId)
-        .query(`
-          UPDATE EventBrandAmbassadors
-          SET personal_report_submitted = 1
-          WHERE event_id = @eventId AND ba_id = @baId
-        `);
-
-      await transaction.commit();
-      res.status(200).json({ message: 'Report successfully submitted, PDF generated, and event marked as complete.' });
+        // Store the PDF information in the database
+        const reportName = `${event.eventName.replace(/ /g, '_')}_${eventId}.pdf`;
+        const s3Path = `https://${process.env.AWS_S3_REPORT_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
+        if (transaction) {
+          await transaction.request()
+            .input('event_id', sql.Int, eventId)
+            .input('report_name', sql.NVarChar, reportName)
+            .input('s3_path', sql.NVarChar, s3Path)
+            .query(`
+              INSERT INTO EventReports (event_id, report_name, s3_path)
+              VALUES (@event_id, @report_name, @s3_path)
+            `);
+  
+          // Update the event to mark the report as submitted
+          await transaction.request()
+            .input('eventId', sql.Int, eventId)
+            .query(`
+              UPDATE Events
+              SET report_submitted = 1
+              WHERE event_id = @eventId
+            `);
+  
+          // Update the personal report submission for the ambassador
+          await transaction.request()
+            .input('eventId', sql.Int, eventId)
+            .input('baId', sql.Int, baId)
+            .query(`
+              UPDATE EventBrandAmbassadors
+              SET personal_report_submitted = 1
+              WHERE event_id = @eventId AND ba_id = @baId
+            `);
+  
+          // Delete the temp file after uploading
+          fs.unlinkSync(tempFilePath);
+          console.log('Temporary PDF file deleted.');
+  
+          await transaction.commit();
+          res.status(200).json({ message: 'Report successfully submitted, PDF generated, and event marked as complete.' });
+        }
+      });
     } else {
       res.status(400).json({ message: 'All sections must be completed before submitting the report.' });
     }
@@ -725,6 +757,10 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error generating and submitting report.' });
   }
 };
+
+
+
+
 
 export const partialSubmit = async (req: Request, res: Response) => {
   const { eventId, baId, photosFilled, expensesFilled } = req.body;
