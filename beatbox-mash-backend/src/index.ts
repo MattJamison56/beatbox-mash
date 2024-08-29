@@ -21,6 +21,8 @@ import { authenticateToken, getUserProfile } from './controllers/authController'
 import path from 'path';
 import refreshGmailToken from './refreshToken';
 import paymentRoutes from './routes/paymentRoutes';
+import statsRoutes from './routes/statsRoutes';
+//vars deployed4
 
 dotenv.config();
 
@@ -37,7 +39,11 @@ const PORT = process.env.PORT || 5000;
 //     }
 //   });
   
-app.use(cors());
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Use environment variable for production
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  }));  
 app.use(express.json());
 app.use(fileUpload());
 app.use(express.urlencoded({ extended: true }));
@@ -72,6 +78,8 @@ app.use('/pdfs', express.static(path.join(__dirname, '../pdfs')));
 app.use('/excel', excelRoutes);
 
 app.use('/payments', paymentRoutes);
+
+app.use('/stats', statsRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 

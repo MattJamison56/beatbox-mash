@@ -15,6 +15,7 @@ import ProfilePage from '../profilePage/profilePage';
 import ApproveEventsPage from '../approveEventsPage/approveEventsPage';
 import ManagePayrollPage from '../managePayrollPage/managePayrollPage';
 import PaymentHistoryPage from '../paymentHistoryPage/paymentHistoryPage';
+import HomePageContent from './homePage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
@@ -45,7 +46,7 @@ const HomePage: React.FC = () => {
       <div style={{ padding: '20px', margin: '64px'}}>
         {!currentSubcategory && (
           <>
-            <h1 style={{color: 'black' }}>This is the Home Page</h1>
+            <HomePageContent />
           </>
         )}
         {currentSubcategory === 'Brand Ambassadors' && <BrandAmbassadorsPage />}
