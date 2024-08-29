@@ -4,6 +4,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, A
 import { GoogleMap, LoadScriptNext, Libraries, MarkerF } from '@react-google-maps/api';
 import PlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-places-autocomplete';
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 const libraries: Libraries = ['places'] as const;
 
 type Venue = {

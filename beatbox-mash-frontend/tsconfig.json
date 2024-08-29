@@ -4,15 +4,22 @@
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
-    "skipLibCheck": true,
-    "noImplicitAny": false,
-    "strict": false,
+    "skipLibCheck": true, // Skip type checking of declaration files
+
+    /* Module Resolution */
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmitOnError": false,
+    "noEmit": true,
     "jsx": "react-jsx",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+
+    /* Linting */
+    "strict": false, // Turn off strict mode
+    "noImplicitAny": false, // Allow implicit any types
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": false
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
