@@ -10,6 +10,7 @@ import { GoogleMap, Libraries, LoadScriptNext, MarkerF } from '@react-google-map
 import { Dayjs } from 'dayjs';
 import PlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-places-autocomplete';
 
+// @ts-ignore
 const libraries: Libraries = ['places'] as const;
 
 const commonLanguages = [
