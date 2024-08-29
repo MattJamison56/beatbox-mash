@@ -35,9 +35,10 @@ interface ExpenseFormProps {
   startTime: string;
   onComplete: () => void;
   mileageAllowed: boolean;
+  ba_id: string | null;
 }
 
-const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, eventName, startTime, onComplete, mileageAllowed }) => {
+const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, eventName, startTime, onComplete, mileageAllowed, ba_id }) => {
   const [openReceiptForm, setOpenReceiptForm] = useState(false);
   const [openMileageForm, setOpenMileageForm] = useState(false);
   const [openOtherForm, setOpenOtherForm] = useState(false);
@@ -130,9 +131,9 @@ const ExpenseForm: React.FC<ExpenseFormProps> = ({ open, handleClose, eventId, e
           </Button>
         </Paper>
       </Modal>
-      <ReceiptForm open={openReceiptForm} handleClose={handleCloseReceiptForm} eventId={eventId} />
-      <MileageForm open={openMileageForm} handleClose={handleCloseMileageForm} eventId={eventId} />
-      <OtherForm open={openOtherForm} handleClose={handleCloseOtherForm} eventId={eventId} />
+      <ReceiptForm open={openReceiptForm} handleClose={handleCloseReceiptForm} eventId={eventId} ba_id={ba_id} />
+      <MileageForm open={openMileageForm} handleClose={handleCloseMileageForm} eventId={eventId} ba_id={ba_id} />
+      <OtherForm open={openOtherForm} handleClose={handleCloseOtherForm} eventId={eventId} ba_id={ba_id} />
     </>
   );
 };

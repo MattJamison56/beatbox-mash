@@ -196,7 +196,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     Accounting
                 </Typography>
                 <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Manage Payroll')}>Manage Payroll</button>
-                <button className="subcat" style={{ width: '100%' }}>Payment History</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Payment History')}>Payment History</button>
             </Box>
             </>
           )}

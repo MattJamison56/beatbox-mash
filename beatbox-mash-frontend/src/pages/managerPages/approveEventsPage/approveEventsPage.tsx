@@ -118,7 +118,7 @@ const ApproveEventsPage: React.FC = () => {
   };
 
   return (
-    <Box padding={2} style={{border: 'solid', borderColor: 'black'}}>
+    <Box padding={2}>
       <div className="header">
         <h1 className="title">Approve Submitted Events</h1>
       </div>
@@ -184,20 +184,21 @@ const ApproveEventsPage: React.FC = () => {
       </TableContainer>
       <Modal open={openModal} onClose={handleCloseModal}>
         <Box 
-          className="modalStyle" 
           onClick={handleCloseModal}
+          sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}
         >
           <div 
             className="modalContent" 
+            style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }} 
             onClick={(e) => e.stopPropagation()} 
           >
             {pdfUrl ? (
               <Worker workerUrl="https://unpkg.com/pdfjs-dist@2.15.349/build/pdf.worker.js">
-                <div style={{ height: '60vh', width: '80vw', maxWidth: '900px', border: "1px solid black", overflow: 'hidden' }}>
-                  <Viewer
-                    fileUrl={pdfUrl}
-                    plugins={[defaultLayoutPluginInstance]}
-                  />
+                <div style={{ height: '80vh', width: '900px', overflow: 'hidden' }}>
+                    <Viewer
+                        fileUrl={pdfUrl}
+                        plugins={[defaultLayoutPluginInstance]}
+                    />
                 </div>
               </Worker>
             ) : (

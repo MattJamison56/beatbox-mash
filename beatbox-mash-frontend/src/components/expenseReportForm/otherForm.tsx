@@ -28,9 +28,10 @@ interface OtherFormProps {
   open: boolean;
   handleClose: () => void;
   eventId: number;
+  ba_id: string | null;
 }
 
-const OtherForm: React.FC<OtherFormProps> = ({ open, handleClose, eventId }) => {
+const OtherForm: React.FC<OtherFormProps> = ({ open, handleClose, eventId, ba_id }) => {
   const [category, setCategory] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
@@ -45,6 +46,7 @@ const OtherForm: React.FC<OtherFormProps> = ({ open, handleClose, eventId }) => 
       date: selectedDate?.toISOString(),
       amount,
       notes,
+      ba_id: ba_id
     };
 
     try {

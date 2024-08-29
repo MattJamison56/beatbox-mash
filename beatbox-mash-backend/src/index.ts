@@ -15,10 +15,12 @@ import accountRoutes from './routes/accountRoutes';
 import authRoutes from './routes/authRoutes';
 import reportRoutes from './routes/reportRoutes';
 import pdfRoutes from './routes/pdfRoutes';
+import excelRoutes from './routes/excelRoutes';
 import fileUpload from 'express-fileupload';
 import { authenticateToken, getUserProfile } from './controllers/authController';
 import path from 'path';
 import refreshGmailToken from './refreshToken';
+import paymentRoutes from './routes/paymentRoutes';
 
 dotenv.config();
 
@@ -66,6 +68,10 @@ app.use('/reports', reportRoutes);
 app.use('/pdf', pdfRoutes);
 
 app.use('/pdfs', express.static(path.join(__dirname, '../pdfs')));
+
+app.use('/excel', excelRoutes);
+
+app.use('/payments', paymentRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 

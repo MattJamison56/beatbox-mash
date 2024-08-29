@@ -31,6 +31,7 @@ interface ReceiptFormProps {
   open: boolean;
   handleClose: () => void;
   eventId: number;
+  ba_id: string | null;
 }
 
 interface Item {
@@ -38,7 +39,7 @@ interface Item {
   amount: number;
 }
 
-const ReceiptForm: React.FC<ReceiptFormProps> = ({ open, handleClose, eventId }) => {
+const ReceiptForm: React.FC<ReceiptFormProps> = ({ open, handleClose, eventId, ba_id }) => {
   const [files, setFiles] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
@@ -91,6 +92,9 @@ const ReceiptForm: React.FC<ReceiptFormProps> = ({ open, handleClose, eventId })
     formData.append('category', category);
     formData.append('paymentMethod', paymentMethod);
     formData.append('items', JSON.stringify(items));
+    if (ba_id !== null) {
+      formData.append('ba_id', ba_id);
+    }
   
     try {
       const response = await fetch('http://localhost:5000/reports/receipts', {

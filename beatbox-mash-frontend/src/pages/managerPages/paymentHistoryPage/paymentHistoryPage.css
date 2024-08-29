@@ -16,17 +16,4 @@
   .table-container {
     margin-top: 20px;
   }
-
-  .clickable {
-    color: #6f65ac;
-    text-decoration: underline;
-    cursor: pointer;
-    transition: color 0.3s ease;
-  }
-  
-  .clickable:hover {
-    color: #635b9a;
-  }
-  
-
   

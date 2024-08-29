@@ -402,28 +402,29 @@ export const approveEvent = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
 
+    // Approve the event and update the payroll group
     await pool.request()
       .input('event_id', id)
       .input('payroll_group', payrollGroup || 'Approved Events')
       .query(`
         UPDATE Events
         SET report_approved = 1, report_submitted = NULL, payroll_group = @payroll_group, updated_at = GETDATE()
-        WHERE event_id = @event_id AND is_deleted = 0
+        WHERE event_id = @event_id
       `);
 
-    // Get the email of the Brand Ambassador associated with the event
+    // Retrieve all email addresses of Brand Ambassadors associated with the event
     const result = await pool.request()
       .input('event_id', id)
       .query(`
         SELECT U.email
         FROM EventBrandAmbassadors EBA
         JOIN Users U ON EBA.ba_id = U.id
-        WHERE EBA.event_id = @event_id AND EBA.is_deleted = 0 AND U.is_deleted = 0
+        WHERE EBA.event_id = @event_id
       `);
 
-    const email = result.recordset[0]?.email;
+    const emails = result.recordset.map(row => row.email);
 
-    if (!email) {
+    if (emails.length === 0) {
       return res.status(400).json({ message: 'No Brand Ambassador found for this event' });
     }
 
@@ -441,25 +442,29 @@ export const approveEvent = async (req: Request, res: Response) => {
       },
     });
 
-    const mailOptions = {
-      to: email,
-      from: process.env.EMAIL_USER,
-      subject: 'Event Approved',
-      text: `Your event has been approved.\n\nMessage: ${message || 'No additional message.'}`,
-    };
+    // Send an email to each Brand Ambassador
+    const emailPromises = emails.map(email => {
+      const mailOptions = {
+        to: email,
+        from: process.env.EMAIL_USER,
+        subject: 'Event Approved',
+        text: `Your event has been approved.\n\nMessage: ${message || 'No additional message.'}`,
+      };
 
-    transporter.sendMail(mailOptions, (err: any) => {
-      if (err) {
-        console.error('Error sending email:', err);
-        return res.status(500).json({ message: 'Error sending email' });
-      }
-      res.status(200).json({ message: 'Event approved, payroll group set, and email sent successfully' });
+      return transporter.sendMail(mailOptions);
     });
+
+    // Wait for all emails to be sent
+    await Promise.all(emailPromises);
+
+    res.status(200).json({ message: 'Event approved, payroll group set, and emails sent successfully' });
   } catch (error) {
     console.error('Error approving event:', error);
     res.status(500).json({ message: 'Error approving event' });
   }
 };
+
+
 
 export const rejectEvent = async (req: Request, res: Response) => {
   const { id, message } = req.body;
@@ -619,14 +624,14 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
         JOIN
           Users U ON EBA.ba_id = U.id
         LEFT JOIN 
-          MileageReports MR ON E.event_id = MR.EventId
+          MileageReports MR ON E.event_id = MR.EventId AND MR.ba_id = @ba_id
         LEFT JOIN 
-          Receipts R ON E.event_id = R.event_id
+          Receipts R ON E.event_id = R.event_id AND R.ba_id = @ba_id
         LEFT JOIN 
-          OtherExpenses OE ON E.event_id = OE.EventId
+          OtherExpenses OE ON E.event_id = OE.EventId AND OE.ba_id = @ba_id
         WHERE 
           EBA.ba_id = @ba_id AND E.report_approved = 1
-          AND E.is_deleted = 0 AND EBA.is_deleted = 0 AND U.is_deleted = 0
+          AND E.is_deleted = 0 AND U.is_deleted = 0
         GROUP BY 
           E.event_id, E.event_name, E.start_date_time, E.duration_minutes, E.duration_hours, 
           T.name, V.name, C.name, EBA.inventory, EBA.qa, EBA.photos, EBA.expenses, U.wage
@@ -641,6 +646,7 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
   }
 };
 
+
 export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
   try {
     const pool = await poolPromise;
@@ -651,10 +657,19 @@ export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
         U.name AS baName,
         U.avatar_url AS baAvatarUrl,
         E.payroll_group AS payrollGroup,
-        COUNT(E.event_id) AS eventCount,
-        SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0)) AS reimb,
+        COUNT(DISTINCT E.event_id) AS eventCount,  -- Ensure counting unique events
+        SUM(
+          ISNULL(R.total_amount, 0) * CASE WHEN R.ba_id = U.id THEN 1 ELSE 0 END +
+          ISNULL(MR.TotalFee, 0) * CASE WHEN MR.ba_id = U.id THEN 1 ELSE 0 END +
+          ISNULL(OE.amount, 0) * CASE WHEN OE.ba_id = U.id THEN 1 ELSE 0 END
+        ) AS reimb,
         SUM(U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS eventFee,
-        SUM(ISNULL(R.total_amount, 0) + ISNULL(MR.TotalFee, 0) + ISNULL(OE.amount, 0) + U.wage * (E.duration_hours + E.duration_minutes / 60.0)) AS totalDue,
+        SUM(
+          ISNULL(R.total_amount, 0) * CASE WHEN R.ba_id = U.id THEN 1 ELSE 0 END +
+          ISNULL(MR.TotalFee, 0) * CASE WHEN MR.ba_id = U.id THEN 1 ELSE 0 END +
+          ISNULL(OE.amount, 0) * CASE WHEN OE.ba_id = U.id THEN 1 ELSE 0 END +
+          U.wage * (E.duration_hours + E.duration_minutes / 60.0)
+        ) AS totalDue,
         STRING_AGG(E.event_id, ',') AS eventIds
       FROM 
         Events E
@@ -663,14 +678,16 @@ export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
       INNER JOIN 
         Users U ON EBA.ba_id = U.id
       LEFT JOIN 
-        Receipts R ON E.event_id = R.event_id
+        Receipts R ON E.event_id = R.event_id AND R.ba_id = U.id
       LEFT JOIN 
-        MileageReports MR ON E.event_id = MR.EventId
+        MileageReports MR ON E.event_id = MR.EventId AND MR.ba_id = U.id
       LEFT JOIN 
-        OtherExpenses OE ON E.event_id = OE.EventId
+        OtherExpenses OE ON E.event_id = OE.EventId AND OE.ba_id = U.id
       WHERE 
         E.report_approved = 1
-        AND E.is_deleted = 0 AND U.is_deleted = 0
+        AND E.is_deleted = 0 
+        AND E.paid = 0 -- Exclude paid events
+        AND U.is_deleted = 0
       GROUP BY 
         U.id, U.name, U.avatar_url, E.payroll_group
       ORDER BY 

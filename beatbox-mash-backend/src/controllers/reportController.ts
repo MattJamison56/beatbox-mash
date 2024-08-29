@@ -265,7 +265,7 @@ export const uploadPhotos = async (req: Request, res: Response) => {
 };
 
 export const uploadReceipts = async (req: Request, res: Response) => {
-  const { eventId, date, notes, category, paymentMethod, items } = req.body;
+  const { eventId, date, notes, category, paymentMethod, items, ba_id } = req.body;
   let files = req.files?.files;
 
   if (!files) {
@@ -300,10 +300,11 @@ export const uploadReceipts = async (req: Request, res: Response) => {
       .input('category', sql.NVarChar, category)
       .input('payment_method', sql.NVarChar, paymentMethod)
       .input('total_amount', sql.Decimal, totalAmount)
+      .input('ba_id', sql.Int, ba_id)  // Include ba_id in the insert
       .query(`
-        INSERT INTO Receipts (event_id, date, notes, category, payment_method, total_amount)
+        INSERT INTO Receipts (event_id, date, notes, category, payment_method, total_amount, ba_id)
         OUTPUT Inserted.receipt_id
-        VALUES (@event_id, @date, @notes, @category, @payment_method, @total_amount)
+        VALUES (@event_id, @date, @notes, @category, @payment_method, @total_amount, @ba_id)
       `);
 
     const receiptId = receiptInsertResult.recordset[0].receipt_id;
@@ -367,35 +368,32 @@ export const uploadReceipts = async (req: Request, res: Response) => {
 };
 
 export const saveMileageReport = async (req: Request, res: Response) => {
-  const { eventId, locations, totalMileage, totalFee, category, notes } = req.body;
+  const { eventId, locations, totalMileage, totalFee, category, notes, ba_id } = req.body;
   let transaction: sql.Transaction | undefined;
 
   try {
-    // Parse locations if it's a string
     const parsedLocations = typeof locations === 'string' ? JSON.parse(locations) : locations;
 
     const pool = await poolPromise;
     transaction = new sql.Transaction(pool);
 
-    // Begin the transaction
     await transaction.begin();
 
-    // Insert the mileage report
     const reportResult = await transaction.request()
       .input('eventId', sql.Int, eventId)
       .input('totalMileage', sql.Float, totalMileage)
       .input('totalFee', sql.Decimal(10, 2), totalFee)
       .input('category', sql.NVarChar(50), category)
       .input('notes', sql.NVarChar(sql.MAX), notes)
+      .input('ba_id', sql.Int, ba_id)  // Include ba_id in the insert
       .query(`
-        INSERT INTO MileageReports (eventId, totalMileage, totalFee, category, notes)
+        INSERT INTO MileageReports (eventId, totalMileage, totalFee, category, notes, ba_id)
         OUTPUT Inserted.ReportId
-        VALUES (@eventId, @totalMileage, @totalFee, @category, @notes)
+        VALUES (@eventId, @totalMileage, @totalFee, @category, @notes, @ba_id)
       `);
 
     const reportId = reportResult.recordset[0].ReportId;
 
-    // Insert the locations
     for (const location of parsedLocations) {
       await transaction.request()
         .input('reportId', sql.Int, reportId)
@@ -408,14 +406,12 @@ export const saveMileageReport = async (req: Request, res: Response) => {
         `);
     }
 
-    // Commit the transaction
     await transaction.commit();
 
     res.status(200).json({ message: 'Mileage report saved successfully' });
   } catch (error) {
     console.error('Error saving mileage report:', error);
 
-    // Rollback the transaction in case of error
     if (transaction) {
       await transaction.rollback();
     }
@@ -425,17 +421,15 @@ export const saveMileageReport = async (req: Request, res: Response) => {
 };
 
 export const saveOtherExpense = async (req: Request, res: Response) => {
-  const { eventId, category, paymentMethod, date, amount, notes } = req.body;
+  const { eventId, category, paymentMethod, date, amount, notes, ba_id } = req.body;
   let transaction: sql.Transaction | undefined;
 
   try {
     const pool = await poolPromise;
     transaction = new sql.Transaction(pool);
 
-    // Begin the transaction
     await transaction.begin();
 
-    // Insert the other expense
     await transaction.request()
       .input('eventId', sql.Int, eventId)
       .input('category', sql.NVarChar(50), category)
@@ -443,19 +437,18 @@ export const saveOtherExpense = async (req: Request, res: Response) => {
       .input('date', sql.Date, date)
       .input('amount', sql.Decimal(10, 2), amount)
       .input('notes', sql.NVarChar(sql.MAX), notes)
+      .input('ba_id', sql.Int, ba_id)  // Include ba_id in the insert
       .query(`
-        INSERT INTO OtherExpenses (EventId, Category, PaymentMethod, Date, Amount, Notes)
-        VALUES (@eventId, @category, @paymentMethod, @date, @amount, @notes)
+        INSERT INTO OtherExpenses (EventId, Category, PaymentMethod, Date, Amount, Notes, ba_id)
+        VALUES (@eventId, @category, @paymentMethod, @date, @amount, @notes, @ba_id)
       `);
 
-    // Commit the transaction
     await transaction.commit();
 
     res.status(200).json({ message: 'Other expense saved successfully' });
   } catch (error) {
     console.error('Error saving other expense:', error);
 
-    // Rollback the transaction in case of error
     if (transaction) {
       await transaction.rollback();
     }
@@ -463,6 +456,7 @@ export const saveOtherExpense = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error saving other expense' });
   }
 };
+
 
 const pipeline = util.promisify(stream.pipeline);
 

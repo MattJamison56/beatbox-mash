@@ -27,6 +27,7 @@ interface MileageFormProps {
   open: boolean;
   eventId: number;
   handleClose: () => void;
+  ba_id: string | null;
 }
 
 interface Location {
@@ -38,7 +39,7 @@ interface Location {
 
 const libraries: Libraries = ['places'];
 
-const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId }) => {
+const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId, ba_id }) => {
   const [locations, setLocations] = useState<Location[]>([{ id: uuidv4(), address: '', lat: 0, lng: 0 }]);
   const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -130,6 +131,9 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId })
     formData.append('category', category);
     formData.append('notes', notes);
     formData.append('locations', JSON.stringify(locations));
+    if (ba_id !== null) {
+      formData.append('ba_id', ba_id);
+    }
   
     try {
       const response = await fetch('http://localhost:5000/reports/mileage', {

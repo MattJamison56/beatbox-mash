@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
-import { Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, Menu, MenuItem, TextField, Checkbox } from '@mui/material';
+import { Tabs, Tab, Button, Menu, MenuItem, TextField } from '@mui/material';
+import PayrollGroupTable from '../../../components/payrollGroupTable/payrollGroupTable';
 import ExpenseSummaryModal from '../../../components/expenseSummaryModal/expenseSummaryModal';
 import "./managePayrollPage.css";
 
@@ -70,7 +71,7 @@ const ManagePayrollPage: React.FC = () => {
   };
 
   const handleCheckboxChange = (ba: any) => {
-    setSelectedRows(prev => 
+    setSelectedRows(prev =>
       prev.includes(ba)
         ? prev.filter(item => item !== ba)
         : [...prev, ba]
@@ -104,69 +105,88 @@ const ManagePayrollPage: React.FC = () => {
     }
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/excel/export/${activeTab}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export to Excel');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activeTab}-payroll.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+    }
+  };
+
+  const handleMarkAllAsPaid = async () => {
+    try {
+      const response = await fetch(`http://localhost:5000/payments/markallaspaid/${activeTab}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to mark all as paid');
+      }
+      else {
+        console.log("worked!");
+      }
+      
+      await fetchPayrollGroups();
+    } catch (error) {
+      console.error('Error marking all as paid:', error);
+    }
+  };
+
   const renderTabContent = () => (
-    <TableContainer component={Paper} style={{ marginTop: '20px' }}>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell></TableCell> {/* For checkboxes */}
-            <TableCell>BA Name</TableCell>
-            <TableCell># Events</TableCell>
-            <TableCell>Reimb</TableCell>
-            <TableCell>Event Fee</TableCell>
-            <TableCell>Total Due</TableCell>
-            <TableCell>Options</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {payrollGroups[activeTab]?.map((ba, index) => (
-            <TableRow key={index}>
-              <TableCell>
-                <Checkbox
-                  checked={selectedRows.includes(ba)}
-                  onChange={() => handleCheckboxChange(ba)}
-                />
-              </TableCell>
-              <TableCell
-                className="clickable"
-                onClick={() => handleBANameClick(ba.baId)}
-              >
-                {ba.baName}
-              </TableCell>
-              <TableCell>{ba.eventCount}</TableCell>
-              <TableCell>{`$${ba.reimb.toFixed(2)}`}</TableCell>
-              <TableCell>{`$${ba.eventFee.toFixed(2)}`}</TableCell>
-              <TableCell>{`$${ba.totalDue.toFixed(2)}`}</TableCell>
-              <TableCell>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={(e) => handleMenuClick(e, ba)}
-                >
-                  Add to Payroll
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-        <tfoot>
-          <TableRow>
-            <TableCell>Total</TableCell>
-            <TableCell>{payrollGroups[activeTab]?.length}</TableCell>
-            <TableCell>{`$${payrollGroups[activeTab]?.reduce((acc, ba) => acc + ba.reimb, 0).toFixed(2)}`}</TableCell>
-            <TableCell>{`$${payrollGroups[activeTab]?.reduce((acc, ba) => acc + ba.eventFee, 0).toFixed(2)}`}</TableCell>
-            <TableCell>{`$${payrollGroups[activeTab]?.reduce((acc, ba) => acc + ba.totalDue, 0).toFixed(2)}`}</TableCell>
-            <TableCell></TableCell>
-          </TableRow>
-        </tfoot>
-      </Table>
-    </TableContainer>
+    <PayrollGroupTable
+      payrollGroups={payrollGroups}
+      activeTab={activeTab}
+      selectedRows={selectedRows}
+      handleCheckboxChange={handleCheckboxChange}
+      handleBANameClick={handleBANameClick}
+      handleMenuClick={handleMenuClick}
+    />
   );
 
   return (
     <div className="container">
       <div className="header">
         <h1 className="title">Manage Payroll</h1>
+        {activeTab !== "Approved Events" && (
+          <div className="header-buttons">
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleExportToExcel}
+              style={{ marginLeft: '10px' }}
+            >
+              Export to Excel
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleMarkAllAsPaid}
+              style={{ marginLeft: '10px' }}
+            >
+              Mark All as Paid
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
@@ -178,24 +198,24 @@ const ManagePayrollPage: React.FC = () => {
       {renderTabContent()}
 
       {selectedRows.length > 0 ? (
-          <Button
-              variant="contained"
-              color="secondary"
-              onClick={(e) => handleMenuClick(e, selectedRows)}
-              style={{ margin: '20px 0' }}
-          >
-              Move Selected to Payroll
-          </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={(e) => handleMenuClick(e, selectedRows)}
+          style={{ margin: '20px 0' }}
+        >
+          Move Selected to Payroll
+        </Button>
       ) : (
-          <Button
-              variant="contained"
-              color="secondary"
-              onClick={(e) => handleMenuClick(e, selectedRows)}
-              style={{ margin: '20px 0', opacity: 0.5, pointerEvents: 'none' }}
-              disabled
-          >
-              Move Selected to Payroll
-          </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={(e) => handleMenuClick(e, selectedRows)}
+          style={{ margin: '20px 0', opacity: 0.5, pointerEvents: 'none' }}
+          disabled
+        >
+          Move Selected to Payroll
+        </Button>
       )}
 
       <Menu
