@@ -5,6 +5,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/Edit';
 import { EditTeamsForm } from '../../../components/editTeamsForm/editTeamsForm';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const ManageAccountsPage: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -34,7 +35,7 @@ const ManageAccountsPage: React.FC = () => {
     if (!userId) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/managers/updateTeams`, {
+      const response = await fetch(`${apiUrl}/managers/updateTeams`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -56,7 +57,7 @@ const ManageAccountsPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/managers');
+      const response = await fetch(`${apiUrl}/managers`);
       const data = await response.json();
       setUsers(data);
     } catch (error) {
@@ -69,7 +70,7 @@ const ManageAccountsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetch('http://localhost:5000/teams')
+    fetch(`${apiUrl}/teams`)
       .then(response => response.json())
       .then(data => setTeams(data.map((team: any) => team.name)))
       .catch(error => console.error('Error fetching teams:', error));
@@ -93,7 +94,7 @@ const ManageAccountsPage: React.FC = () => {
 
   const handleDeactivate = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/managers/delete`, {
+      const response = await fetch(`${apiUrl}/managers/delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

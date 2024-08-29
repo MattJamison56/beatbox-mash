@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, TextField, Autocomplete, Switch, FormControlLabel, Typography, Box, Divider, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Checkbox } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useParams } from 'react-router-dom';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 interface CreateCampaignPageProps {
   onBackToCampaigns: () => void;
@@ -58,17 +59,17 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
     const fetchData = async () => {
       try {
         // Fetch available teams
-        const teamsResponse = await fetch('http://localhost:5000/teams');
+        const teamsResponse = await fetch(`${apiUrl}/teams`);
         const teamsData = await teamsResponse.json();
         setAvailableTeams(teamsData.map((team: any) => team.name));
 
         // Fetch available products
-        const productsResponse = await fetch('http://localhost:5000/products');
+        const productsResponse = await fetch(`${apiUrl}/products`);
         const productsData = await productsResponse.json();
         setAvailableProducts(productsData);
 
         // Fetch available managers
-        const managersResponse = await fetch('http://localhost:5000/managers');
+        const managersResponse = await fetch(`${apiUrl}/managers`);
         const managersData = await managersResponse.json();
         if (Array.isArray(managersData)) {
           setAvailableManagers(managersData.map((manager: any) => ({ id: manager.id, name: manager.name })));
@@ -78,7 +79,7 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
 
         // Fetch campaign details along with associated products
         if (campaign) {
-          const campaignResponse = await fetch(`http://localhost:5000/campaigns/${campaign.id}`);
+          const campaignResponse = await fetch(`${apiUrl}/campaigns/${campaign.id}`);
           const campaignData = await campaignResponse.json();
 
           setName(campaignData.name);
@@ -107,7 +108,7 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
 
   const handleSave = async () => {
     try {
-      const url = campaign?.id ? `http://localhost:5000/campaigns/update` : `http://localhost:5000/campaigns/create`;
+      const url = campaign?.id ? `${apiUrl}/campaigns/update` : `${apiUrl}/campaigns/create`;
       const method = 'POST';
 
       const response = await fetch(url, {

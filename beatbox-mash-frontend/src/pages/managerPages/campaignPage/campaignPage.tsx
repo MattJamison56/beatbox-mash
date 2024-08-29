@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
 import { EditTeamsForm } from '../../../components/editTeamsForm/editTeamsForm';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 interface CampaignsPageProps {
   onCreateCampaign: (campaign?: any) => void;
@@ -36,7 +37,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
     if (!campaignId) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/campaigns/updatecampaignteams`, {
+      const response = await fetch(`${apiUrl}/campaigns/updatecampaignteams`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -57,7 +58,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
 
   const fetchCampaigns = async () => {
     try {
-        const response = await fetch('http://localhost:5000/campaigns');
+        const response = await fetch(`${apiUrl}/campaigns`);
         const data = await response.json();
 
         if (Array.isArray(data) && data.length === 0) {
@@ -76,7 +77,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
   }, []);
 
   useEffect(() => {
-    fetch('http://localhost:5000/teams')
+    fetch(`${apiUrl}/teams`)
       .then(response => response.json())
       .then(data => setTeams(data.map((team: any) => team.name)))
       .catch(error => console.error('Error fetching teams:', error));
@@ -105,7 +106,7 @@ const CampaignsPage: React.FC<CampaignsPageProps> = ({ onCreateCampaign }) => {
 
   const handleDeactivate = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/campaigns/delete`, {
+      const response = await fetch(`${apiUrl}/campaigns/delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

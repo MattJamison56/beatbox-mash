@@ -7,7 +7,7 @@ import CreateAmbassadorForm from '../../../components/createAmbassadorForm/creat
 import EditIcon from '@mui/icons-material/Edit';
 import { EditTeamsForm } from '../../../components/editTeamsForm/editTeamsForm';
 import { EditWageForm } from '../../../components/editWageForm/editWageForm';
-
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const BrandAmbassadorsPage: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -51,7 +51,7 @@ const BrandAmbassadorsPage: React.FC = () => {
     if (!userId) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/ambassadors/updateBATeams`, {
+      const response = await fetch(`${apiUrl}/ambassadors/updateBATeams`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ const BrandAmbassadorsPage: React.FC = () => {
     if (!userId) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/ambassadors/updateBAWage`, {
+      const response = await fetch(`${apiUrl}/ambassadors/updateBAWage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +104,7 @@ const BrandAmbassadorsPage: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/ambassadors/getAmbassadors');
+      const response = await fetch(`${apiUrl}/ambassadors/getAmbassadors`);
       const data = await response.json();
       setUsers(data);
     } catch (error) {
@@ -117,7 +117,7 @@ const BrandAmbassadorsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetch('http://localhost:5000/teams')
+    fetch(`${apiUrl}/teams`)
       .then(response => response.json())
       .then(data => setTeams(data.map((team: any) => team.name)))
       .catch(error => console.error('Error fetching teams:', error));
@@ -153,7 +153,7 @@ const BrandAmbassadorsPage: React.FC = () => {
 
   const handleDeactivate = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/ambassadors/deleteba`, {
+      const response = await fetch(`${apiUrl}/ambassadors/deleteba`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

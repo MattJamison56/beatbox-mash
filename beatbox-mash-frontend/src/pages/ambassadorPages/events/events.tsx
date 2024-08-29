@@ -11,6 +11,7 @@ import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import ReportForm from '../../../components/reportForm/reportForm';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 interface Event {
   report_submitted: any;
@@ -95,7 +96,7 @@ const Events = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/events/myevents/${ba_id}`);
+      const response = await fetch(`${apiUrl}/events/myevents/${ba_id}`);
       const data = await response.json();
       setEvents(data);
     } catch (error) {
@@ -135,7 +136,7 @@ const Events = () => {
   const handleViewReport = async (event: Event) => {
     try {
       console.log(`Fetching PDF for event ID: ${event.id}`); // Log the event ID
-      const response = await fetch(`http://localhost:5000/pdf/getpdf/${event.id}`);
+      const response = await fetch(`${apiUrl}/pdf/getpdf/${event.id}`);
       console.log('Response status:', response.status); // Log the status of the response
   
       if (!response.ok) {
@@ -160,7 +161,7 @@ const Events = () => {
 
   const handleDeclineEvent = async (event: Event) => {
     try {
-      const response = await fetch(`http://localhost:5000/events/decline/${event.id}`, {
+      const response = await fetch(`${apiUrl}/events/decline/${event.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, MenuItem } from '@mui/material';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const CreateProductForm: React.FC<{ open: boolean; onClose: () => void; fetchProducts: () => void }> = ({ open, onClose, fetchProducts }) => {
   const [products, setProducts] = useState<any[]>([
@@ -32,7 +33,7 @@ const CreateProductForm: React.FC<{ open: boolean; onClose: () => void; fetchPro
 
   const handleSave = async () => {
     try {
-      const response = await fetch('http://localhost:5000/products/create', {
+      const response = await fetch(`${apiUrl}/products/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

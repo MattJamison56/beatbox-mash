@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -9,6 +10,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { GoogleMap, Libraries, LoadScriptNext, MarkerF } from '@react-google-maps/api';
 import { Dayjs } from 'dayjs';
 import PlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-places-autocomplete';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 // @ts-ignore
 const libraries: Libraries = ['places'] as const;
@@ -131,7 +133,7 @@ const EditProfileForm: React.FC<EditProfileFormProps> = ({ open, onClose, userPr
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/account/save-info', {
+      const response = await fetch(`${apiUrl}/account/save-info`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

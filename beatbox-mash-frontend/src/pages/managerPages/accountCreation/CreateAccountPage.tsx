@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { TextField, Button, Container, Snackbar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const CreateAccountPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -18,7 +19,7 @@ const CreateAccountPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/account/create-account', {
+      const response = await fetch(`${apiUrl}/account/create-account`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

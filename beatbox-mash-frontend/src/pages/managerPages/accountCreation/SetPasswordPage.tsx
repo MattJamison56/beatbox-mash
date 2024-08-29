@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { TextField, Button, Container } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const SetPasswordPage: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -13,7 +14,7 @@ const SetPasswordPage: React.FC = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:5000/account/set-password', {
+      const response = await fetch(`${apiUrl}/account/set-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

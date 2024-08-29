@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button, IconButton, Menu, MenuItem } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import CreateProductForm from '../../../components/createProductForm/createProductForm';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const CreateProductsPage: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
@@ -20,7 +21,7 @@ const CreateProductsPage: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/products');
+      const response = await fetch(`${apiUrl}/products`);
       const data = await response.json();
       setProducts(data);
     } catch (error) {
@@ -44,7 +45,7 @@ const CreateProductsPage: React.FC = () => {
 
   const handleDeactivate = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/products/delete`, {
+      const response = await fetch(`${apiUrl}/products/delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

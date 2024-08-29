@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { TextField, Button, Container, Typography, Paper } from '@mui/material';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const CreateTeamsPage: React.FC = () => {
   const [teamName, setTeamName] = useState('');
 
   const handleCreateTeam = async () => {
     try {
-      const response = await fetch('http://localhost:5000/teams/create', {
+      const response = await fetch(`${apiUrl}/teams/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

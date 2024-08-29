@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -57,16 +58,16 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
   const [preEventInstructions, setPreEventInstructions] = useState<string>('');
   const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [selectedWholesaler, setSelectedWholesaler] = useState<string>('');
-
+  const apiUrl = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     // Fetch campaigns, venues, teams, and brand ambassadors from the backend
     const fetchData = async () => {
       try {
-        const campaignsResponse = await fetch('http://localhost:5000/campaigns');
-        const venuesResponse = await fetch('http://localhost:5000/venues');
-        const teamsResponse = await fetch('http://localhost:5000/teams');
-        const basResponse = await fetch('http://localhost:5000/ambassadors/getAmbassadors');
+        const campaignsResponse = await fetch(`${apiUrl}/campaigns`);
+        const venuesResponse = await fetch(`${apiUrl}/venues`);
+        const teamsResponse = await fetch(`${apiUrl}/teams`);
+        const basResponse = await fetch(`${apiUrl}/ambassadors/getAmbassadors`);
 
         const campaignsData = await campaignsResponse.json();
         const venuesData = await venuesResponse.json();
@@ -136,7 +137,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
 
   const notifyBrandAmbassadors = async (brandAmbassadors: BrandAmbassador[], eventName: any, startDateTime: Dayjs | null, venue: string | '', preEventInstructions: any) => {
     try {
-      const response = await fetch('http://localhost:5000/events/notifybas', {
+      const response = await fetch(`${apiUrl}/events/notifybas`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +167,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
     if (value) {
       try {
         const encodedValue = encodeURIComponent(value);
-        const response = await fetch(`http://localhost:5000/campaigns/name/${encodedValue}`);
+        const response = await fetch(`${apiUrl}/campaigns/name/${encodedValue}`);
         if (!response.ok) {
           throw new Error('Failed to fetch campaign details');
         }
@@ -198,7 +199,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
     };
 
     try {
-      const response = await fetch('http://localhost:5000/events/create', {
+      const response = await fetch(`${apiUrl}/events/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

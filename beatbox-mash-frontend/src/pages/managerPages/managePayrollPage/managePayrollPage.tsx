@@ -4,6 +4,7 @@ import { Tabs, Tab, Button, Menu, MenuItem, TextField } from '@mui/material';
 import PayrollGroupTable from '../../../components/payrollGroupTable/payrollGroupTable';
 import ExpenseSummaryModal from '../../../components/expenseSummaryModal/expenseSummaryModal';
 import "./managePayrollPage.css";
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const ManagePayrollPage: React.FC = () => {
   const [payrollGroups, setPayrollGroups] = useState<{ [key: string]: any[] }>({});
@@ -23,7 +24,7 @@ const ManagePayrollPage: React.FC = () => {
 
   const fetchPayrollGroups = async () => {
     try {
-      const response = await fetch('http://localhost:5000/events/payrollgroups');
+      const response = await fetch(`${apiUrl}/events/payrollgroups`);
       const data = await response.json();
       setPayrollGroups({ "Approved Events": data["Approved Events"] || [], ...data });
     } catch (error) {
@@ -33,7 +34,7 @@ const ManagePayrollPage: React.FC = () => {
 
   const fetchBAEvents = async (baId: number) => {
     try {
-      const response = await fetch(`http://localhost:5000/events/myeventsreimbursed/${baId}`);
+      const response = await fetch(`${apiUrl}/events/myeventsreimbursed/${baId}`);
       const data = await response.json();
       setBaEvents(data);
       setModalOpen(true);
@@ -83,7 +84,7 @@ const ManagePayrollPage: React.FC = () => {
       const eventIds = selectedRows.flatMap((ba) => ba.events.map((event: any) => event.id)); // Get all event IDs associated with selected BAs
       console.log('Attempting to update payroll group:', payrollGroup, 'for event IDs:', eventIds);
 
-      const response = await fetch('http://localhost:5000/events/updatepayrollgroup', {
+      const response = await fetch(`${apiUrl}/events/updatepayrollgroup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,7 +108,7 @@ const ManagePayrollPage: React.FC = () => {
 
   const handleExportToExcel = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/excel/export/${activeTab}`, {
+      const response = await fetch(`${apiUrl}/excel/export/${activeTab}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +133,7 @@ const ManagePayrollPage: React.FC = () => {
 
   const handleMarkAllAsPaid = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/payments/markallaspaid/${activeTab}`, {
+      const response = await fetch(`${apiUrl}/payments/markallaspaid/${activeTab}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -23,6 +23,8 @@ import DvrIcon from '@mui/icons-material/Dvr';
 import PersonIcon from '@mui/icons-material/Person';
 import logo from '../../assets/beatboxlogo.png';
 import './navbar.css';
+const apiUrl = import.meta.env.VITE_API_URL;
+
 
 interface NavbarProps {
   onSubcategoryChange: (subcategory: string | null) => void;
@@ -47,7 +49,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
       if (!token) return;
 
       try {
-        const response = await fetch('http://localhost:5000/profile', {
+        const response = await fetch(`${apiUrl}/profile`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

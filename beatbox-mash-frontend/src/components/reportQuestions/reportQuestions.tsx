@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Modal, Paper, Button, IconButton, Typography, TextField, FormControlLabel, Checkbox, Grid, FormGroup, Autocomplete } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const swagOptions = [
   'Stickers',
@@ -63,7 +64,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('http://localhost:5000/products');
+        const response = await fetch(`${apiUrl}/products`);
         const data = await response.json();
         setProducts(data);
       } catch (error) {
@@ -79,7 +80,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
       if (products.length === 0) return; // Wait until products are fetched
 
       try {
-        const response = await fetch(`http://localhost:5000/reports/getInventorySalesData/${eventId}`);
+        const response = await fetch(`${apiUrl}/reports/getInventorySalesData/${eventId}`);
         const data = await response.json();
   
         // Calculate totalPurchased considering ProductWorth
@@ -110,7 +111,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
     if (open) {
       const fetchSavedData = async () => {
         try {
-          const response = await fetch(`http://localhost:5000/reports/getReportQuestionsData/${eventId}`);
+          const response = await fetch(`${apiUrl}/reports/getReportQuestionsData/${eventId}`);
           if (response.ok) {
             const data = await response.json();
             setFormData((prevData: any) => ({
@@ -153,7 +154,7 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
 
   const handleSave = async () => {
     try {
-      const response = await fetch('http://localhost:5000/reports/saveReportQuestionsData', {
+      const response = await fetch(`${apiUrl}/reports/saveReportQuestionsData`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

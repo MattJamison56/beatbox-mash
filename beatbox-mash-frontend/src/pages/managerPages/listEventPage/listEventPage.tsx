@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Menu, MenuItem } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const EventsList: React.FC = () => {
   const [events, setEvents] = useState<any[]>([]);
@@ -12,7 +13,7 @@ const EventsList: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch('http://localhost:5000/events');
+      const response = await fetch(`${apiUrl}/events`);
       const data = await response.json();
       setEvents(data);
     } catch (error) {
@@ -38,7 +39,7 @@ const EventsList: React.FC = () => {
     if (!selectedEvent) return;
 
     try {
-      const response = await fetch('http://localhost:5000/events/delete', {
+      const response = await fetch(`${apiUrl}/events/delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

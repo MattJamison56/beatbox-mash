@@ -6,6 +6,7 @@ import CreateVenueForm from '../../../components/createVenueForm/createVenueForm
 import EditVenueForm from '../../../components/editVenueForm/editVenueForm';
 import EditIcon from '@mui/icons-material/Edit';
 import { EditTeamsForm } from '../../../components/editTeamsForm/editTeamsForm';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const CreateVenuesPage: React.FC = () => {
   const [venues, setVenues] = useState<any[]>([]);
@@ -36,7 +37,7 @@ const CreateVenuesPage: React.FC = () => {
     if (!venueId) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/venues/updatevenueteams`, {
+      const response = await fetch(`${apiUrl}/venues/updatevenueteams`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,7 +76,7 @@ const CreateVenuesPage: React.FC = () => {
 
   const fetchVenues = async () => {
     try {
-      const response = await fetch('http://localhost:5000/venues');
+      const response = await fetch(`${apiUrl}/venues`);
       const data = await response.json();
       setVenues(data);
     } catch (error) {
@@ -88,7 +89,7 @@ const CreateVenuesPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetch('http://localhost:5000/teams')
+    fetch(`${apiUrl}/teams`)
       .then(response => response.json())
       .then(data => setTeams(data.map((team: any) => team.name)))
       .catch(error => console.error('Error fetching teams:', error));
@@ -111,7 +112,7 @@ const CreateVenuesPage: React.FC = () => {
 
   const handleDeactivate = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/venues/deletevenue`, {
+      const response = await fetch(`${apiUrl}/venues/deletevenue`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

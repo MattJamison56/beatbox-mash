@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Autocomplete } from '@mui/material';
 import { GoogleMap, LoadScriptNext, Libraries, MarkerF } from '@react-google-maps/api';
 import PlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-places-autocomplete';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 // @ts-ignore
 const libraries: Libraries = ['places'] as const;
@@ -62,7 +64,7 @@ const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenue
 
   const fetchTeams = async () => {
     try {
-      const response = await fetch('http://localhost:5000/teams');
+      const response = await fetch(`${apiUrl}/teams`);
       const data = await response.json();
       setTeams(data.map((team: any) => team.name));
     } catch (error) {
@@ -123,7 +125,7 @@ const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenue
 
   const handleSave = async () => {
     try {
-      const response = await fetch('http://localhost:5000/venues/createvenue', {
+      const response = await fetch(`${apiUrl}/venues/createvenue`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

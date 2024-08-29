@@ -5,6 +5,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { Dayjs } from 'dayjs';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const modalStyle = {
   position: 'absolute',
@@ -50,7 +51,7 @@ const OtherForm: React.FC<OtherFormProps> = ({ open, handleClose, eventId, ba_id
     };
 
     try {
-      const response = await fetch('http://localhost:5000/reports/other', {
+      const response = await fetch(`${apiUrl}/reports/other`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

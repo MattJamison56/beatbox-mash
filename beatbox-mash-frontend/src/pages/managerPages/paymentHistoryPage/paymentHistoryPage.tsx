@@ -2,13 +2,14 @@
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button } from '@mui/material';
 import './paymentHistoryPage.css';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const PaymentHistoryPage: React.FC = () => {
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
 
   const fetchPaymentHistory = async () => {
     try {
-      const response = await fetch('http://localhost:5000/payments/history');
+      const response = await fetch(`${apiUrl}/payments/history`);
       const data = await response.json();
       setPaymentHistory(data);
     } catch (error) {

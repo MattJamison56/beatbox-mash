@@ -3,6 +3,7 @@ import { AppBar, Toolbar, Box, Avatar, Menu, MenuItem, Button } from '@mui/mater
 import { useNavigate } from 'react-router-dom';
 import './baNavbar.css';
 import logo from '../../assets/beatboxlogo.png';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 interface AmbassadorNavbarProps {
   onTabChange: (tab: string) => void;
@@ -26,7 +27,7 @@ const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
       if (!token) return;
 
       try {
-        const response = await fetch('http://localhost:5000/profile', {
+        const response = await fetch(`${apiUrl}/profile`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },

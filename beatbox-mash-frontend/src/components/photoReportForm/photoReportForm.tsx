@@ -4,6 +4,7 @@ import { Box, Modal, Paper, Typography, Button, IconButton, Grid, Alert } from '
 import CloseIcon from '@mui/icons-material/Close';
 import { useDropzone } from 'react-dropzone';
 import { ArrowUpward, Close } from '@mui/icons-material';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const modalStyle = {
   position: 'absolute',
@@ -76,7 +77,7 @@ const PhotoReportForm: React.FC<PhotoReportFormProps> = ({ open, handleClose, ev
     formData.append('eventId', String(eventId));
 
     try {
-      const response = await fetch('http://localhost:5000/reports/photos', {
+      const response = await fetch(`${apiUrl}/reports/photos`, {
         method: 'POST',
         body: formData,
       });

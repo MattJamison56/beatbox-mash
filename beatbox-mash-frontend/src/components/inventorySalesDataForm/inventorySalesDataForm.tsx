@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Modal, Paper, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Switch, FormControlLabel } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ProductSelectionForm from './productSelectionForm';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const modalStyle = {
   position: 'absolute',
@@ -37,7 +38,7 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('http://localhost:5000/products');
+        const response = await fetch(`${apiUrl}/products`);
         const data = await response.json();
         setProducts(data);
       } catch (error) {
@@ -52,7 +53,7 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
     if (open) {
       const fetchSavedData = async () => {
         try {
-          const response = await fetch(`http://localhost:5000/reports/getInventorySalesData/${eventId}`);
+          const response = await fetch(`${apiUrl}/reports/getInventorySalesData/${eventId}`);
           const data = await response.json();
 
           const mappedData = data.map((item: any) => ({
@@ -106,7 +107,7 @@ const InventorySalesDataForm: React.FC<InventorySalesDataFormProps> = ({ open, h
     console.log(inventoryData);
 
     try {
-      const response = await fetch('http://localhost:5000/reports/saveInventorySalesData', {
+      const response = await fetch(`${apiUrl}/reports/saveInventorySalesData`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

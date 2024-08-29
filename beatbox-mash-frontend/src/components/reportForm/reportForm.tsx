@@ -8,6 +8,7 @@ import ReportQuestionsForm from '../../components/reportQuestions/reportQuestion
 import PhotoUploadForm from '../../components/photoReportForm/photoReportForm';
 import ExpenseForm from '../../components/expenseReportForm/expenseReportForm';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const modalStyle = {
   position: 'absolute',
@@ -64,7 +65,7 @@ const ReportForm: React.FC<ReportFormProps> = ({
     const fetchEventBrandAmbassadorData = async () => {
       try {
         const response = await fetch(
-          `http://localhost:5000/events/brandAmbassador/${eventId}/${localStorage.getItem('ba_id')}`
+          `${apiUrl}/events/brandAmbassador/${eventId}/${localStorage.getItem('ba_id')}`
         );
         const data = await response.json();
 
@@ -145,7 +146,7 @@ const ReportForm: React.FC<ReportFormProps> = ({
 
     try {
       const response = await fetch(
-        `http://localhost:5000/reports/${isPartialSubmit ? 'partialSubmit' : 'submit'}`,
+        `${apiUrl}/reports/${isPartialSubmit ? 'partialSubmit' : 'submit'}`,
         {
           method: 'POST',
           headers: {

@@ -7,6 +7,7 @@ import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import "./approveEventsPage.css";
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const ApproveEventsPage: React.FC = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
@@ -19,7 +20,7 @@ const ApproveEventsPage: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch('http://localhost:5000/events/pendingreports');
+      const response = await fetch(`${apiUrl}/events/pendingreports`);
       const data = await response.json();
       setEvents(data);
     } catch (error) {
@@ -29,7 +30,7 @@ const ApproveEventsPage: React.FC = () => {
 
   const fetchPdf = async (eventId: number) => {
     try {
-      const response = await fetch(`http://localhost:5000/pdf/getpdf/${eventId}`);
+      const response = await fetch(`${apiUrl}/pdf/getpdf/${eventId}`);
       const data = await response.json();
       setPdfUrl(data.pdfUrl);
       setOpenModal(true);
@@ -59,7 +60,7 @@ const ApproveEventsPage: React.FC = () => {
     }
   
     try {
-      const response = await fetch(`http://localhost:5000/events/approve`, {
+      const response = await fetch(`${apiUrl}/events/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +87,7 @@ const ApproveEventsPage: React.FC = () => {
     }
   
     try {
-      const response = await fetch(`http://localhost:5000/events/reject`, {
+      const response = await fetch(`${apiUrl}/events/reject`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

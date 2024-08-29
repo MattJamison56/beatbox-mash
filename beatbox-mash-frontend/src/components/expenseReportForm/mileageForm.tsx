@@ -4,6 +4,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import { GoogleMap, LoadScriptNext, DirectionsRenderer, Libraries } from '@react-google-maps/api';
 import PlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-places-autocomplete';
 import { v4 as uuidv4 } from 'uuid';
+const apiUrl = import.meta.env.VITE_API_URL;
+
 
 const modalStyle = {
   position: 'absolute',
@@ -136,7 +138,7 @@ const MileageForm: React.FC<MileageFormProps> = ({ open, handleClose, eventId, b
     }
   
     try {
-      const response = await fetch('http://localhost:5000/reports/mileage', {
+      const response = await fetch(`${apiUrl}/reports/mileage`, {
         method: 'POST',
         body: formData,
       });

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Checkbox, FormControlLabel, IconButton } from '@mui/material';
 import { Autocomplete } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 type Ambassador = {
   firstName: string;
@@ -26,7 +27,7 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void, fetch
 
   const fetchTeams = async () => {
     try {
-      const response = await fetch('http://localhost:5000/teams');
+      const response = await fetch(`${apiUrl}/teams`);
       const data = await response.json();
       setTeams(data.map((team: any) => team.name));
     } catch (error) {
@@ -57,7 +58,7 @@ const CreateAmbassadorForm: React.FC<{ open: boolean, onClose: () => void, fetch
 
   const handleCreate = async () => {
     try {
-      const response = await fetch('http://localhost:5000/ambassadors/createba', {
+      const response = await fetch(`${apiUrl}/ambassadors/createba`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

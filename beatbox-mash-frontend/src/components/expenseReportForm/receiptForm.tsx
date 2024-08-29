@@ -8,6 +8,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { Dayjs } from 'dayjs';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const modalStyle = {
     position: 'absolute',
@@ -97,7 +98,7 @@ const ReceiptForm: React.FC<ReceiptFormProps> = ({ open, handleClose, eventId, b
     }
   
     try {
-      const response = await fetch('http://localhost:5000/reports/receipts', {
+      const response = await fetch(`${apiUrl}/reports/receipts`, {
         method: 'POST',
         body: formData,
       });

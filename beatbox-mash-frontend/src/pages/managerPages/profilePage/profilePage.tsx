@@ -6,6 +6,7 @@ import { styled } from '@mui/system';
 import EditProfileForm from '../../../components/editProfileForm/editProfileForm';
 import { useAuth } from '../../../auth/AuthContext';
 import dayjs, { Dayjs } from 'dayjs';
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const ProfileContainer = styled('div')({
   display: 'flex',
@@ -98,7 +99,7 @@ const ProfilePage: React.FC = () => {
       if (!token) return;
     
       try {
-        const response = await fetch('http://localhost:5000/profile', {
+        const response = await fetch(`${apiUrl}/profile`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -222,7 +223,7 @@ const ProfilePage: React.FC = () => {
             if (!token) return;
 
             try {
-              const response = await fetch('http://localhost:5000/profile', {
+              const response = await fetch(`${apiUrl}/profile`, {
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
