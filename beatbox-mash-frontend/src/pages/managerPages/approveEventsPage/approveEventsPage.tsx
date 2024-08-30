@@ -194,7 +194,7 @@ const ApproveEventsPage: React.FC = () => {
             onClick={(e) => e.stopPropagation()} 
           >
             {pdfUrl ? (
-              <Worker workerUrl="https://unpkg.com/pdfjs-dist@2.15.349/build/pdf.worker.js">
+              <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.0.279/build/pdf.worker.js">
                 <div style={{ height: '80vh', width: '900px', overflow: 'hidden' }}>
                     <Viewer
                         fileUrl={pdfUrl}
