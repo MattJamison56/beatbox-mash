@@ -30,7 +30,7 @@
     "date-fns": "^3.6.0",
     "dayjs": "^1.11.11",
     "lodash": "^4.17.21",
-    "pdfjs-dist": "^2.16.105",
+    "pdfjs-dist": "2.15.349",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
