@@ -1,11 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button } from '@mui/material';
+import PaymentDetailsModal from '../../../components/paymentDetailsModal/paymentDetailsModal';
 import './paymentHistoryPage.css';
+
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const PaymentHistoryPage: React.FC = () => {
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [selectedPaymentDetails, setSelectedPaymentDetails] = useState<any | null>(null);
+  const [openModal, setOpenModal] = useState<boolean>(false);
 
   const fetchPaymentHistory = async () => {
     try {
@@ -15,6 +19,21 @@ const PaymentHistoryPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching payment history:', error);
     }
+  };
+
+  const fetchPaymentDetails = async (paymentId: number) => {
+    try {
+      const response = await fetch(`${apiUrl}/payments/details/${paymentId}`);
+      const data = await response.json();
+      setSelectedPaymentDetails(data);
+      setOpenModal(true);
+    } catch (error) {
+      console.error('Error fetching payment details:', error);
+    }
+  };
+
+  const handlePayrollDateClick = (paymentId: number) => {
+    fetchPaymentDetails(paymentId);
   };
 
   useEffect(() => {
@@ -46,7 +65,14 @@ const PaymentHistoryPage: React.FC = () => {
           <TableBody>
             {paymentHistory.map((payment, index) => (
               <TableRow key={index}>
-                <TableCell>{new Date(payment.payrollDate).toLocaleString()}</TableCell>
+                <TableCell>
+                  <span
+                    className="clickable"
+                    onClick={() => handlePayrollDateClick(payment.id)}
+                  >
+                    {new Date(payment.payrollDate).toLocaleString()}
+                  </span>
+                </TableCell>
                 <TableCell>{payment.payrollName}</TableCell>
                 <TableCell>{payment.comment}</TableCell>
                 <TableCell>{payment.totalEvents}</TableCell>
@@ -61,6 +87,15 @@ const PaymentHistoryPage: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Modal for Payment Details */}
+      {selectedPaymentDetails && (
+        <PaymentDetailsModal
+          open={openModal}
+          onClose={() => setOpenModal(false)}
+          paymentDetails={selectedPaymentDetails}
+        />
+      )}
     </div>
   );
 };
