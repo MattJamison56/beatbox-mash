@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Button } from '@mui/material';
@@ -16,6 +17,7 @@ const PaymentHistoryPage: React.FC = () => {
       const response = await fetch(`${apiUrl}/payments/history`);
       const data = await response.json();
       setPaymentHistory(data);
+      console.log(paymentHistory);
     } catch (error) {
       console.error('Error fetching payment history:', error);
     }
@@ -23,7 +25,17 @@ const PaymentHistoryPage: React.FC = () => {
 
   const fetchPaymentDetails = async (payrollGroup: string) => {
     try {
-      const response = await fetch(`${apiUrl}/payments/details/${payrollGroup}`);
+      const response = await fetch(`${apiUrl}/payments/details/${payrollGroup}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch payment details');
+      }
+  
       const data = await response.json();
       setSelectedPaymentDetails(data);
       setOpenModal(true);
@@ -31,6 +43,7 @@ const PaymentHistoryPage: React.FC = () => {
       console.error('Error fetching payment details:', error);
     }
   };
+  
 
   const handlePayrollDateClick = (payrollGroup: string) => {
     fetchPaymentDetails(payrollGroup);
@@ -68,7 +81,7 @@ const PaymentHistoryPage: React.FC = () => {
                 <TableCell>
                   <span
                     className="clickable"
-                    onClick={() => handlePayrollDateClick(payment.payrollGroup, payment.baId)}
+                    onClick={() => handlePayrollDateClick(payment.payrollName)}
                   >
                     {new Date(payment.payrollDate).toLocaleString()}
                   </span>

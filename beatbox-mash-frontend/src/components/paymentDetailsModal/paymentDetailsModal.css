@@ -1,0 +1,55 @@
+.modal-paper {
+    padding: 20px;
+    margin: auto;
+    max-width: 1200px;
+    background-color: #f4f4f4;
+    border-radius: 8px;
+  }
+  
+  .modal-paper h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    color: #333;
+  }
+  
+  .table-container {
+    max-height: 400px;
+    overflow-y: auto; /* Add scrolling if content exceeds height */
+  }
+  
+  .table-head-cell {
+    background-color: #1976d2; /* Primary color for header */
+    color: white;
+    font-weight: bold;
+  }
+  
+  .table-cell {
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+  
+  .table-row:nth-of-type(odd) {
+    background-color: #f9f9f9;
+  }
+  
+  .table-row:hover {
+    background-color: #e0e0e0;
+  }
+  
+  @media (max-width: 600px) {
+    .modal-paper {
+      width: 95%;
+      padding: 10px;
+    }
+  
+    .modal-paper h2 {
+      font-size: 1.2rem;
+    }
+  
+    .table-cell {
+      padding: 8px;
+      font-size: 0.8rem;
+    }
+  }
+  

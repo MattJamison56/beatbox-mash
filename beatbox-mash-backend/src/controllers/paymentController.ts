@@ -83,15 +83,11 @@ export const markAllAsPaid = async (req: Request, res: Response) => {
             SUM(ISNULL(OE.amount, 0)) AS nonReimb,
             SUM(ISNULL(MR.TotalFee, 0)) AS otherPaidTime,
             SUM(ISNULL(U.wage * (E.duration_hours + E.duration_minutes / 60.0), 0)) AS demoFee,
-            SUM(ISNULL(EA.addition_amount, 0)) AS eventAddDeduct,
-            SUM(ISNULL(PG.addition_amount, 0)) AS payrollAddDeduct,
             SUM(
               ISNULL(R.total_amount, 0) +
               ISNULL(OE.amount, 0) +
               ISNULL(MR.TotalFee, 0) +
-              ISNULL(U.wage * (E.duration_hours + E.duration_minutes / 60.0), 0) +
-              ISNULL(EA.addition_amount, 0) +
-              ISNULL(PG.addition_amount, 0)
+              ISNULL(U.wage * (E.duration_hours + E.duration_minutes / 60.0), 0)
             ) AS totalDue
           FROM 
             Events E
@@ -105,10 +101,6 @@ export const markAllAsPaid = async (req: Request, res: Response) => {
             OtherExpenses OE ON E.event_id = OE.EventId AND OE.ba_id = U.id
           LEFT JOIN 
             MileageReports MR ON E.event_id = MR.EventId AND MR.ba_id = U.id
-          LEFT JOIN 
-            EventAdditions EA ON E.event_id = EA.event_id AND EA.ba_id = U.id
-          LEFT JOIN 
-            PayrollAdditions PG ON PG.payroll_group = E.payroll_group AND PG.ba_id = U.id
           WHERE 
             E.payroll_group = @PayrollGroup
             AND E.is_deleted = 0 

@@ -27,8 +27,6 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({ open, onClose
                 <TableCell>Non Reimb</TableCell>
                 <TableCell>Other Paid Time</TableCell>
                 <TableCell>Demo Fee</TableCell>
-                <TableCell>Event Addn/Deduct</TableCell>
-                <TableCell>Payroll Addn/Deduct</TableCell>
                 <TableCell>Total Due</TableCell>
               </TableRow>
             </TableHead>
@@ -41,8 +39,6 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({ open, onClose
                   <TableCell>{`$${ba.nonReimb.toFixed(2)}`}</TableCell>
                   <TableCell>{`$${ba.otherPaidTime.toFixed(2)}`}</TableCell>
                   <TableCell>{`$${ba.demoFee.toFixed(2)}`}</TableCell>
-                  <TableCell>{`$${ba.eventAddDeduct.toFixed(2)}`}</TableCell>
-                  <TableCell>{`$${ba.payrollAddDeduct.toFixed(2)}`}</TableCell>
                   <TableCell>{`$${ba.totalDue.toFixed(2)}`}</TableCell>
                 </TableRow>
               ))}
@@ -53,8 +49,6 @@ const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({ open, onClose
                 <TableCell>{`$${calculateTotal('nonReimb')}`}</TableCell>
                 <TableCell>{`$${calculateTotal('otherPaidTime')}`}</TableCell>
                 <TableCell>{`$${calculateTotal('demoFee')}`}</TableCell>
-                <TableCell>{`$${calculateTotal('eventAddDeduct')}`}</TableCell>
-                <TableCell>{`$${calculateTotal('payrollAddDeduct')}`}</TableCell>
                 <TableCell>{`$${calculateTotal('totalDue')}`}</TableCell>
               </TableRow>
             </TableBody>
