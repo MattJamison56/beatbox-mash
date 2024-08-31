@@ -9,7 +9,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   }
 
   try {
-    const decoded = jwt.verify(token, 'your_jwt_secret') as { userId: string, role: string };
+    const decoded = jwt.verify(token, 'your_jwt_secret') as { userId: number, role: string };
     req.user = decoded;
     next();
   } catch (error) {

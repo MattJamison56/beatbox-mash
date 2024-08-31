@@ -68,7 +68,7 @@ export const sendAccountCreationEmail = async (req: Request, res: Response) => {
       subject: 'Account Creation',
       text: `You are receiving this because you (or someone else) have requested the creation of an account.\n\n
         Please click on the following link, or paste this into your browser to complete the process:\n\n
-        http://localhost:5173/set-password/${token}\n\n
+        https://beatbox-mash.vercel.app//set-password/${token}\n\n
         If you did not request this, please ignore this email.\n`
     };
 

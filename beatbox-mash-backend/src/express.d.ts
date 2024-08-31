@@ -1,9 +1,12 @@
 // express.d.ts
 declare namespace Express {
-    export interface Request {
-      files?: {
-        [fieldname: string]: Express.Multer.File[];
-      };
-    }
+  export interface Request {
+    user?: {
+      userId: number;
+      role: string;
+    };
+    files?: {
+      [fieldname: string]: Express.Multer.File[];
+    };
   }
-  
+}

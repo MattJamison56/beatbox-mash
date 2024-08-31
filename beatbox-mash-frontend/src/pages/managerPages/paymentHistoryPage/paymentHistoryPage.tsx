@@ -21,9 +21,9 @@ const PaymentHistoryPage: React.FC = () => {
     }
   };
 
-  const fetchPaymentDetails = async (paymentId: number) => {
+  const fetchPaymentDetails = async (payrollGroup: string) => {
     try {
-      const response = await fetch(`${apiUrl}/payments/details/${paymentId}`);
+      const response = await fetch(`${apiUrl}/payments/details/${payrollGroup}`);
       const data = await response.json();
       setSelectedPaymentDetails(data);
       setOpenModal(true);
@@ -32,8 +32,8 @@ const PaymentHistoryPage: React.FC = () => {
     }
   };
 
-  const handlePayrollDateClick = (paymentId: number) => {
-    fetchPaymentDetails(paymentId);
+  const handlePayrollDateClick = (payrollGroup: string) => {
+    fetchPaymentDetails(payrollGroup);
   };
 
   useEffect(() => {
@@ -68,7 +68,7 @@ const PaymentHistoryPage: React.FC = () => {
                 <TableCell>
                   <span
                     className="clickable"
-                    onClick={() => handlePayrollDateClick(payment.id)}
+                    onClick={() => handlePayrollDateClick(payment.payrollGroup, payment.baId)}
                   >
                     {new Date(payment.payrollDate).toLocaleString()}
                   </span>

@@ -1,41 +1,66 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// PaymentDetailsModal.tsx
 import React from 'react';
-import { Modal, Box, Typography, Button } from '@mui/material';
-import './paymentDetailsModal.css';
+import { Modal, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 
 interface PaymentDetailsModalProps {
   open: boolean;
   onClose: () => void;
-  paymentDetails: any;
+  paymentDetails: any[];
 }
 
 const PaymentDetailsModal: React.FC<PaymentDetailsModalProps> = ({ open, onClose, paymentDetails }) => {
+  const calculateTotal = (field: string) => {
+    return paymentDetails.reduce((acc: number, ba: any) => acc + (ba[field] || 0), 0).toFixed(2);
+  };
+
   return (
     <Modal open={open} onClose={onClose}>
-      <Box className="modalContent" sx={{ padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
-        <Typography variant="h6" gutterBottom>
-          Payment Details
-        </Typography>
-        {paymentDetails ? (
-          <div>
-            <Typography variant="body1"><strong>Name:</strong> {paymentDetails.name}</Typography>
-            <Typography variant="body1"><strong>Comment:</strong> {paymentDetails.comment}</Typography>
-            <Typography variant="body1"><strong>Total Events:</strong> {paymentDetails.totalEvents}</Typography>
-            <Typography variant="body1"><strong>Total Reimbursable:</strong> {paymentDetails.totalReimbursable}</Typography>
-            <Typography variant="body1"><strong>Total Non-Reimbursable:</strong> {paymentDetails.totalNonReimbursable}</Typography>
-            <Typography variant="body1"><strong>Total Other Paid Time:</strong> {paymentDetails.totalOtherPaidTime}</Typography>
-            <Typography variant="body1"><strong>Total Additional/Deductions:</strong> {paymentDetails.totalAddDeduct}</Typography>
-            <Typography variant="body1"><strong>Total Demo Fee:</strong> {paymentDetails.totalDemoFee}</Typography>
-            <Typography variant="body1"><strong>Total Due:</strong> {paymentDetails.totalDue}</Typography>
-          </div>
-        ) : (
-          <Typography variant="body2">Loading...</Typography>
-        )}
-        <Button variant="contained" color="primary" onClick={onClose} style={{ marginTop: '20px' }}>
-          Close
-        </Button>
-      </Box>
+      <Paper className="modal-paper">
+        <h2>Payment Details</h2>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>BA Name</TableCell>
+                <TableCell># Events</TableCell>
+                <TableCell>Reimb</TableCell>
+                <TableCell>Non Reimb</TableCell>
+                <TableCell>Other Paid Time</TableCell>
+                <TableCell>Demo Fee</TableCell>
+                <TableCell>Event Addn/Deduct</TableCell>
+                <TableCell>Payroll Addn/Deduct</TableCell>
+                <TableCell>Total Due</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paymentDetails.map((ba: any, index: number) => (
+                <TableRow key={index}>
+                  <TableCell>{ba.baName}</TableCell>
+                  <TableCell>{ba.eventCount}</TableCell>
+                  <TableCell>{`$${ba.reimb.toFixed(2)}`}</TableCell>
+                  <TableCell>{`$${ba.nonReimb.toFixed(2)}`}</TableCell>
+                  <TableCell>{`$${ba.otherPaidTime.toFixed(2)}`}</TableCell>
+                  <TableCell>{`$${ba.demoFee.toFixed(2)}`}</TableCell>
+                  <TableCell>{`$${ba.eventAddDeduct.toFixed(2)}`}</TableCell>
+                  <TableCell>{`$${ba.payrollAddDeduct.toFixed(2)}`}</TableCell>
+                  <TableCell>{`$${ba.totalDue.toFixed(2)}`}</TableCell>
+                </TableRow>
+              ))}
+              <TableRow>
+                <TableCell><strong>Total</strong></TableCell>
+                <TableCell>{paymentDetails.length}</TableCell>
+                <TableCell>{`$${calculateTotal('reimb')}`}</TableCell>
+                <TableCell>{`$${calculateTotal('nonReimb')}`}</TableCell>
+                <TableCell>{`$${calculateTotal('otherPaidTime')}`}</TableCell>
+                <TableCell>{`$${calculateTotal('demoFee')}`}</TableCell>
+                <TableCell>{`$${calculateTotal('eventAddDeduct')}`}</TableCell>
+                <TableCell>{`$${calculateTotal('payrollAddDeduct')}`}</TableCell>
+                <TableCell>{`$${calculateTotal('totalDue')}`}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </Modal>
   );
 };

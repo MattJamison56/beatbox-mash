@@ -66,45 +66,64 @@ export const markAllAsPaid = async (req: Request, res: Response) => {
     }
   };
 
-  export const getPaymentDetailsById = async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  try {
-    const pool = await poolPromise;
-    const result = await pool.request()
-      .input('id', sql.Int, id)
-      .query(`
-        SELECT 
-          E.updated_at AS payrollDate,
-          E.payroll_group AS payrollName,
-          'Payment for event' AS comment,
-          COUNT(E.event_id) AS totalEvents,
-          ISNULL(SUM(R.total_amount), 0) + ISNULL(SUM(MR.TotalFee), 0) + ISNULL(SUM(OE.Amount), 0) AS totalReimbursable,
-          0 AS totalNonReimbursable,
-          0 AS totalOtherPaidTime,
-          0 AS totalAddDeduct,
-          ISNULL(SUM(U.wage * (E.duration_hours + E.duration_minutes / 60.0)), 0) AS totalDemoFee,
-          ISNULL(SUM(R.total_amount), 0) + 
-          ISNULL(SUM(MR.TotalFee), 0) + 
-          ISNULL(SUM(OE.Amount), 0) + 
-          ISNULL(SUM(U.wage * (E.duration_hours + E.duration_minutes / 60.0)), 0) AS totalDue
-        FROM Events E
-        INNER JOIN EventBrandAmbassadors EBA ON E.event_id = EBA.event_id
-        INNER JOIN Users U ON EBA.ba_id = U.id
-        LEFT JOIN Receipts R ON E.event_id = R.event_id AND R.ba_id = U.id
-        LEFT JOIN MileageReports MR ON E.event_id = MR.EventId AND MR.ba_id = U.id
-        LEFT JOIN OtherExpenses OE ON E.event_id = OE.EventId AND OE.ba_id = U.id
-        WHERE EBA.event_ba_id = @id
-        GROUP BY E.updated_at, E.payroll_group
-      `);
-
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ message: 'Payment details not found' });
+  export const getPaymentDetailsByPayrollGroup = async (req: Request, res: Response) => {
+    const { payrollGroup } = req.params;
+  
+    try {
+      const pool = await poolPromise;
+  
+      const result = await pool.request()
+        .input('PayrollGroup', payrollGroup)
+        .query(`
+          SELECT 
+            U.id AS baId,
+            U.name AS baName,
+            COUNT(DISTINCT E.event_id) AS eventCount,
+            SUM(ISNULL(R.total_amount, 0)) AS reimb,
+            SUM(ISNULL(OE.amount, 0)) AS nonReimb,
+            SUM(ISNULL(MR.TotalFee, 0)) AS otherPaidTime,
+            SUM(ISNULL(U.wage * (E.duration_hours + E.duration_minutes / 60.0), 0)) AS demoFee,
+            SUM(ISNULL(EA.addition_amount, 0)) AS eventAddDeduct,
+            SUM(ISNULL(PG.addition_amount, 0)) AS payrollAddDeduct,
+            SUM(
+              ISNULL(R.total_amount, 0) +
+              ISNULL(OE.amount, 0) +
+              ISNULL(MR.TotalFee, 0) +
+              ISNULL(U.wage * (E.duration_hours + E.duration_minutes / 60.0), 0) +
+              ISNULL(EA.addition_amount, 0) +
+              ISNULL(PG.addition_amount, 0)
+            ) AS totalDue
+          FROM 
+            Events E
+          INNER JOIN 
+            EventBrandAmbassadors EBA ON E.event_id = EBA.event_id
+          INNER JOIN 
+            Users U ON EBA.ba_id = U.id
+          LEFT JOIN 
+            Receipts R ON E.event_id = R.event_id AND R.ba_id = U.id
+          LEFT JOIN 
+            OtherExpenses OE ON E.event_id = OE.EventId AND OE.ba_id = U.id
+          LEFT JOIN 
+            MileageReports MR ON E.event_id = MR.EventId AND MR.ba_id = U.id
+          LEFT JOIN 
+            EventAdditions EA ON E.event_id = EA.event_id AND EA.ba_id = U.id
+          LEFT JOIN 
+            PayrollAdditions PG ON PG.payroll_group = E.payroll_group AND PG.ba_id = U.id
+          WHERE 
+            E.payroll_group = @PayrollGroup
+            AND E.is_deleted = 0 
+            AND U.is_deleted = 0
+          GROUP BY 
+            U.id, U.name
+          ORDER BY 
+            U.name ASC;
+        `);
+  
+      const paymentDetails = result.recordset;
+  
+      res.status(200).json(paymentDetails);
+    } catch (error) {
+      console.error('Error fetching payment details:', error);
+      res.status(500).json({ message: 'Error fetching payment details' });
     }
-
-    res.status(200).json(result.recordset[0]);
-  } catch (error) {
-    console.error('Error fetching payment details:', error);
-    res.status(500).json({ message: 'Error fetching payment details.' });
-  }
-};
+  };
