@@ -210,7 +210,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     <ContentPasteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                     Reporting
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Completed Reports</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Completed Reports')}>Completed Reports</button>
                 <button className="subcat" style={{ width: '100%' }}>Photo Gallery</button>
             </Box>
             <Box mr={2} sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '10px' }}>

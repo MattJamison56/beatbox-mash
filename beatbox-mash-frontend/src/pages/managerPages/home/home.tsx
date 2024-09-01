@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState } from 'react';
+import React, { useState } from 'react';
 import Navbar from '../../../components/managerNavbar/managerNavbar';
 import BrandAmbassadorsPage from '../brandAmbassadorPage/bapage';
 import CreateTeamsPage from '../createTeamPage/createTeamPage';
@@ -15,6 +15,7 @@ import ProfilePage from '../profilePage/profilePage';
 import ApproveEventsPage from '../approveEventsPage/approveEventsPage';
 import ManagePayrollPage from '../managePayrollPage/managePayrollPage';
 import PaymentHistoryPage from '../paymentHistoryPage/paymentHistoryPage';
+import CompletedReportsPage from '../getCompletedPage/getCompletedPage';
 import HomePageContent from './homePage';
 
 const HomePage: React.FC = () => {
@@ -40,6 +41,11 @@ const HomePage: React.FC = () => {
     setCurrentSubcategory('List Events');
   };
 
+  const handleCampaignFromReports = (campaign: any) => {
+    setSelectedCampaign(campaign);
+    setCurrentSubcategory('Create Campaign');
+  };
+
   return (
     <div>
       <Navbar onSubcategoryChange={handleSubcategoryChange} />
@@ -62,6 +68,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Approve Submitted Events' && <ApproveEventsPage />}
         {currentSubcategory === 'Manage Payroll' && <ManagePayrollPage />}
         {currentSubcategory === 'Payment History' && <PaymentHistoryPage />}
+        {currentSubcategory === 'Completed Reports' && <CompletedReportsPage onCampaignClick={handleCampaignFromReports} />}
       </div>
     </div>
   );

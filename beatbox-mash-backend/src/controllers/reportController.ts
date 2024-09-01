@@ -789,3 +789,77 @@ export const partialSubmit = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error in partial submission.' });
   }
 };
+
+
+export const getCompletedReports = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request().query(`
+      SELECT 
+        E.event_id,
+        E.event_name,
+        E.start_date_time,
+        E.created_at AS report_date,
+        U.name AS ba_name,
+        V.name AS venue_name,
+        C.name AS campaign_name,
+        T.name AS team_name,
+        (
+          SELECT 
+            COUNT(*) 
+          FROM 
+            Receipts R 
+          WHERE 
+            R.event_id = E.event_id
+        ) + 
+        (
+          SELECT 
+            COUNT(*) 
+          FROM 
+            MileageReports MR 
+          WHERE 
+            MR.EventId = E.event_id
+        ) + 
+        (
+          SELECT 
+            COUNT(*) 
+          FROM 
+            OtherExpenses OE 
+          WHERE 
+            OE.EventId = E.event_id
+        ) AS number_of_expenses,
+        (
+          SELECT 
+            COUNT(*) 
+          FROM 
+            EventPhotos EP 
+          WHERE 
+            EP.event_id = E.event_id
+        ) AS number_of_photos
+      FROM 
+        Events E
+      INNER JOIN 
+        EventBrandAmbassadors EBA ON E.event_id = EBA.event_id
+      INNER JOIN 
+        Users U ON EBA.ba_id = U.id
+      INNER JOIN 
+        Venues V ON E.venue_id = V.id
+      INNER JOIN 
+        Campaigns C ON E.campaign_id = C.id
+      LEFT JOIN 
+        Teams T ON E.team_id = T.id
+      WHERE 
+        E.paid = 1 AND E.is_deleted = 0
+        AND (EBA.qa = 1 OR EBA.inventory = 1)
+      ORDER BY 
+        E.start_date_time DESC;
+    `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching completed reports:', error);
+    res.status(500).json({ message: 'Error fetching completed reports' });
+  }
+};
+
