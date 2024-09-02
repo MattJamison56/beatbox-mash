@@ -804,6 +804,7 @@ export const getCompletedReports = async (req: Request, res: Response) => {
         U.name AS ba_name,
         V.name AS venue_name,
         C.name AS campaign_name,
+        E.campaign_id, -- Adding campaign_id here
         T.name AS team_name,
         (
           SELECT 
@@ -862,4 +863,5 @@ export const getCompletedReports = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching completed reports' });
   }
 };
+
 

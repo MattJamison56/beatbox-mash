@@ -218,7 +218,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     <EqualizerIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                     Analysis
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Sales Results</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Sales Results')}>Sales Results</button>
                 <button className="subcat" style={{ width: '100%' }}>Q&A Numerical Results</button>
                 <button className="subcat" style={{ width: '100%' }}>Q&A Written Answers</button>
                 <button className="subcat" style={{ width: '100%' }}>Raw Data</button>

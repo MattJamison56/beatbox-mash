@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// campaign_id not sending correctly?
 import React, { useEffect, useState } from 'react';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Modal, Box, Button } from '@mui/material';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
@@ -26,6 +25,7 @@ const CompletedReportsPage: React.FC<CompletedReportsPageProps> = ({ onCampaignC
     try {
       const response = await fetch(`${apiUrl}/reports/completed`);
       const data = await response.json();
+      console.log(data);
       setReports(data);
     } catch (error) {
       console.error('Error fetching completed reports:', error);

@@ -16,6 +16,7 @@ import ApproveEventsPage from '../approveEventsPage/approveEventsPage';
 import ManagePayrollPage from '../managePayrollPage/managePayrollPage';
 import PaymentHistoryPage from '../paymentHistoryPage/paymentHistoryPage';
 import CompletedReportsPage from '../getCompletedPage/getCompletedPage';
+import SalesResultsPage from '../salesResultsPage/salesResultsPage';
 import HomePageContent from './homePage';
 
 const HomePage: React.FC = () => {
@@ -69,6 +70,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Manage Payroll' && <ManagePayrollPage />}
         {currentSubcategory === 'Payment History' && <PaymentHistoryPage />}
         {currentSubcategory === 'Completed Reports' && <CompletedReportsPage onCampaignClick={handleCampaignFromReports} />}
+        {currentSubcategory === 'Sales Results' && <SalesResultsPage />}
       </div>
     </div>
   );

@@ -11,16 +11,27 @@ export const getCampaigns = async (req: Request, res: Response) => {
     const result = await pool.request().query(`
       SELECT 
         Campaigns.*, 
-        COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams,
-        COALESCE(STRING_AGG(Users.name, ', '), '') AS owners
+        (
+          SELECT 
+            STUFF((
+              SELECT DISTINCT ', ' + Teams.name
+              FROM CampaignTeams 
+              LEFT JOIN Teams ON CampaignTeams.team_id = Teams.id
+              WHERE CampaignTeams.campaign_id = Campaigns.id
+              FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)'), 1, 2, '')
+        ) AS teams,
+        (
+          SELECT 
+            STUFF((
+              SELECT DISTINCT ', ' + Users.name
+              FROM Users
+              WHERE CHARINDEX(',' + CAST(Users.id AS NVARCHAR(255)) + ',', ',' + Campaigns.owner_ids + ',') > 0
+              FOR XML PATH(''), TYPE
+            ).value('.', 'NVARCHAR(MAX)'), 1, 2, '')
+        ) AS owners
       FROM 
         Campaigns
-      LEFT JOIN 
-        CampaignTeams ON Campaigns.id = CampaignTeams.campaign_id
-      LEFT JOIN 
-        Teams ON CampaignTeams.team_id = Teams.id
-      LEFT JOIN 
-        Users ON CHARINDEX(',' + CAST(Users.id AS NVARCHAR(255)) + ',', ',' + Campaigns.owner_ids + ',') > 0
       WHERE 
         Campaigns.is_deleted = 0
       GROUP BY 
@@ -40,7 +51,6 @@ export const getCampaigns = async (req: Request, res: Response) => {
     res.status(500).send(error.message);
   }
 };
-
 
 export const createCampaign = async (req: Request, res: Response) => {
   try {

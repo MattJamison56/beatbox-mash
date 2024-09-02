@@ -147,14 +147,17 @@ const CreateCampaignPage: React.FC<CreateCampaignPageProps> = ({ onBackToCampaig
   };
 
   const handleOwnersChange = (_e: any, selectedOwners: string[]) => {
-    setOwners(selectedOwners);
-    const selectedOwnerIds = selectedOwners.map(ownerName => {
+    const uniqueOwners = Array.from(new Set(selectedOwners)); // Ensure owners are unique
+    setOwners(uniqueOwners);
+  
+    const selectedOwnerIds = uniqueOwners.map(ownerName => {
       const owner = availableManagers.find(manager => manager.name === ownerName);
       return owner ? owner.id : null;
     }).filter(id => id !== null) as number[];
+    
     setOwnerIds(selectedOwnerIds);
   };
-
+  
   const toggleProductModal = () => {
     setProductModalOpen(!productModalOpen);
   };
