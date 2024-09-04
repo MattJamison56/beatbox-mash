@@ -22,6 +22,8 @@ import path from 'path';
 import refreshGmailToken from './refreshToken';
 import paymentRoutes from './routes/paymentRoutes';
 import statsRoutes from './routes/statsRoutes';
+import dataRoutes from './routes/dataRoutes';
+
 //vars deployed4
 
 dotenv.config();
@@ -80,6 +82,8 @@ app.use('/excel', excelRoutes);
 app.use('/payments', paymentRoutes);
 
 app.use('/stats', statsRoutes);
+
+app.use('/data', dataRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 
