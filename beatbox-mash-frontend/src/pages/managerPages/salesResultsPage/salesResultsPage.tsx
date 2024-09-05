@@ -7,6 +7,8 @@ import StoreIcon from '@mui/icons-material/Store';
 import PeopleIcon from '@mui/icons-material/People';
 import MoneyIcon from '@mui/icons-material/Money';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import VenueSubTabContent from './subContent/venueSubTabContent';
+import StateSubTabContent from './subContent/stateSubTabContent';
 
 function a11yProps(index: number) {
   return {
@@ -114,8 +116,8 @@ const SalesResultsPage: React.FC = () => {
       <Box sx={{ paddingTop: 2 }}>
         {value === 0 && <ProductSubTabContent />} {/* Product Tab */}
         {value === 1 && <BrandAmbassadorsSubTabContent />} {/* Brand Ambassadors Tab */}
-        {value === 2 && <Typography>Venue content goes here</Typography>}
-        {value === 3 && <Typography>State content goes here</Typography>}
+        {value === 2 && <VenueSubTabContent />} {/* Venue Tab */}
+        {value === 3 && <StateSubTabContent />} {/* State Tab */}
       </Box>
     </Box>
   );

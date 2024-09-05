@@ -1,42 +1,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import { ChartData } from 'chart.js';
 
+const apiUrl = import.meta.env.VITE_API_URL;
+
 const BrandAmbassadorsSubTabContent: React.FC = () => {
   const [subTabValue, setSubTabValue] = useState(0);
+  const [baData, setBaData] = useState<any[]>([]);
 
-  // Dummy data for Brand Ambassadors
-  const baData = [
-    {
-      baName: 'Aasha Lewis-Redway',
-      demos: 1,
-      totalSales: 4,
-      totalDollarSales: 15.96,
-      avgSalesPerDemo: 4,
-      avgDollarSalesPerDemo: 15.96,
-      totalHours: '3 hrs 0 min',
-      avgHoursPerDemo: '3 hrs 0 min',
-      salesPerHour: 1.33,
-      dollarSalesPerHour: 5.32,
-      avatarUrl: 'https://via.placeholder.com/50'
-    },
-    {
-      baName: 'Audrey Andrews',
-      demos: 1,
-      totalSales: 18,
-      totalDollarSales: 87.82,
-      avgSalesPerDemo: 18,
-      avgDollarSalesPerDemo: 87.82,
-      totalHours: '3 hrs 15 min',
-      avgHoursPerDemo: '3 hrs 15 min',
-      salesPerHour: 5.54,
-      dollarSalesPerHour: 27.02,
-      avatarUrl: 'https://via.placeholder.com/50'
-    },
-    // Add more BA data as needed
-  ];
+  // Fetch data from the backend
+  useEffect(() => {
+    const fetchBaData = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/data/ba-data`);
+        const data = await response.json();
+        setBaData(data);
+      } catch (error) {
+        console.error('Error fetching brand ambassadors data:', error);
+      }
+    };
+
+    fetchBaData();
+  }, []);
 
   const handleSubTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setSubTabValue(newValue);
@@ -44,7 +31,7 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
 
   const getChartData = (): ChartData<'bar', number[], string> => {
     const labels = baData.map((item) => item.baName);
-    
+
     switch (subTabValue) {
       case 0: // Demos by BA
         return {
@@ -52,7 +39,7 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
           datasets: [
             {
               label: 'Demos by BA',
-              data: baData.map((item) => item.demos),
+              data: baData.map((item) => item.demosLastMonth),
               backgroundColor: 'rgba(75, 192, 192, 0.6)',
             },
           ],
@@ -74,7 +61,7 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
           datasets: [
             {
               label: 'Total Hours by BA',
-              data: baData.map((item) => parseFloat(item.totalHours.split(' ')[0])),
+              data: baData.map((item) => item.totalHoursWorked),
               backgroundColor: 'rgba(153, 102, 255, 0.6)',
             },
           ],
@@ -104,7 +91,6 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
         <Tab label="Total Hours by BA" />
         <Tab label="Total Sales by BA" />
       </Tabs>
-
       {/* Chart Section */}
       <Box sx={{ width: '100%', height: 300 }}>
         <Bar
@@ -120,7 +106,6 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
           }}
         />
       </Box>
-
       {/* Table Section */}
       <Box sx={{ marginTop: 3 }}>
         <TableContainer component={Paper}>
@@ -143,18 +128,22 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
               {baData.map((ba, index) => (
                 <TableRow key={index}>
                   <TableCell>
-                    <img src={ba.avatarUrl} alt={`${ba.baName} avatar`} style={{ width: '40px', borderRadius: '50%', marginRight: '10px' }} />
+                    <img
+                      src={ba.avatarUrl || 'https://via.placeholder.com/50'}
+                      alt={`${ba.baName} avatar`}
+                      style={{ width: '40px', borderRadius: '50%', marginRight: '10px' }}
+                    />
                     {ba.baName}
                   </TableCell>
-                  <TableCell align="right">{ba.demos}</TableCell>
-                  <TableCell align="right">{ba.totalSales}</TableCell>
+                  <TableCell align="right">{ba.demosLastMonth}</TableCell>
+                  <TableCell align="right">{ba.totalUnitsSold}</TableCell>
                   <TableCell align="right">{ba.totalDollarSales.toFixed(2)}</TableCell>
-                  <TableCell align="right">{ba.avgSalesPerDemo}</TableCell>
-                  <TableCell align="right">{ba.avgDollarSalesPerDemo.toFixed(2)}</TableCell>
-                  <TableCell align="right">{ba.totalHours}</TableCell>
-                  <TableCell align="right">{ba.avgHoursPerDemo}</TableCell>
+                  <TableCell align="right">{(ba.totalUnitsSold / ba.demosLastMonth).toFixed(2)}</TableCell> {/* avgSalesPerDemo */}
+                  <TableCell align="right">{(ba.totalDollarSales / ba.demosLastMonth).toFixed(2)}</TableCell> {/* avgDollarSalesPerDemo */}
+                  <TableCell align="right">{ba.totalHoursWorked}</TableCell>
+                  <TableCell align="right">{(ba.totalHoursWorked / ba.demosLastMonth).toFixed(2)}</TableCell> {/* avgHoursPerDemo */}
                   <TableCell align="right">{ba.salesPerHour.toFixed(2)}</TableCell>
-                  <TableCell align="right">{ba.dollarSalesPerHour.toFixed(2)}</TableCell>
+                  <TableCell align="right">{(ba.totalDollarSales / ba.totalHoursWorked).toFixed(2)}</TableCell> {/* dollarSalesPerHour */}
                 </TableRow>
               ))}
             </TableBody>

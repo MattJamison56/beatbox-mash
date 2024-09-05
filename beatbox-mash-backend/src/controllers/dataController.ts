@@ -141,3 +141,188 @@ export const getSalesSummary = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching sales summary' });
   }
 };
+
+export const getBrandAmbassadorsData = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request().query(`
+      SELECT 
+        U.id AS baId,
+        U.name AS baName,
+        U.avatar_url AS baAvatarUrl,
+        COUNT(DISTINCT E.event_id) AS demosLastMonth,
+        SUM(E.duration_hours + (E.duration_minutes / 60.0)) AS totalHoursWorked,
+        SUM(EI.sold) AS totalUnitsSold,
+        SUM(EI.sold * P.MSRP) AS totalDollarSales,
+        SUM(EI.sold) / SUM(E.duration_hours + (E.duration_minutes / 60.0)) AS salesPerHour
+      FROM Users U
+      JOIN EventBrandAmbassadors EBA ON U.id = EBA.ba_id
+      JOIN Events E ON EBA.event_id = E.event_id
+      LEFT JOIN EventInventory EI ON E.event_id = EI.event_id
+      LEFT JOIN Products P ON EI.product_id = P.ProductID
+      WHERE E.is_deleted = 0
+      AND E.report_approved = 1
+      AND MONTH(E.start_date_time) = MONTH(GETDATE()) -- Current month
+      AND YEAR(E.start_date_time) = YEAR(GETDATE()) -- Current year
+      GROUP BY U.id, U.name, U.avatar_url
+    `);
+
+    const brandAmbassadors = result.recordset.map((ba) => ({
+      ...ba,
+      avgSalesPerDemo: ba.totalUnitsSold / ba.demosLastMonth || 0,
+      avgDollarSalesPerDemo: ba.totalDollarSales / ba.demosLastMonth || 0,
+      avgHoursPerDemo: ba.totalHoursWorked / ba.demosLastMonth || 0
+    }));
+
+    res.status(200).json(brandAmbassadors);
+  } catch (error) {
+    console.error('Error fetching brand ambassadors data:', error);
+    res.status(500).json({ message: 'Error fetching brand ambassadors data' });
+  }
+};
+
+export const getVenueData = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request().query(`
+      SELECT
+        V.id AS venueId,
+        V.name AS venueName,
+        V.region AS state,
+        V.address AS city,
+        
+        -- Number of demos by venue (count distinct events)
+        COUNT(DISTINCT E.event_id) AS demosLastMonth,
+        
+        -- Total units sold at venue in the current month
+        ISNULL(SUM(EI.sold), 0) AS totalUnitsSold,
+        
+        -- Total dollar sales at venue (units sold * MSRP)
+        ISNULL(SUM(EI.sold * P.MSRP), 0) AS totalDollarSales,
+        
+        -- Average sales per demo
+        CASE 
+          WHEN COUNT(DISTINCT E.event_id) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold) * 1.0 / COUNT(DISTINCT E.event_id), 0)
+        END AS avgSalesPerDemo,
+
+        -- Average dollar sales per demo
+        CASE 
+          WHEN COUNT(DISTINCT E.event_id) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold * P.MSRP) * 1.0 / COUNT(DISTINCT E.event_id), 0)
+        END AS avgDollarSalesPerDemo,
+
+        -- Total hours worked at venue (distinct events only)
+        ISNULL(SUM(DISTINCT E.duration_hours + (E.duration_minutes / 60.0)), 0) AS totalHoursWorked,
+
+        -- Average hours per demo
+        CASE 
+          WHEN COUNT(DISTINCT E.event_id) = 0 THEN 0
+          ELSE ISNULL(SUM(DISTINCT E.duration_hours + (E.duration_minutes / 60.0)) / COUNT(DISTINCT E.event_id), 0)
+        END AS avgHoursPerDemo,
+        
+        -- Sales per hour
+        CASE 
+          WHEN SUM(DISTINCT E.duration_hours + (E.duration_minutes / 60.0)) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold) / SUM(DISTINCT E.duration_hours + (E.duration_minutes / 60.0)), 0)
+        END AS salesPerHour,
+
+        -- Dollar sales per hour
+        CASE 
+          WHEN SUM(DISTINCT E.duration_hours + (E.duration_minutes / 60.0)) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold * P.MSRP) / SUM(DISTINCT E.duration_hours + (E.duration_minutes / 60.0)), 0)
+        END AS dollarSalesPerHour
+
+      FROM Venues V
+      JOIN Events E ON V.id = E.venue_id
+      LEFT JOIN EventInventory EI ON E.event_id = EI.event_id
+      LEFT JOIN Products P ON EI.product_id = P.ProductID
+      WHERE E.is_deleted = 0
+        AND E.report_approved = 1
+        AND MONTH(E.start_date_time) = MONTH(GETDATE())
+        AND YEAR(E.start_date_time) = YEAR(GETDATE())
+      GROUP BY V.id, V.name, V.region, V.address
+      ORDER BY V.name;
+    `);
+
+    res.status(200).json(result.recordset);
+    
+  } catch (error) {
+    console.error('Error fetching venue data:', error);
+    res.status(500).json({ message: 'Error fetching venue data' });
+  }
+};
+
+export const getStateData = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request().query(`
+      SELECT
+        V.region AS state,  -- Group by state (region in the venue table)
+        
+        -- Number of demos (count distinct events)
+        COUNT(DISTINCT E.event_id) AS demosLastMonth,
+        
+        -- Total demo hours worked in the current month
+        ISNULL(SUM(DISTINCT (E.duration_hours + (E.duration_minutes / 60.0))), 0) AS totalDemoHours,
+
+        -- Average hours per demo in the current month
+        CASE 
+          WHEN COUNT(DISTINCT E.event_id) = 0 THEN 0
+          ELSE ISNULL(SUM(DISTINCT (E.duration_hours + (E.duration_minutes / 60.0))) / COUNT(DISTINCT E.event_id), 0)
+        END AS avgHoursPerDemo,
+
+        -- Total units sold by state
+        ISNULL(SUM(EI.sold), 0) AS totalUnitsSold,
+        
+        -- Total dollar sales (units sold * MSRP) by state
+        ISNULL(SUM(EI.sold * P.MSRP), 0) AS totalDollarSales,
+
+        -- Average sales per demo by state
+        CASE 
+          WHEN COUNT(DISTINCT E.event_id) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold) * 1.0 / COUNT(DISTINCT E.event_id), 0)
+        END AS avgSalesPerDemo,
+
+        -- Average dollar sales per demo by state
+        CASE 
+          WHEN COUNT(DISTINCT E.event_id) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold * P.MSRP) * 1.0 / COUNT(DISTINCT E.event_id), 0)
+        END AS avgDollarSalesPerDemo,
+
+        -- Sales per demo hour by state
+        CASE 
+          WHEN SUM(DISTINCT (E.duration_hours + (E.duration_minutes / 60.0))) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold) / SUM(DISTINCT (E.duration_hours + (E.duration_minutes / 60.0))), 0)
+        END AS salesPerHour,
+
+        -- Dollar sales per demo hour by state
+        CASE 
+          WHEN SUM(DISTINCT (E.duration_hours + (E.duration_minutes / 60.0))) = 0 THEN 0
+          ELSE ISNULL(SUM(EI.sold * P.MSRP) / SUM(DISTINCT (E.duration_hours + (E.duration_minutes / 60.0))), 0)
+        END AS dollarSalesPerHour
+
+      FROM Venues V
+      JOIN Events E ON V.id = E.venue_id
+      LEFT JOIN EventInventory EI ON E.event_id = EI.event_id
+      LEFT JOIN Products P ON EI.product_id = P.ProductID
+      WHERE E.is_deleted = 0
+        AND E.report_approved = 1
+        AND MONTH(E.start_date_time) = MONTH(GETDATE())  -- Filter by current month
+        AND YEAR(E.start_date_time) = YEAR(GETDATE())
+      GROUP BY V.region
+      ORDER BY V.region;
+    `);
+
+    console.log(result.recordset);
+
+    res.status(200).json(result.recordset);
+    
+  } catch (error) {
+    console.error('Error fetching state data:', error);
+    res.status(500).json({ message: 'Error fetching state data' });
+  }
+};

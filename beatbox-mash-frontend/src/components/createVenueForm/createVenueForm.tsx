@@ -22,6 +22,14 @@ type Venue = {
   teams: string[];
 };
 
+const states = [
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia", 
+  "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", 
+  "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey", 
+  "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", 
+  "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"
+];
+
 const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenues: () => void }> = ({ open, onClose, fetchVenues }) => {
   const [venue, setVenue] = useState<Venue>({
     name: '',
@@ -90,11 +98,32 @@ const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenue
         ...prevVenue,
         address
       }));
+
       setMapCenter({ lat, lng });
       setMarkerPosition({ lat, lng });
+
+      // Auto-fill region based on the address
+      const stateFromAddress = extractStateFromAddress(results);
+      if (stateFromAddress) {
+        setVenue((prevVenue) => ({
+          ...prevVenue,
+          region: stateFromAddress
+        }));
+      }
     } catch (error) {
       console.error('Error:', error);
     }
+  };
+
+  const extractStateFromAddress = (results: any): string | null => {
+    for (const result of results) {
+      for (const component of result.address_components) {
+        if (component.types.includes("administrative_area_level_1")) {
+          return component.long_name; // The state
+        }
+      }
+    }
+    return null;
   };
 
   const handleMapClick = async (event: google.maps.MapMouseEvent) => {
@@ -112,12 +141,20 @@ const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenue
           }));
           setMapCenter({ lat, lng });
           setMarkerPosition({ lat, lng });
+
+          const stateFromAddress = extractStateFromAddress(results);
+          if (stateFromAddress) {
+            setVenue((prevVenue) => ({
+              ...prevVenue,
+              region: stateFromAddress
+            }));
+          }
         } else {
           console.error('Geocode was not successful for the following reason:', status);
         }
       });
     }
-  };  
+  };
 
   const handleInputChange = (field: keyof Venue, value: any) => {
     setVenue(prevVenue => ({ ...prevVenue, [field]: value }));
@@ -148,54 +185,53 @@ const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenue
       <DialogTitle>Create Venue</DialogTitle>
       <DialogContent>
 
-      <LoadScriptNext googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_KEY} libraries={libraries}>
-        <>
-          <PlacesAutocomplete value={venue.address} onChange={(address) => handleInputChange('address', address)} onSelect={handleSelect}>
-            {({ getInputProps, suggestions, getSuggestionItemProps, loading }) => (
-              <div>
-                <TextField
-                  fullWidth
-                  {...getInputProps({
-                    placeholder: 'Enter location',
-                    label: 'Address',
-                    style: { marginRight: 8, marginTop: 5, width: '100%' }
-                  })}
-                />
+        <LoadScriptNext googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_KEY} libraries={libraries}>
+          <>
+            <PlacesAutocomplete value={venue.address} onChange={(address) => handleInputChange('address', address)} onSelect={handleSelect}>
+              {({ getInputProps, suggestions, getSuggestionItemProps, loading }) => (
                 <div>
-                  {loading && <div>Loading...</div>}
-                  {suggestions.map((suggestion, index) => {
-                    const style = {
-                      backgroundColor: suggestion.active ? '#41b6e6' : '#fff',
-                      cursor: 'pointer',
-                    };
-                    const props = getSuggestionItemProps(suggestion, { style });
+                  <TextField
+                    fullWidth
+                    {...getInputProps({
+                      placeholder: 'Enter location',
+                      label: 'Address',
+                      style: { marginRight: 8, marginTop: 5, width: '100%' }
+                    })}
+                  />
+                  <div>
+                    {loading && <div>Loading...</div>}
+                    {suggestions.map((suggestion, index) => {
+                      const style = {
+                        backgroundColor: suggestion.active ? '#41b6e6' : '#fff',
+                        cursor: 'pointer',
+                      };
+                      const props = getSuggestionItemProps(suggestion, { style });
 
-                    return (
-                      <div
-                        {...props}
-                        key={suggestion.placeId || index}
-                      >
-                        {suggestion.description}
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div
+                          {...props}
+                          key={suggestion.placeId || index}
+                        >
+                          {suggestion.description}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
-          </PlacesAutocomplete>
-          <GoogleMap
-            center={mapCenter}
-            zoom={15}
-            mapContainerStyle={{ width: '100%', height: '400px', marginTop: '10px' }}
-            onClick={handleMapClick}
-          >
-            {markerPosition && (
-              <MarkerF position={markerPosition} />
-            )}
-          </GoogleMap>
-        </>
-      </LoadScriptNext>
-
+              )}
+            </PlacesAutocomplete>
+            <GoogleMap
+              center={mapCenter}
+              zoom={15}
+              mapContainerStyle={{ width: '100%', height: '400px', marginTop: '10px' }}
+              onClick={handleMapClick}
+            >
+              {markerPosition && (
+                <MarkerF position={markerPosition} />
+              )}
+            </GoogleMap>
+          </>
+        </LoadScriptNext>
 
         <TextField
           label="Name"
@@ -204,6 +240,19 @@ const CreateVenueForm: React.FC<{ open: boolean; onClose: () => void; fetchVenue
           style={{ marginRight: 16, marginTop: 10, width: '100%' }}
         />
         
+        <Autocomplete
+          options={states}
+          value={venue.region}
+          onChange={(_, value) => handleInputChange('region', value)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Region"
+              style={{ marginRight: 16, marginTop: 10, width: '100%' }}
+            />
+          )}
+        />
+
         <Autocomplete
           multiple
           options={teams}
