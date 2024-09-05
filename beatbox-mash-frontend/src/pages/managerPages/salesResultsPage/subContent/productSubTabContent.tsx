@@ -126,7 +126,7 @@ const ProductSubTabContent: React.FC = () => {
                   <TableCell>{product.ProductName}</TableCell>
                   <TableCell align="right">{product.demosByProduct}</TableCell>
                   <TableCell align="right">{product.unitsSold}</TableCell>
-                  <TableCell align="right">{product.totalSales}</TableCell>
+                  <TableCell align="right">{product.totalDollarSales}</TableCell>
                   <TableCell align="right">{product.avgSalesPerDemo}</TableCell>
                   <TableCell align="right">{product.percentNotSoldAtDemo}</TableCell>
                 </TableRow>

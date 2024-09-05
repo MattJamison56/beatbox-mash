@@ -26,6 +26,7 @@ const ManagePayrollPage: React.FC = () => {
     try {
       const response = await fetch(`${apiUrl}/events/payrollgroups`);
       const data = await response.json();
+      console.log(data);
       setPayrollGroups({ "Approved Events": data["Approved Events"] || [], ...data });
     } catch (error) {
       console.error('Error fetching payroll groups:', error);

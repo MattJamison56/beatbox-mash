@@ -686,7 +686,7 @@ export const getEventsByPayrollGroups = async (req: Request, res: Response) => {
       WHERE 
         E.report_approved = 1
         AND E.is_deleted = 0 
-        AND E.paid = 0 -- Exclude paid events
+        AND (E.paid = 0 OR E.paid IS NULL) -- Exclude paid events
         AND U.is_deleted = 0
       GROUP BY 
         U.id, U.name, U.avatar_url, E.payroll_group

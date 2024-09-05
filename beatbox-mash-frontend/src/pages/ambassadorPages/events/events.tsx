@@ -301,14 +301,14 @@ const Events = () => {
           >
             {pdfUrl ? (
               <>
-                <Worker workerUrl="https://unpkg.com/pdfjs-dist@2.15.349/build/pdf.worker.js">
-                  <div style={{ height: '80vh', width: '900px', overflow: 'hidden' }}>
+                <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.0.279/build/pdf.worker.js">
+                <div style={{ height: '80vh', width: '900px', overflow: 'hidden' }}>
                     <Viewer
-                      fileUrl={pdfUrl}
-                      plugins={[defaultLayoutPluginInstance]}
+                        fileUrl={pdfUrl}
+                        plugins={[defaultLayoutPluginInstance]}
                     />
-                  </div>
-                </Worker>
+                </div>
+              </Worker>
               </>
             ) : (
               <p>Loading...</p>
