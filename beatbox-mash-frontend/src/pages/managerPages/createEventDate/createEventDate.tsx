@@ -73,6 +73,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
         const venuesData = await venuesResponse.json();
         const teamsData = await teamsResponse.json();
         const basData = await basResponse.json();
+        console.log(basData);
 
         setCampaigns(campaignsData.map((campaign: any) => campaign.name));
         setVenues(venuesData.map((venue: any) => `${venue.name} // ${venue.address}`));

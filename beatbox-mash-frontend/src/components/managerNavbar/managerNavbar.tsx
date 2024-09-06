@@ -219,7 +219,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     Analysis
                 </Typography>
                 <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Sales Results')}>Sales Results</button>
-                <button className="subcat" style={{ width: '100%' }}>Q&A Numerical Results</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Q&A Numerical Results')}>Q&A Numerical Results</button>
                 <button className="subcat" style={{ width: '100%' }}>Q&A Written Answers</button>
                 <button className="subcat" style={{ width: '100%' }}>Raw Data</button>
             </Box>

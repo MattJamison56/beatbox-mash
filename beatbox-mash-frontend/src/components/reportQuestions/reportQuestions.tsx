@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { Box, Modal, Paper, Button, IconButton, Typography, TextField, FormControlLabel, Checkbox, Grid, FormGroup, Autocomplete } from '@mui/material';
+import { Box, Modal, Paper, Button, IconButton, Typography, TextField, FormControlLabel, Checkbox, Grid, FormGroup, Autocomplete, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -272,14 +272,24 @@ const ReportQuestionsForm: React.FC<ReportQuestionsFormProps> = ({ open, handleC
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="h6">7. What % consumers that you talked to tried or heard of BeatBox for the FIRST time at this sampling?</Typography>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  name="first_time_consumers"
-                  value={formData.first_time_consumers}
-                  onChange={handleChange}
-                  required
-                />
+                <FormControl fullWidth>
+                  <InputLabel id="first-time-consumers-label">Percentage</InputLabel>
+                  <Select
+                    labelId="first-time-consumers-label"
+                    id="first-time-consumers"
+                    value={formData.first_time_consumers}
+                    name="first_time_consumers"
+                    onChange={handleChange}
+                    label="Percentage"
+                    required
+                  >
+                    <MenuItem value="less than 10%">less than 10%</MenuItem>
+                    <MenuItem value="10% - 25%">10% - 25%</MenuItem>
+                    <MenuItem value="25% - 50%">25% - 50%</MenuItem>
+                    <MenuItem value="50% - 75%">50% - 75%</MenuItem>
+                    <MenuItem value="75% - 100%">75% - 100%</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <Typography variant="h6">8. How was the product sampled?</Typography>

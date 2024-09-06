@@ -18,6 +18,7 @@ import PaymentHistoryPage from '../paymentHistoryPage/paymentHistoryPage';
 import CompletedReportsPage from '../getCompletedPage/getCompletedPage';
 import SalesResultsPage from '../salesResultsPage/salesResultsPage';
 import HomePageContent from './homePage';
+import QANumericalResultsPage from '../numericalResultsPage/numericalResultsPage';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
@@ -71,6 +72,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Payment History' && <PaymentHistoryPage />}
         {currentSubcategory === 'Completed Reports' && <CompletedReportsPage onCampaignClick={handleCampaignFromReports} />}
         {currentSubcategory === 'Sales Results' && <SalesResultsPage />}
+        {currentSubcategory === 'Q&A Numerical Results' && <QANumericalResultsPage />}
       </div>
     </div>
   );

@@ -326,3 +326,151 @@ export const getStateData = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching state data' });
   }
 };
+
+export const getQANumericalResults = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    // Query for products sampled
+    const result = await pool.request().query(`
+      SELECT
+        P.ProductID,
+        P.ProductName,
+        
+        -- Sum of the beginning inventory for each product
+        ISNULL(SUM(EI.beginning_inventory), 0) AS totalInventory,
+    
+        -- Sum of the sold units for each product
+        ISNULL(SUM(EI.sold), 0) AS totalSold
+    
+      FROM Products P
+      LEFT JOIN EventInventory EI ON EI.product_id = P.ProductID
+      LEFT JOIN Events E ON E.event_id = EI.event_id
+      WHERE P.is_deleted = 0 
+        AND E.is_deleted = 0 
+        AND E.report_approved = 1 
+        AND MONTH(E.start_date_time) = MONTH(GETDATE()) 
+        AND YEAR(E.start_date_time) = YEAR(GETDATE())
+      GROUP BY P.ProductID, P.ProductName;
+    `);
+    
+
+    // Query for product sampling methods
+    const samplingMethodsResult = await pool.request().query(`
+      SELECT
+        E.product_sampled_how,
+        COUNT(*) AS count
+      FROM EventReportQuestions E
+      JOIN Events EV ON EV.event_id = E.event_id
+      WHERE EV.is_deleted = 0 
+        AND EV.report_approved = 1 
+        AND MONTH(EV.start_date_time) = MONTH(GETDATE()) 
+        AND YEAR(EV.start_date_time) = YEAR(GETDATE())
+      GROUP BY E.product_sampled_how;
+    `);
+
+    // Query for first-time consumers data
+    const firstTimeConsumersResult = await pool.request().query(`
+      SELECT
+        E.first_time_consumers,
+        COUNT(*) AS count
+      FROM EventReportQuestions E
+      JOIN Events EV ON EV.event_id = E.event_id
+      WHERE EV.is_deleted = 0 
+        AND EV.report_approved = 1
+        AND MONTH(EV.start_date_time) = MONTH(GETDATE())
+        AND YEAR(EV.start_date_time) = YEAR(GETDATE())
+      GROUP BY E.first_time_consumers;
+    `);
+
+    const data = result.recordset;
+    const samplingMethodsData = samplingMethodsResult.recordset;
+    const firstTimeConsumersData = firstTimeConsumersResult.recordset;
+    const totalBeginningInventory = data.reduce((sum, item) => sum + (item.totalInventory || 0), 0);
+    
+    // Processing chart data here
+    const productsSampled = data.map(item => ({
+      productName: item.ProductName,
+      count: item.totalInventory || 0, // Beginning inventory count
+      percentage: totalBeginningInventory > 0 
+        ? parseFloat(((item.totalInventory / totalBeginningInventory) * 100).toFixed(2)) 
+        : 0, // Percentage of total beginning inventory
+    }));
+
+    // Process productSamplingMethods data (Chart 2)
+    const possibleMethods: ('Chilled' | 'Over Ice' | 'In a cocktail' | 'Frozen/Slushie' | 'Other')[] = [
+      'Chilled', 'Over Ice', 'In a cocktail', 'Frozen/Slushie', 'Other'
+    ];
+    
+    const methodCounts: Record<'Chilled' | 'Over Ice' | 'In a cocktail' | 'Frozen/Slushie' | 'Other', number> = {
+      'Chilled': 0,
+      'Over Ice': 0,
+      'In a cocktail': 0,
+      'Frozen/Slushie': 0,
+      'Other': 0
+    };
+
+    // Tally the counts for each method
+    samplingMethodsData.forEach(item => {
+      if (item.product_sampled_how) {
+        const methods = item.product_sampled_how.split(',');
+        methods.forEach((method: string) => {
+          const trimmedMethod = method.trim() as 'Chilled' | 'Over Ice' | 'In a cocktail' | 'Frozen/Slushie' | 'Other';
+          if (methodCounts[trimmedMethod] !== undefined) {
+            methodCounts[trimmedMethod] += item.count;
+          }
+        });
+      }
+    });
+
+    const totalEvents = samplingMethodsData.reduce((sum, item) => sum + item.count, 0);
+    const productSamplingMethods = possibleMethods.map(method => ({
+      method,
+      percentage: totalEvents > 0 ? parseFloat(((methodCounts[method] / totalEvents) * 100).toFixed(2)) : 0,
+      count: methodCounts[method], // Include the count of events sampled using each method
+    }));
+
+    // Process flavorsSold data (Chart 3)
+    const totalProductsSold = data.reduce((sum, item) => sum + (item.totalSold || 0), 0);
+    const flavorsSold = data.map(item => ({
+      flavor: item.ProductName,
+      percentage: totalProductsSold > 0 ? parseFloat(((item.totalSold / totalProductsSold) * 100).toFixed(2)) : 0,
+      count: item.totalSold || 0, // Include the count of flavors sold
+    }));
+
+    // Process first-time consumers data (Chart 4 - Pie chart)
+    const firstTimeConsumerOptions = ['less than 10%', '10% - 25%', '25% - 50%', '50% - 75%', '75% - 100%'];
+    const firstTimeConsumersCounts: Record<string, number> = {
+      'less than 10%': 0,
+      '10% - 25%': 0,
+      '25% - 50%': 0,
+      '50% - 75%': 0,
+      '75% - 100%': 0,
+    };
+
+    firstTimeConsumersData.forEach(item => {
+      if (firstTimeConsumerOptions.includes(item.first_time_consumers)) {
+        firstTimeConsumersCounts[item.first_time_consumers] += item.count;
+      }
+    });
+
+    const totalFirstTimeConsumers = firstTimeConsumersData.reduce((sum, item) => sum + item.count, 0);
+    const consumersFirstTime = firstTimeConsumerOptions.map(option => ({
+      option,
+      percentage: totalFirstTimeConsumers > 0 ? parseFloat(((firstTimeConsumersCounts[option] / totalFirstTimeConsumers) * 100).toFixed(2)) : 0,
+      count: firstTimeConsumersCounts[option], // Include the actual count for each option
+    }));
+
+    res.status(200).json({
+      productsSampled,
+      productSamplingMethods,
+      flavorsSold,
+      consumersFirstTime,
+    });
+  } catch (error) {
+    console.error('Error fetching Q&A numerical results:', error);
+    res.status(500).json({ message: 'Error fetching data' });
+  }
+};
+
+
