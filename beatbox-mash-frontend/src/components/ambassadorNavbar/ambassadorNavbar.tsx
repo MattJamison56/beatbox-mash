@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, MouseEvent, useEffect } from 'react';
 import { AppBar, Toolbar, Box, Avatar, Menu, MenuItem, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +14,7 @@ interface UserProfile {
   name: string;
   email: string;
   role: string;
+  avatar_url: string;
 }
 
 const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
@@ -24,6 +26,7 @@ const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       const token = localStorage.getItem('token');
+      const storedAvatarUrl = localStorage.getItem('avatar_url');
       if (!token) return;
 
       try {
@@ -39,7 +42,21 @@ const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
 
         const data = await response.json();
         const { name, email, role } = data;
-        setUserProfile({ name, email, role });
+
+        if (
+          !userProfile ||
+          userProfile.name !== name ||
+          userProfile.email !== email ||
+          userProfile.avatar_url !== storedAvatarUrl
+        ) {
+          setUserProfile({
+            name,
+            email,
+            role,
+            avatar_url: storedAvatarUrl || data.avatar_url,
+          });
+        }
+
       } catch (error) {
         console.error('Error fetching user profile:', error);
       }
@@ -47,6 +64,16 @@ const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
 
     fetchUserProfile();
   }, []);
+
+  useEffect(() => {
+    const updatedAvatarUrl = localStorage.getItem('avatar_url');
+    if (updatedAvatarUrl && userProfile && (updatedAvatarUrl != userProfile.avatar_url)) {
+      setUserProfile(prevProfile => ({
+        ...prevProfile,
+        avatar_url: updatedAvatarUrl,
+      }));
+    }
+  }, [userProfile, localStorage.getItem('avatar_url')]);
 
   const handleAccountMenuOpen = (event: MouseEvent<HTMLElement>) => {
     setAccountMenuAnchorEl(event.currentTarget);
@@ -97,7 +124,11 @@ const AmbassadorNavbar: React.FC<AmbassadorNavbarProps> = ({ onTabChange }) => {
           </Box>
           <Box display="flex" justifyContent="flex-end" ml="auto">
             <Button onClick={handleAccountMenuOpen} className="accountButton">
-              <Avatar src="/path-to-avatar.png" className="avatar" />
+              <Avatar
+                src={userProfile?.avatar_url || 'https://example.com/default-avatar.png'}
+                alt={userProfile?.name || 'User Avatar'}
+                className="avatar"
+              />
               <Box ml={1}>
                 <h4 style={{ color: '#FFFFFF', marginBottom: '0px', textAlign: 'left' }}>{userProfile?.name ? userProfile.name : ''}</h4>
                 <h5 style={{ color: '#FFFFFF', marginTop: '0px' }}>Beatbox Beverages</h5>

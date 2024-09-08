@@ -166,7 +166,7 @@ const ApproveEventsPage: React.FC = () => {
                 <TableCell>{event.photosCount}</TableCell>
                 <TableCell>{`$${event.totalDue.toFixed(2)}`}</TableCell>
                 <TableCell>
-                  <IconButton onClick={(event) => handleMenuClick(event, event)}>
+                  <IconButton onClick={(e) => handleMenuClick(e, event)}>
                     <MoreVertIcon />
                   </IconButton>
                   <Menu

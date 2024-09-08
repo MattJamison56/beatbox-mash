@@ -16,17 +16,10 @@ const ManagePayrollPage: React.FC = () => {
   const [baEvents, setBaEvents] = useState<any[]>([]);
   const [newGroupName, setNewGroupName] = useState("");
 
-  useEffect(() => {
-    if (selectedBA) {
-      console.log('Selected BA:', selectedBA);
-    }
-  }, [selectedBA]);
-
   const fetchPayrollGroups = async () => {
     try {
       const response = await fetch(`${apiUrl}/events/payrollgroups`);
       const data = await response.json();
-      console.log(data);
       setPayrollGroups({ "Approved Events": data["Approved Events"] || [], ...data });
     } catch (error) {
       console.error('Error fetching payroll groups:', error);
@@ -60,8 +53,11 @@ const ManagePayrollPage: React.FC = () => {
   };
 
   const handleBANameClick = (baId: number) => {
+    const selectedBaData = payrollGroups[activeTab].find(ba => ba.baId === baId);
+    setSelectedBA(selectedBaData);
     fetchBAEvents(baId);
   };
+  
 
   const handleModalClose = () => {
     setModalOpen(false);

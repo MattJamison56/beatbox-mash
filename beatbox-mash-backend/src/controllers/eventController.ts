@@ -630,8 +630,11 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
         LEFT JOIN 
           OtherExpenses OE ON E.event_id = OE.EventId AND OE.ba_id = @ba_id
         WHERE 
-          EBA.ba_id = @ba_id AND E.report_approved = 1
-          AND E.is_deleted = 0 AND U.is_deleted = 0
+          EBA.ba_id = @ba_id 
+          AND E.report_approved = 1  -- Only approved reports
+          AND (E.paid = 0 OR E.paid IS NULL)            -- Only unpaid events
+          AND E.is_deleted = 0 
+          AND U.is_deleted = 0
         GROUP BY 
           E.event_id, E.event_name, E.start_date_time, E.duration_minutes, E.duration_hours, 
           T.name, V.name, C.name, EBA.inventory, EBA.qa, EBA.photos, EBA.expenses, U.wage
@@ -645,6 +648,7 @@ export const getEventsWithReimbursements = async (req: Request, res: Response) =
     res.status(500).json({ message: 'Error fetching events with reimbursements' });
   }
 };
+
 
 
 export const getEventsByPayrollGroups = async (req: Request, res: Response) => {

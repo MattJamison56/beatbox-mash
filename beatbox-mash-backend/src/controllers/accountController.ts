@@ -6,6 +6,15 @@ import bcrypt from 'bcrypt';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 
+import sql from 'mssql';
+import path from 'path';
+import fs from 'fs';
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
+import stream from 'stream';
+import util from 'util';
+import s3 from '../awsConfig';
+
 dotenv.config();
 
 const OAuth2 = google.auth.OAuth2;
@@ -158,3 +167,105 @@ export const saveProfileInfo = async (req: Request, res: Response) => {
   }
 };
 
+export const uploadUserAvatar = async (req: Request, res: Response) => {
+  const { userId } = req.body;
+  let files = req.files?.files;
+
+  if (!files) {
+    return res.status(400).json({ message: 'No files were uploaded.' });
+  }
+  
+  if (!Array.isArray(files)) {
+    files = [files]; // Normalize to an array
+  }
+
+  let file = files[0];
+
+  if (!process.env.AWS_S3_AVATAR_BUCKET_NAME) {
+    return res.status(500).json({ message: 'AWS S3 bucket name is not defined.' });
+  }
+
+  let transaction: sql.Transaction | undefined;
+
+  try {
+    const pool = await poolPromise;
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    // Fetch the current avatar URL from the database
+    const request = new sql.Request(transaction);
+    const result = await request
+      .input('userId', sql.Int, userId)
+      .query('SELECT avatar_url FROM Users WHERE id = @userId');
+      
+    const currentAvatarUrl = result.recordset[0]?.avatar_url;
+
+    // If there's an existing avatar, delete it from S3
+    if (currentAvatarUrl) {
+      const key = currentAvatarUrl.split('/').pop(); // Extract the file name from the URL
+
+      if (key) {
+        const deleteParams = {
+          Bucket: process.env.AWS_S3_AVATAR_BUCKET_NAME!,
+          Key: `avatars/${key}`, // Make sure the key matches the folder path in S3
+        };
+
+        const deleteCommand = new DeleteObjectCommand(deleteParams);
+        await s3.send(deleteCommand); // Delete the current avatar from S3
+      }
+    }
+
+
+    if (!file || !file.name) {
+      throw new Error('Invalid file object');
+    }
+
+    const fileName = uuidv4() + path.extname(file.name); // Generate a unique file name
+    const filePath = path.join('/tmp', fileName); // Temporary directory to store file locally
+
+    fs.writeFileSync(filePath, file.data); // Save file to temporary location
+
+    const fileContent = fs.readFileSync(filePath); // Read file content from local storage
+
+    // Prepare S3 upload parameters
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_AVATAR_BUCKET_NAME!,
+      Key: `avatars/${fileName}`, // Store in the 'avatars' folder
+      Body: fileContent,
+      ContentType: file.mimetype,
+    };
+
+    const uploadCommand = new PutObjectCommand(uploadParams);
+    await s3.send(uploadCommand); // Upload the new file to S3
+
+    // Remove the file from the local system after successful upload
+    fs.unlinkSync(filePath);
+
+    // Construct the S3 file URL
+    const avatarUrl = `https://${process.env.AWS_S3_AVATAR_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/avatars/${fileName}`;
+
+    // Insert the new avatar URL into the database
+    await request
+      .input('avatarUrl', sql.NVarChar, avatarUrl)
+      .query(`
+        UPDATE Users 
+        SET avatar_url = @avatarUrl
+        WHERE id = @userId
+      `);
+
+    // Commit the transaction
+    await transaction.commit();
+
+    res.status(200).json({ message: 'Avatar uploaded successfully', avatarUrl });
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+
+    // Rollback the transaction if there's an error
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    const err = error as Error;
+    res.status(500).json({ message: err.message });
+  }
+};

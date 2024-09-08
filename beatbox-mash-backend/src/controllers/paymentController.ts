@@ -10,7 +10,7 @@ export const getPaymentHistory = async (req: Request, res: Response) => {
         E.updated_at AS payrollDate,
         E.payroll_group AS payrollName,
         'Payment for event' AS comment,
-        COUNT(E.event_id) AS totalEvents,
+        COUNT(DISTINCT E.event_id) AS totalEvents,
         ISNULL(SUM(R.total_amount), 0) + ISNULL(SUM(MR.TotalFee), 0) + ISNULL(SUM(OE.Amount), 0) AS totalReimbursable,
         0 AS totalNonReimbursable,
         0 AS totalOtherPaidTime,

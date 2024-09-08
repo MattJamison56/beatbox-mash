@@ -14,7 +14,7 @@ const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+  
     try {
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
@@ -23,25 +23,27 @@ const LoginPage: React.FC = () => {
         },
         body: JSON.stringify({ email, password }),
       });
-
+  
       if (!response.ok) {
         const message = await response.json(); // Parse the error message
         setErrorMessage(message.message || 'Login failed'); // Set the error message
         return;
       }
-
+  
       const data = await response.json();
-
+  
       // Use login from the context to update the state
-      login(data.role, data.token);
+      login(data.role, data.token, data.avatar_url);
       localStorage.setItem('ba_id', data.ba_id); // This can stay in localStorage
-
+      localStorage.setItem('avatar_url', data.avatar_url); // Store the avatar URL in localStorage
+  
       navigate('/');
     } catch (error) {
       setErrorMessage('An error occurred during login. Please try again.'); // Set a generic error message
       console.error('Error logging in:', error);
     }
   };
+  
 
   return (
     <div className="login-container">

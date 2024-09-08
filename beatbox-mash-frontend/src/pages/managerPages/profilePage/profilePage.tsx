@@ -1,11 +1,13 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 // src/pages/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
-import { Button, Box, Typography, Avatar, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Button, Box, Typography, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton } from '@mui/material';
 import { styled } from '@mui/system';
 import EditProfileForm from '../../../components/editProfileForm/editProfileForm';
 import { useAuth } from '../../../auth/AuthContext';
+import EditIcon from '@mui/icons-material/Edit';
 import dayjs, { Dayjs } from 'dayjs';
+import AvatarUploadModal from './avatarUploadModal';
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const ProfileContainer = styled('div')({
@@ -42,10 +44,39 @@ const RightColumn = styled('div')({
   flex: 2,
 });
 
-const ProfileAvatar = styled(Avatar)({
+const ProfileAvatar = styled('div')({
+  position: 'relative',
   width: '100px',
   height: '100px',
   marginBottom: '10px',
+  cursor: 'pointer',
+  '&:hover': {
+    opacity: 0.8,
+  },
+});
+
+const AvatarImg = styled(Avatar)({
+  width: '100%',
+  height: '100%',
+});
+
+const EditIconOverlay = styled(IconButton)({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  backgroundColor: 'rgba(0, 0, 0, 0.0)', // Semi-transparent background for hover effect
+  color: '#fff',
+  opacity: 0,
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  transition: 'opacity 0.3s ease',
+  borderRadius: '50%',
+  '&:hover': {
+    opacity: 1,
+  },
 });
 
 const Section = styled('div')({
@@ -68,6 +99,7 @@ const ProfilePage: React.FC = () => {
     name: string;
     email: string;
     role: string;
+    avatar_url?: string;
     date_of_birth?: Dayjs | null;
     height_ft?: string;
     height_in?: string;
@@ -79,6 +111,7 @@ const ProfilePage: React.FC = () => {
     address?: string;
   } | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isAvatarEditing, setIsAvatarEditing] = useState(false); // Avatar editing state
   const { token } = useAuth();
 
   const [openDialog, setOpenDialog] = useState(false);
@@ -93,35 +126,39 @@ const ProfilePage: React.FC = () => {
     setOpenDialog(false);
   };
 
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-    
-      try {
-        const response = await fetch(`${apiUrl}/profile`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-    
-        if (!response.ok) {
-          throw new Error('Failed to fetch user profile');
-        }
-    
-        const data = await response.json();
+  const fetchUserProfile = async () => {
+    const token = localStorage.getItem('token');
+    const avatar_url = localStorage.getItem('avatar_url');
+    if (!token) return;
 
-        // Convert date_of_birth to a Dayjs object if it's valid
-        if (data.date_of_birth) {
-          data.date_of_birth = dayjs(data.date_of_birth);
-        }
-        
-        setUserProfile(data);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
+    try {
+      const response = await fetch(`${apiUrl}/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user profile');
       }
-    };    
 
+      const data = await response.json();
+
+      // Convert date_of_birth to a Dayjs object if it's valid
+      if (data.date_of_birth) {
+        data.date_of_birth = dayjs(data.date_of_birth);
+      }
+
+      setUserProfile({
+        ...data,
+        avatar_url: avatar_url,
+      });
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  useEffect(() => {
     fetchUserProfile();
   }, [token]);
 
@@ -129,7 +166,14 @@ const ProfilePage: React.FC = () => {
     <ProfileContainer>
       <Header>
         <Box display="flex" alignItems="center">
-          <ProfileAvatar>{userProfile?.name.charAt(0)}</ProfileAvatar>
+        <ProfileAvatar onClick={() => setIsAvatarEditing(true)}>
+          <AvatarImg src={userProfile?.avatar_url || ''} alt="Profile Picture">
+            {userProfile?.name.charAt(0)}
+          </AvatarImg>
+          <EditIconOverlay className="editIcon">
+            <EditIcon fontSize="large" />
+          </EditIconOverlay>
+        </ProfileAvatar>
           <Typography variant="h5" ml={2}>
             {userProfile?.name}
           </Typography>
@@ -218,33 +262,16 @@ const ProfilePage: React.FC = () => {
           open={isEditing}
           onClose={() => setIsEditing(false)}
           userProfile={userProfile}
-          fetchUserProfile={async () => {
-            const token = localStorage.getItem('token');
-            if (!token) return;
+          fetchUserProfile={fetchUserProfile}
+        />
+      )}
 
-            try {
-              const response = await fetch(`${apiUrl}/profile`, {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-
-              if (!response.ok) {
-                throw new Error('Failed to fetch user profile');
-              }
-
-              const data = await response.json();
-
-              // Convert date_of_birth to a Dayjs object if it's valid
-              if (data.date_of_birth) {
-                data.date_of_birth = dayjs(data.date_of_birth);
-              }
-
-              setUserProfile(data);
-            } catch (error) {
-              console.error('Error fetching user profile:', error);
-            }
-          }}
+      {isAvatarEditing && (
+        <AvatarUploadModal
+          open={isAvatarEditing}
+          handleClose={() => setIsAvatarEditing(false)}
+          userId={userProfile?.id}
+          fetchUserProfile={fetchUserProfile}
         />
       )}
 

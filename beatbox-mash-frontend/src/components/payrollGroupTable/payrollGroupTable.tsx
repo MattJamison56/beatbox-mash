@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Checkbox, Button } from '@mui/material';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Checkbox, Button, Avatar } from '@mui/material';
 
 interface PayrollGroupTableProps {
   payrollGroups: { [key: string]: any[] };
@@ -46,6 +46,7 @@ const PayrollGroupTable: React.FC<PayrollGroupTableProps> = ({
                 className="clickable"
                 onClick={() => handleBANameClick(ba.baId)}
               >
+                <Avatar src={ba.baAvatarUrl} />
                 {ba.baName}
               </TableCell>
               <TableCell>{ba.eventCount}</TableCell>

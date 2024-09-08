@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, MouseEvent, useEffect } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -34,6 +35,7 @@ interface UserProfile {
   name: string;
   email: string;
   role: string;
+  avatar_url: string;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
@@ -46,6 +48,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
   useEffect(() => {
     const fetchUserProfile = async () => {
       const token = localStorage.getItem('token');
+      const storedAvatarUrl = localStorage.getItem('avatar_url');
       if (!token) return;
 
       try {
@@ -61,7 +64,21 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
 
         const data = await response.json();
         const { name, email, role } = data;
-        setUserProfile({ name, email, role });
+        
+        if (
+          !userProfile ||
+          userProfile.name !== name ||
+          userProfile.email !== email ||
+          userProfile.avatar_url !== storedAvatarUrl
+        ) {
+          setUserProfile({
+            name,
+            email,
+            role,
+            avatar_url: storedAvatarUrl || data.avatar_url,
+          });
+        }
+
       } catch (error) {
         console.error('Error fetching user profile:', error);
       }
@@ -69,6 +86,16 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
 
     fetchUserProfile();
   }, []);
+
+  useEffect(() => {
+    const updatedAvatarUrl = localStorage.getItem('avatar_url');
+    if (updatedAvatarUrl && userProfile && (updatedAvatarUrl != userProfile.avatar_url)) {
+      setUserProfile(prevProfile => ({
+        ...prevProfile,
+        avatar_url: updatedAvatarUrl,
+      }));
+    }
+  }, [userProfile, localStorage.getItem('avatar_url')]);
 
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     setSubmenu(event.currentTarget.getAttribute('data-submenu'));
@@ -118,7 +145,11 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
           <Button className="navButton" color="inherit" data-submenu="admin" onClick={handleClick}>Admin</Button>
           <Box flexGrow={1} />
           <Button onClick={handleAccountMenuOpen} className="accountButton">
-            <Avatar src="/path-to-avatar.png" className="avatar" />
+          <Avatar
+            src={userProfile?.avatar_url || 'https://example.com/default-avatar.png'}
+            alt={userProfile?.name || 'User Avatar'}
+            className="avatar"
+          />
             <Box ml={1}>
               <h4 style={{ color: '#FFFFFF', marginBottom: '0px', textAlign: 'left'}}>{userProfile?.name ? userProfile.name : ''}</h4>
               <h5 style={{ color: '#FFFFFF', marginTop: '0px'}}>Beatbox Beverages</h5>

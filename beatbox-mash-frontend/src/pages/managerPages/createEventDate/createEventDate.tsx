@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { TextField, Button, MenuItem, Typography, Box, Switch, FormControlLabel, Autocomplete, Divider, Radio, RadioGroup, FormControl, FormLabel, IconButton, Menu, ListItemIcon, Checkbox, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import { TextField, Button, MenuItem, Typography, Box, Switch, FormControlLabel, Autocomplete, Divider, Radio, RadioGroup, FormControl, FormLabel, IconButton, Menu, ListItemIcon, Checkbox, Table, TableBody, TableCell, TableHead, TableRow, Avatar } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
@@ -32,6 +32,7 @@ interface BrandAmbassador {
   photos: boolean;
   expenses: boolean;
   mileageExpense: boolean;
+  avatar_url?: string;
 }
 
 interface CreateEventDateProps {
@@ -414,6 +415,7 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
                   <TableRow key={ba.id}>
                     <TableCell>
                       <Box display="flex" alignItems="center">
+                        <Avatar style={{marginRight: '10px'}} src={ba.avatar_url}/>
                         <Typography variant="subtitle1">{ba.name}</Typography>
                       </Box>
                     </TableCell>
