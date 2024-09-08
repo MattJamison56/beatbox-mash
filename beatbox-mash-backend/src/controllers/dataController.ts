@@ -147,25 +147,60 @@ export const getBrandAmbassadorsData = async (req: Request, res: Response) => {
     const pool = await poolPromise;
 
     const result = await pool.request().query(`
-      SELECT 
-        U.id AS baId,
-        U.name AS baName,
-        U.avatar_url AS baAvatarUrl,
-        COUNT(DISTINCT E.event_id) AS demosLastMonth,
-        SUM(E.duration_hours + (E.duration_minutes / 60.0)) AS totalHoursWorked,
-        SUM(EI.sold) AS totalUnitsSold,
-        SUM(EI.sold * P.MSRP) AS totalDollarSales,
-        SUM(EI.sold) / SUM(E.duration_hours + (E.duration_minutes / 60.0)) AS salesPerHour
-      FROM Users U
-      JOIN EventBrandAmbassadors EBA ON U.id = EBA.ba_id
-      JOIN Events E ON EBA.event_id = E.event_id
-      LEFT JOIN EventInventory EI ON E.event_id = EI.event_id
-      LEFT JOIN Products P ON EI.product_id = P.ProductID
-      WHERE E.is_deleted = 0
-      AND E.report_approved = 1
-      AND MONTH(E.start_date_time) = MONTH(GETDATE()) -- Current month
-      AND YEAR(E.start_date_time) = YEAR(GETDATE()) -- Current year
-      GROUP BY U.id, U.name, U.avatar_url
+      -- Step 1: Calculate unique event hours per BA
+      WITH UniqueEventHours AS (
+          SELECT
+              U.id AS baId,
+              U.name AS baName,
+              U.avatar_url AS baAvatarUrl,
+              E.event_id AS eventId,
+              SUM(E.duration_hours + (E.duration_minutes / 60.0)) AS eventDurationInHours
+          FROM
+              Users U
+          JOIN
+              EventBrandAmbassadors EBA ON U.id = EBA.ba_id
+          JOIN
+              Events E ON EBA.event_id = E.event_id
+          WHERE
+              E.is_deleted = 0
+              AND E.report_approved = 1
+              AND MONTH(E.start_date_time) = MONTH(GETDATE())
+              AND YEAR(E.start_date_time) = YEAR(GETDATE())
+          GROUP BY
+              U.id, U.name, U.avatar_url, E.event_id
+      ),
+      -- Step 2: Aggregate sales information separately
+      EventSales AS (
+          SELECT
+              EI.event_id,
+              SUM(EI.sold) AS totalUnitsSold,
+              SUM(EI.sold * P.MSRP) AS totalDollarSales
+          FROM
+              EventInventory EI
+          LEFT JOIN
+              Products P ON EI.product_id = P.ProductID
+          GROUP BY
+              EI.event_id
+      )
+      -- Step 3: Join the unique event hours with the sales data
+      SELECT
+          U.baId,
+          U.baName,
+          U.baAvatarUrl,
+          COUNT(DISTINCT U.eventId) AS demosLastMonth,
+          SUM(U.eventDurationInHours) AS totalHoursWorked,
+          SUM(ES.totalUnitsSold) AS totalUnitsSold,
+          SUM(ES.totalDollarSales) AS totalDollarSales,
+          SUM(ES.totalUnitsSold) / SUM(U.eventDurationInHours) AS salesPerHour
+      FROM
+          UniqueEventHours U
+      LEFT JOIN
+          EventSales ES ON U.eventId = ES.event_id
+      GROUP BY
+          U.baId, U.baName, U.baAvatarUrl
+      ORDER BY
+          U.baName;
+      
     `);
 
     const brandAmbassadors = result.recordset.map((ba) => ({
@@ -174,7 +209,7 @@ export const getBrandAmbassadorsData = async (req: Request, res: Response) => {
       avgDollarSalesPerDemo: ba.totalDollarSales / ba.demosLastMonth || 0,
       avgHoursPerDemo: ba.totalHoursWorked / ba.demosLastMonth || 0
     }));
-
+    
     res.status(200).json(brandAmbassadors);
   } catch (error) {
     console.error('Error fetching brand ambassadors data:', error);
