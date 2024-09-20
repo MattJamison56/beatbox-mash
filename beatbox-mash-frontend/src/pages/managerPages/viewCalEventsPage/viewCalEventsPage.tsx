@@ -1,17 +1,18 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Calendar, momentLocalizer, Event as CalendarEvent } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
-import { IconButton, Menu, MenuItem } from "@mui/material";
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import DeleteIcon from '@mui/icons-material/Delete';
+import DayEventsModal from './dayEventsModal';
 import './viewCalEventsPage.css';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
 interface Event {
+  pendingAmbassadorsCount: number;
+  acceptedAmbassadorsCount: number;
   id: number;
   title: string;
   start: Date;
@@ -29,24 +30,62 @@ interface Event {
 
 const localizer = momentLocalizer(moment);
 
+const eventStyleGetter = (event: Event) => {
+  let borderColor = "#3174ad"; // Default color
+
+  if (event.acceptedAmbassadorsCount > 0) {
+    borderColor = "#32CD32"; // Green
+  } else if (event.pendingAmbassadorsCount > 0) {
+    borderColor = "#FFA500"; // Orange
+  } else {
+    borderColor = "#FF6347"; // Red
+  }
+
+  return {
+    style: {
+      border: `2px solid ${borderColor}`, // Apply the color to the border
+      backgroundColor: "transparent",           // Keep the background white
+      color: "black",                     // Set text color to black
+      borderRadius: '5px',
+      padding: "5px",
+    },
+  };
+};
+
 const EventCalendar: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedEvent, setSelectedEvent] = useState<null | Event>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null); // Allow null
+  const [openModal, setOpenModal] = useState(false); // Manage modal open/close
+  const [eventsForDay, setEventsForDay] = useState<Event[]>([]); // Store events for the selected day
 
-  // Fetch Events
+  const formatTime = (date: Date) => {
+    const hours = date.getHours() % 12 || 12; // Converts 24-hour format to 12-hour format
+    const minutes = date.getMinutes().toString().padStart(2, '0'); // Ensures two-digit minutes
+    const ampm = date.getHours() >= 12 ? 'PM' : 'AM';
+    return `${hours}:${minutes} ${ampm}`;
+  };
+
   const fetchEvents = async () => {
     try {
       const response = await fetch(`${apiUrl}/events`);
       const data = await response.json();
-      // Map the fetched events to the format needed for react-big-calendar
-      const formattedEvents = data.map((event: any) => ({
-        id: event.id,
-        title: event.eventName,
-        start: new Date(event.startDateTime),
-        end: new Date(event.endDateTime),
-        ...event, // Spread the rest of the event data for modal display
-      }));
+
+      const formattedEvents = data.map((event: any) => {
+        const startTime = formatTime(new Date(event.startDateTime));
+        const endTime = formatTime(new Date(event.endDateTime));
+
+        return {
+          id: event.id,
+          title: `${startTime} - ${endTime}, ${event.eventName}`, // Format the title with time first
+          start: new Date(event.startDateTime),
+          end: new Date(event.endDateTime),
+          acceptedAmbassadorsCount: event.acceptedAmbassadorsCount,
+          pendingAmbassadorsCount: event.pendingAmbassadorsCount,
+          declinedAmbassadorsCount: event.declinedAmbassadorsCount,
+          ...event,
+        };
+      });
+
       setEvents(formattedEvents);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -57,14 +96,20 @@ const EventCalendar: React.FC = () => {
     fetchEvents();
   }, []);
 
-  // Handle Event Click to Open Menu or Modal
   const handleSelectEvent = (event: Event) => {
-    setSelectedEvent(event);
+    // Filter events for the same day as the selected event
+    const selectedDayEvents = events.filter(e =>
+      new Date(e.start).toDateString() === new Date(event.start).toDateString()
+    );
+
+    setEventsForDay(selectedDayEvents); // Set the events for the selected day
+    setSelectedEvent(event);            // Set the clicked event as selected
+    setOpenModal(true);                 // Open the modal
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedEvent(null);
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setSelectedEvent(null); // Reset selected event when closing modal
   };
 
   // Handle Event Deletion
@@ -85,8 +130,9 @@ const EventCalendar: React.FC = () => {
       }
 
       console.log('Event deleted successfully');
-      setEvents(events.filter(event => event.id !== selectedEvent.id));
-      handleMenuClose();
+      setEvents(events.filter(event => event.id !== selectedEvent.id));  // Remove event from list
+      setEventsForDay(eventsForDay.filter(event => event.id !== selectedEvent.id)); // Update day events
+      handleCloseModal();
     } catch (error) {
       console.error('Error deleting event:', error);
     }
@@ -100,28 +146,21 @@ const EventCalendar: React.FC = () => {
         events={events}
         startAccessor="start"
         endAccessor="end"
-        style={{ height: 500 }}
-        onSelectEvent={handleSelectEvent} // Handle event click
+        style={{ height: 'calc(100vh - 100px)', width: '100%', color: 'black', marginTop: '20px' }}
+        onSelectEvent={handleSelectEvent}  // Set event to open modal
+        eventPropGetter={eventStyleGetter}  // Apply custom event styles
       />
 
       {/* Modal for Event Details */}
       {selectedEvent && (
-        <div className="modal">
-          <h2>{selectedEvent.title}</h2>
-          <p><strong>Team:</strong> {selectedEvent.team}</p>
-          <p><strong>Event Type:</strong> {selectedEvent.eventType}</p>
-          <p><strong>Staffing:</strong> {selectedEvent.staffing}</p>
-          <p><strong>Status:</strong> {selectedEvent.status}</p>
-          <p><strong>Venue:</strong> {selectedEvent.venue}</p>
-          <p><strong>Campaign:</strong> {selectedEvent.campaign}</p>
-          <p><strong>Duration:</strong> {selectedEvent.duration_hours} hrs {selectedEvent.duration_minutes} min</p>
-          <p><strong>Start:</strong> {new Date(selectedEvent.start).toLocaleString()}</p>
-          <p><strong>End:</strong> {new Date(selectedEvent.end).toLocaleString()}</p>
-          <IconButton onClick={handleDeleteEvent}>
-            <DeleteIcon color="error" /> Cancel Event
-          </IconButton>
-          <button onClick={handleMenuClose}>Close</button>
-        </div>
+        <DayEventsModal
+          open={openModal}                  // Modal state
+          handleClose={handleCloseModal}     // Close modal
+          events={eventsForDay}              // Pass events for the selected day
+          selectedEvent={selectedEvent}      // Pass selected event details
+          setSelectedEvent={setSelectedEvent}  // Update selected event
+          handleDeleteEvent={handleDeleteEvent} // Pass event delete handler
+        />
       )}
     </div>
   );

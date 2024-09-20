@@ -82,16 +82,31 @@ export const getEvents = async (req: Request, res: Response) => {
         STUFF((
           SELECT ', ' + ba.name
           FROM Users ba
-          JOIN EventBrandAmbassadors eba ON ba.id = eba.ba_id
-          WHERE eba.event_id = e.event_id
+          JOIN EventBrandAmbassadors eba_sub ON ba.id = eba_sub.ba_id
+          WHERE eba_sub.event_id = e.event_id
             AND ba.is_deleted = 0 -- Only include active Brand Ambassadors
           FOR XML PATH(''), TYPE
-        ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS staffing
+        ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS staffing,
+        -- New counts based on ambassador statuses
+        SUM(CASE WHEN eba.status = 'accepted' THEN 1 ELSE 0 END) AS acceptedAmbassadorsCount,
+        SUM(CASE WHEN eba.status = 'pending' THEN 1 ELSE 0 END) AS pendingAmbassadorsCount,
+        SUM(CASE WHEN eba.status = 'declined' THEN 1 ELSE 0 END) AS declinedAmbassadorsCount
       FROM Events e
       JOIN Teams t ON e.team_id = t.id AND t.is_deleted = 0 -- Only include active Teams
       JOIN Venues v ON e.venue_id = v.id AND v.is_deleted = 0 -- Only include active Venues
       JOIN Campaigns c ON e.campaign_id = c.id AND c.is_deleted = 0 -- Only include active Campaigns
+      LEFT JOIN EventBrandAmbassadors eba ON e.event_id = eba.event_id
       WHERE e.is_deleted = 0 -- Only include active Events
+      GROUP BY 
+        e.event_id,
+        t.name,
+        e.event_type,
+        e.event_name,
+        e.start_date_time,
+        e.duration_minutes,
+        e.duration_hours,
+        v.name,
+        c.name
     `);
 
     res.status(200).json(result.recordset);
@@ -100,6 +115,7 @@ export const getEvents = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching events' });
   }
 };
+
 
 
 // Function to create an event
@@ -250,7 +266,8 @@ export const getMyEvents = async (req: Request, res: Response) => {
           eba.qa,
           eba.photos,
           eba.expenses,
-          eba.personal_report_submitted -- Include the personal_report_submitted status
+          eba.personal_report_submitted,
+          eba.status AS ambassadorStatus -- Renamed here
         FROM 
           Events e
         JOIN 
@@ -890,11 +907,16 @@ export const declineEvent = async (req: Request, res: Response) => {
         `);
     }
 
-    // Remove the declining ambassador's assignment from the EventBrandAmbassadors table
-    await pool.request()
-      .input('event_id', sql.Int, event_id)
-      .input('ba_id', sql.Int, ba_id)
-      .query('DELETE FROM EventBrandAmbassadors WHERE event_id = @event_id AND ba_id = @ba_id');
+     // Update the status to 'declined' instead of deleting the record
+     await pool.request()
+     .input('event_id', sql.Int, event_id)
+     .input('ba_id', sql.Int, ba_id)
+     .input('status', sql.VarChar(20), 'declined')
+     .query(`
+       UPDATE EventBrandAmbassadors
+       SET status = @status
+       WHERE event_id = @event_id AND ba_id = @ba_id
+     `);
 
     // Send the email using the sendDeclineEmail function
     await sendDeclineEmail(ownerEmails, 'Event Declined', emailContent);
@@ -936,5 +958,30 @@ export const getBrandAmbassadorData = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching brand ambassador data:', error);
     res.status(500).json({ message: 'Internal Server Error' });
+  }
+};
+
+export const acceptEvent = async (req: Request, res: Response) => {
+  const { ba_id } = req.body;
+  const { event_id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+
+    // Update the status to 'accepted'
+    await pool.request()
+      .input('event_id', sql.Int, event_id)
+      .input('ba_id', sql.Int, ba_id)
+      .input('status', sql.VarChar(20), 'accepted')
+      .query(`
+        UPDATE EventBrandAmbassadors
+        SET status = @status
+        WHERE event_id = @event_id AND ba_id = @ba_id
+      `);
+
+    res.status(200).json({ message: 'Event accepted successfully' });
+  } catch (error: any) {
+    console.error('Error in acceptEvent:', error);
+    res.status(500).json({ message: 'Error accepting event', error: error.message });
   }
 };

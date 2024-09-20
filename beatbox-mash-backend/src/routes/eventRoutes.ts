@@ -1,5 +1,5 @@
 import express from 'express';
-import { createEvent, getEvents, deleteEvent, notifyAmbassadors, getMyEvents, getPendingEventsForApproval, approveEvent, rejectEvent, getApprovedEvents, getEventsWithReimbursements, getEventsByPayrollGroups, updatePayrollGroup, declineEvent, getBrandAmbassadorData } from '../controllers/eventController';
+import { createEvent, getEvents, deleteEvent, notifyAmbassadors, getMyEvents, getPendingEventsForApproval, approveEvent, rejectEvent, getApprovedEvents, getEventsWithReimbursements, getEventsByPayrollGroups, updatePayrollGroup, declineEvent, getBrandAmbassadorData, acceptEvent } from '../controllers/eventController';
 
 const router = express.Router();
 
@@ -17,5 +17,6 @@ router.get('/payrollgroups', getEventsByPayrollGroups);
 router.post('/updatepayrollgroup', updatePayrollGroup);
 router.post('/decline/:event_id', declineEvent);
 router.get('/brandAmbassador/:eventId/:baId', getBrandAmbassadorData);
+router.post('/accept/:event_id', acceptEvent);
 
 export default router;

@@ -27,7 +27,10 @@ interface Event {
   qa: boolean;
   photos: boolean;
   expenses: boolean;
+  ambassadorStatus: string;
 }
+
+
 
 const formatEventDateTime = (startDateTime: string, endDateTime: string) => {
   const startDate = new Date(startDateTime);
@@ -94,16 +97,19 @@ const Events = () => {
       console.error('No ba_id found in local storage');
       return;
     }
-
+  
     try {
       const response = await fetch(`${apiUrl}/events/myevents/${ba_id}`);
       const data = await response.json();
-      setEvents(data);
+      console.log('Data received:', data); // Log the data for debugging
+      // Filter out declined events
+      const filteredData = data.filter((event: Event) => event.ambassadorStatus !== 'declined');
+      setEvents(filteredData);
     } catch (error) {
       console.error('Error fetching events:', error);
     }
-  };
-
+  };  
+  
   useEffect(() => {
     fetchEvents();
   }, []);
@@ -181,6 +187,28 @@ const Events = () => {
     }
   };
 
+  const handleAcceptEvent = async (event: Event) => {
+    try {
+      const response = await fetch(`${apiUrl}/events/accept/${event.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ba_id: localStorage.getItem('ba_id'),
+        }),
+      });
+      if (response.ok) {
+        fetchEvents();
+        alert('Event accepted.');
+      } else {
+        console.error('Error accepting event:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error accepting event:', error);
+    }
+  };
+
   return (
     <Box padding={2}>
       <h1 style={{ color: 'black' }}>My Events</h1>
@@ -212,24 +240,24 @@ const Events = () => {
                   </Grid>
                   <Grid item xs={1.6} style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     {event.report_submitted ? (
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          style={{ marginRight: '8px' }}
-                          onClick={() => handleViewReport(event)} // Updated functionality
-                        >
-                          View Report
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          style={{ marginRight: '8px' }}
-                          onClick={() => handleOpenModal(event)}
-                        >
-                          Details
-                        </Button>
-                      )}
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        style={{ marginRight: '8px' }}
+                        onClick={() => handleViewReport(event)}
+                      >
+                        View Report
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        style={{ marginRight: '8px' }}
+                        onClick={() => handleOpenModal(event)}
+                      >
+                        Details
+                      </Button>
+                    )}
                   </Grid>
                   <Grid item xs={0.4} style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <IconButton onClick={() => toggleExpand(event.id)}>
@@ -238,7 +266,8 @@ const Events = () => {
                   </Grid>
                   {expandedEventIds.includes(event.id) && (
                     <>
-                      <Grid item xs={6}>
+                      {console.log('Ambassador Status:', event.ambassadorStatus)}
+                      <Grid item xs={12}>
                         <Typography variant="body2">Venue: {event.venue}</Typography>
                         <Typography variant="body2">Team: {event.team}</Typography>
                         <Typography variant="body2">Inventory: {event.inventory ? 'Yes' : 'No'}</Typography>
@@ -246,29 +275,56 @@ const Events = () => {
                         <Typography variant="body2">Photos: {event.photos ? 'Yes' : 'No'}</Typography>
                         <Typography variant="body2">Expenses: {event.expenses ? 'Yes' : 'No'}</Typography>
                       </Grid>
-                      <Grid item xs={6} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <Grid item xs={12} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      {event.ambassadorStatus === 'accepted' ? (
+                          // "Fill Out Report" or "Edit Report" button
                           <Button
                             variant="contained"
                             color="primary"
-                            style={{ marginBottom: '16px' }}
-                            onClick={() => handleOpenModal(event)}
+                            onClick={() => {
+                              if (event.personal_report_submitted) {
+                                alert('To be implemented');
+                              } else {
+                                handleOpenModal(event);
+                              }
+                            }}
                           >
-                            Fill Out Report
+                            {event.personal_report_submitted ? 'Edit Report' : 'Fill Out Report'}
                           </Button>
-                          <Tooltip title={isEventWithinOneWeek(event.startDateTime) ? "Event within one week. Please reach out to manager if something has come up." : ""}>
-                            <span>
-                              <Button
-                                variant="outlined"
-                                color="secondary"
-                                onClick={() => handleDeclineEvent(event)}
-                                disabled={isEventWithinOneWeek(event.startDateTime)}
-                              >
-                                Decline
-                              </Button>
-                            </span>
-                          </Tooltip>
-                        </div>
+                        ) : event.ambassadorStatus === 'pending' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              style={{ marginBottom: '8px' }}
+                              onClick={() => handleAcceptEvent(event)}
+                            >
+                              Accept
+                            </Button>
+                            <Tooltip
+                              title={
+                                isEventWithinOneWeek(event.startDateTime)
+                                  ? 'Event within one week. Please reach out to manager if something has come up.'
+                                  : ''
+                              }
+                            >
+                              <span>
+                                <Button
+                                  variant="outlined"
+                                  color="secondary"
+                                  onClick={() => handleDeclineEvent(event)}
+                                  disabled={isEventWithinOneWeek(event.startDateTime)}
+                                >
+                                  Decline
+                                </Button>
+                              </span>
+                            </Tooltip>
+                          </div>
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            You have declined this event.
+                          </Typography>
+                        )}
                       </Grid>
                     </>
                   )}
