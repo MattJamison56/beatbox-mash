@@ -20,6 +20,7 @@ interface Ambassador {
 interface Event {
   pendingAmbassadorsCount: number;
   acceptedAmbassadorsCount: number;
+  declinedAmbassadorsCount: number;
   id: number;
   title: string;
   start: Date;
@@ -33,7 +34,11 @@ interface Event {
   campaign: string;
   duration_hours: number;
   duration_minutes: number;
-  ambassadors: Ambassador[];
+  ambassadors: string | Ambassador[];
+  venueAddress: string;
+  paid: boolean;
+  eventStatus: string;
+  totalAmbassadorsCount: number;
 }
 
 const localizer = momentLocalizer(moment);
@@ -41,24 +46,41 @@ const localizer = momentLocalizer(moment);
 const eventStyleGetter = (event: Event) => {
   let borderColor = "#3174ad"; // Default color
 
-  if (event.acceptedAmbassadorsCount > 0) {
-    borderColor = "#32CD32"; // Green
-  } else if (event.pendingAmbassadorsCount > 0) {
-    borderColor = "#FFA500"; // Orange
-  } else {
-    borderColor = "#FF6347"; // Red
+  if (event.eventStatus === 'Upcoming') {
+    if (event.acceptedAmbassadorsCount === event.totalAmbassadorsCount && event.totalAmbassadorsCount > 0) {
+      // All ambassadors have accepted
+      borderColor = "#32CD32"; // Green
+    } else if (
+      event.acceptedAmbassadorsCount === 0 &&
+      (event.declinedAmbassadorsCount + event.pendingAmbassadorsCount === event.totalAmbassadorsCount)
+    ) {
+      // All ambassadors have declined or pending
+      borderColor = "#FF6347"; // Red
+    } else if (event.declinedAmbassadorsCount > 0 || event.pendingAmbassadorsCount > 0) {
+      // Some ambassadors have declined or pending
+      borderColor = "#FFA500"; // Orange
+    }
+  } else if (event.eventStatus === 'Completed') {
+    if (event.paid) {
+      // Event is paid
+      borderColor = "#32CD32"; // Green
+    } else {
+      // Event is not paid yet
+      borderColor = "#FFA500"; // Orange
+    }
   }
 
   return {
     style: {
-      border: `2px solid ${borderColor}`, // Apply the color to the border
-      backgroundColor: "transparent",           // Keep the background white
-      color: "black",                     // Set text color to black
+      border: `2px solid ${borderColor}`,
+      backgroundColor: "transparent",
+      color: "black",
       borderRadius: '5px',
       padding: "5px",
     },
   };
 };
+
 
 const EventCalendar: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -81,18 +103,21 @@ const EventCalendar: React.FC = () => {
       const formattedEvents = data.map((event: any) => {
         const startTime = formatTime(new Date(event.startDateTime));
         const endTime = formatTime(new Date(event.endDateTime));
-
+      
         return {
           id: event.id,
-          title: `${startTime} - ${endTime}, ${event.eventName}`, // Format the title with time first
+          title: `${startTime} - ${endTime}, ${event.eventName}`,
           start: new Date(event.startDateTime),
           end: new Date(event.endDateTime),
           acceptedAmbassadorsCount: event.acceptedAmbassadorsCount,
           pendingAmbassadorsCount: event.pendingAmbassadorsCount,
           declinedAmbassadorsCount: event.declinedAmbassadorsCount,
+          totalAmbassadorsCount: event.totalAmbassadorsCount,
+          paid: event.paid, 
+          eventStatus: event.eventStatus,
           ...event,
         };
-      });
+      });      
 
       setEvents(formattedEvents);
     } catch (error) {
