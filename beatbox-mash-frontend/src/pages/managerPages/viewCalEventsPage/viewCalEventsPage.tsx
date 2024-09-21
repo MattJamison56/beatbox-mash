@@ -10,6 +10,13 @@ import './viewCalEventsPage.css';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
+interface Ambassador {
+  id: number;
+  name: string;
+  avatar_url: string;
+  status: string;
+}
+
 interface Event {
   pendingAmbassadorsCount: number;
   acceptedAmbassadorsCount: number;
@@ -26,6 +33,7 @@ interface Event {
   campaign: string;
   duration_hours: number;
   duration_minutes: number;
+  ambassadors: Ambassador[];
 }
 
 const localizer = momentLocalizer(moment);
@@ -67,7 +75,7 @@ const EventCalendar: React.FC = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch(`${apiUrl}/events`);
+      const response = await fetch(`${apiUrl}/events/eventswithambassadors`);
       const data = await response.json();
 
       const formattedEvents = data.map((event: any) => {

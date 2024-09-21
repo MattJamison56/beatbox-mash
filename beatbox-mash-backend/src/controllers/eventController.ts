@@ -985,3 +985,78 @@ export const acceptEvent = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error accepting event', error: error.message });
   }
 };
+
+export const getEventsWithAmbassadors = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT 
+        e.event_id AS id,
+        t.name AS team,
+        e.event_type AS eventType,
+        e.event_name AS eventName,
+        e.start_date_time AS startDateTime,
+        DATEADD(MINUTE, e.duration_minutes, DATEADD(HOUR, e.duration_hours, e.start_date_time)) AS endDateTime,
+        e.duration_hours,
+        e.duration_minutes,
+        CASE 
+          WHEN DATEADD(MINUTE, e.duration_minutes, DATEADD(HOUR, e.duration_hours, e.start_date_time)) < GETDATE() THEN 'Completed'
+          ELSE 'Active'
+        END AS status,
+        v.name AS venue,
+        c.name AS campaign,
+        STUFF((
+          SELECT ', ' + ba.name
+          FROM Users ba
+          JOIN EventBrandAmbassadors eba_sub ON ba.id = eba_sub.ba_id
+          WHERE eba_sub.event_id = e.event_id
+            AND ba.is_deleted = 0 -- Only include active Brand Ambassadors
+          FOR XML PATH(''), TYPE
+        ).value('.', 'NVARCHAR(MAX)'), 1, 2, '') AS staffing,
+        
+        -- New counts based on ambassador statuses
+        SUM(CASE WHEN eba.status = 'accepted' THEN 1 ELSE 0 END) AS acceptedAmbassadorsCount,
+        SUM(CASE WHEN eba.status = 'pending' THEN 1 ELSE 0 END) AS pendingAmbassadorsCount,
+        SUM(CASE WHEN eba.status = 'declined' THEN 1 ELSE 0 END) AS declinedAmbassadorsCount,
+
+        -- Fetch Ambassadors for each event
+        (
+          SELECT JSON_QUERY((
+            SELECT 
+              ba.id, 
+              ba.name, 
+              ba.avatar_url, 
+              eba.status, 
+              eba.personal_report_submitted
+            FROM dbo.Users ba
+            JOIN dbo.EventBrandAmbassadors eba ON ba.id = eba.ba_id
+            WHERE eba.event_id = e.event_id
+            AND ba.is_deleted = 0
+            FOR JSON PATH
+          )) AS ambassadors
+        )
+
+      FROM Events e
+      JOIN Teams t ON e.team_id = t.id AND t.is_deleted = 0 -- Only include active Teams
+      JOIN Venues v ON e.venue_id = v.id AND v.is_deleted = 0 -- Only include active Venues
+      JOIN Campaigns c ON e.campaign_id = c.id AND c.is_deleted = 0 -- Only include active Campaigns
+      LEFT JOIN EventBrandAmbassadors eba ON e.event_id = eba.event_id
+      WHERE e.is_deleted = 0 -- Only include active Events
+      GROUP BY 
+        e.event_id,
+        t.name,
+        e.event_type,
+        e.event_name,
+        e.start_date_time,
+        e.duration_minutes,
+        e.duration_hours,
+        v.name,
+        c.name
+    `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching events with ambassadors:', error);
+    res.status(500).json({ message: 'Error fetching events' });
+  }
+};
