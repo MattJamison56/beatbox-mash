@@ -20,6 +20,7 @@ import SalesResultsPage from '../salesResultsPage/salesResultsPage';
 import HomePageContent from './homePage';
 import QANumericalResultsPage from '../numericalResultsPage/numericalResultsPage';
 import EventCalendar from '../viewCalEventsPage/viewCalEventsPage';
+import CreateEventCalendar from '../createEventCalendar/createEventCalendar';
 
 const HomePage: React.FC = () => {
   const [currentSubcategory, setCurrentSubcategory] = useState<string | null>(null);
@@ -75,6 +76,7 @@ const HomePage: React.FC = () => {
         {currentSubcategory === 'Sales Results' && <SalesResultsPage />}
         {currentSubcategory === 'Q&A Numerical Results' && <QANumericalResultsPage />}
         {currentSubcategory === 'Calendar View' && <EventCalendar/>}
+        {currentSubcategory === 'Create Event Calendar' && <CreateEventCalendar onEventCreation={handleEventCreation}/>}
       </div>
     </div>
   );

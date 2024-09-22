@@ -62,6 +62,7 @@ const EventsList: React.FC = () => {
 
   return (
     <div className="container">
+      <h1 className="title">List of Events</h1>
       <TableContainer component={Paper} style={{ marginTop: '20px' }}>
         <Table>
           <TableHead>
