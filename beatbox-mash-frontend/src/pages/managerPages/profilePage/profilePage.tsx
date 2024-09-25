@@ -8,6 +8,7 @@ import { useAuth } from '../../../auth/AuthContext';
 import EditIcon from '@mui/icons-material/Edit';
 import dayjs, { Dayjs } from 'dayjs';
 import AvatarUploadModal from './avatarUploadModal';
+import AvailabilityModal from './availabilityModal'
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const ProfileContainer = styled('div')({
@@ -116,6 +117,8 @@ const ProfilePage: React.FC = () => {
 
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogMessage, setDialogMessage] = useState('');
+
+  const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
 
   const handleOpenDialog = (message: string) => {
     setDialogMessage(message);
@@ -255,6 +258,15 @@ const ProfilePage: React.FC = () => {
               <span>{userProfile?.address || 'Not Entered'}</span>
             </InfoItem>
           </Section>
+          <Box display="flex" justifyContent="flex-end" mt={2}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => setIsAvailabilityModalOpen(true)}
+              >
+                Set/View Availability
+              </Button>
+            </Box>
         </RightColumn>
       </Content>
       {isEditing && (
@@ -272,6 +284,14 @@ const ProfilePage: React.FC = () => {
           handleClose={() => setIsAvatarEditing(false)}
           userId={userProfile?.id}
           fetchUserProfile={fetchUserProfile}
+        />
+      )}
+
+      {isAvailabilityModalOpen && (
+        <AvailabilityModal
+          open={isAvailabilityModalOpen}
+          handleClose={() => setIsAvailabilityModalOpen(false)}
+          userId={userProfile?.id}
         />
       )}
 

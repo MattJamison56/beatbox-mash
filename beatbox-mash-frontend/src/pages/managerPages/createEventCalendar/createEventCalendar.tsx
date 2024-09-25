@@ -501,7 +501,9 @@ const CreateEventCalendar: React.FC<CreateEventCalendarProps> = ({ onEventCreati
                 <DateTimePicker
                   label="Start Date Time"
                   value={startDateTime}
-                  onChange={setStartDateTime}
+                  onChange={(newValue, _context) => {
+                    setStartDateTime(newValue as Dayjs);
+                  }}
                 />
               </LocalizationProvider>
               <Box display="flex" gap={2}>

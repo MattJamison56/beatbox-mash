@@ -106,3 +106,65 @@ export const deleteManager = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error soft deleting manager' });
   }
 };
+
+// Fetch Availability for a Specific User
+export const getUserAvailability = async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('user_id', sql.Int, userId)
+      .query(`
+        SELECT availability 
+        FROM dbo.Users 
+        WHERE id = @user_id AND is_deleted = 0
+      `);
+    
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const availability = result.recordset[0].availability;
+    
+    if (!availability) {
+      return res.status(200).json([]); // No availability set
+    }
+    
+    const availabilityData = JSON.parse(availability);
+    res.status(200).json(availabilityData);
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    res.status(500).json({ message: 'Error fetching availability' });
+  }
+};
+
+// Update Availability for a Specific User
+export const updateUserAvailability = async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const availabilityData: {
+    start_datetime: string; // ISO string
+    end_datetime: string;   // ISO string
+    all_day: boolean;
+  }[] = req.body;
+
+  try {
+    const pool = await poolPromise;
+    
+    const availabilityJson = JSON.stringify(availabilityData);
+    
+    await pool.request()
+      .input('user_id', sql.Int, userId)
+      .input('availability', sql.NVarChar(sql.MAX), availabilityJson)
+      .query(`
+        UPDATE dbo.Users
+        SET availability = @availability, updated_at = SYSUTCDATETIME()
+        WHERE id = @user_id AND is_deleted = 0
+      `);
+    
+    res.status(200).json({ message: 'Availability updated successfully' });
+  } catch (error) {
+    console.error('Error updating availability:', error);
+    res.status(500).json({ message: 'Error updating availability' });
+  }
+};
