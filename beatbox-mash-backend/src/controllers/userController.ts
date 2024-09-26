@@ -110,28 +110,25 @@ export const deleteManager = async (req: Request, res: Response) => {
 // Fetch Availability for a Specific User
 export const getUserAvailability = async (req: Request, res: Response) => {
   const { userId } = req.params;
-  
+
   try {
     const pool = await poolPromise;
     const result = await pool.request()
       .input('user_id', sql.Int, userId)
       .query(`
-        SELECT availability 
-        FROM dbo.Users 
-        WHERE id = @user_id AND is_deleted = 0
+        SELECT id, start_datetime, end_datetime, all_day
+        FROM dbo.UserAvailability
+        WHERE user_id = @user_id
       `);
-    
-    if (result.recordset.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    const availability = result.recordset[0].availability;
-    
-    if (!availability) {
-      return res.status(200).json([]); // No availability set
-    }
-    
-    const availabilityData = JSON.parse(availability);
+
+    const availabilityData = result.recordset.map((record) => ({
+      id: record.id.toString(),
+      start: record.start_datetime,
+      end: record.end_datetime,
+      allDay: record.all_day,
+      // Include other properties if needed
+    }));
+
     res.status(200).json(availabilityData);
   } catch (error) {
     console.error('Error fetching availability:', error);
@@ -139,32 +136,55 @@ export const getUserAvailability = async (req: Request, res: Response) => {
   }
 };
 
-// Update Availability for a Specific User
+
 export const updateUserAvailability = async (req: Request, res: Response) => {
   const { userId } = req.params;
   const availabilityData: {
-    start_datetime: string; // ISO string
-    end_datetime: string;   // ISO string
-    all_day: boolean;
+    id?: string;
+    start: string;
+    end: string;
+    allDay: boolean;
   }[] = req.body;
 
   try {
     const pool = await poolPromise;
-    
-    const availabilityJson = JSON.stringify(availabilityData);
-    
-    await pool.request()
-      .input('user_id', sql.Int, userId)
-      .input('availability', sql.NVarChar(sql.MAX), availabilityJson)
-      .query(`
-        UPDATE dbo.Users
-        SET availability = @availability, updated_at = SYSUTCDATETIME()
-        WHERE id = @user_id AND is_deleted = 0
-      `);
-    
-    res.status(200).json({ message: 'Availability updated successfully' });
+
+    // Start a transaction
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    try {
+      // First, delete existing availability for the user
+      const deleteRequest = transaction.request();
+      await deleteRequest
+        .input('user_id', sql.Int, userId)
+        .query(`DELETE FROM dbo.UserAvailability WHERE user_id = @user_id`);
+
+      // Step 2: Insert new availability entries
+      for (const entry of availabilityData) {
+        // Create a new request for each insert to avoid the re-declaration of parameters
+        const insertRequest = transaction.request();
+        await insertRequest
+          .input('user_id', sql.Int, userId)
+          .input('start_datetime', sql.DateTimeOffset, entry.start)
+          .input('end_datetime', sql.DateTimeOffset, entry.end)
+          .input('all_day', sql.Bit, entry.allDay)
+          .query(`
+            INSERT INTO dbo.UserAvailability (user_id, start_datetime, end_datetime, all_day)
+            VALUES (@user_id, @start_datetime, @end_datetime, @all_day)
+          `);
+      }
+
+      // Commit the transaction
+      await transaction.commit();
+      res.status(200).json({ message: 'Availability updated successfully' });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
   } catch (error) {
     console.error('Error updating availability:', error);
     res.status(500).json({ message: 'Error updating availability' });
   }
 };
+

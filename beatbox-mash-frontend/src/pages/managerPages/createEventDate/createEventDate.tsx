@@ -11,6 +11,14 @@ import { styled } from '@mui/material/styles';
 import { Dayjs } from 'dayjs';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+dayjs.extend(utc);
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
 
 const Section = styled(Box)(({ theme }) => ({
   marginBottom: theme.spacing(4),
@@ -21,6 +29,12 @@ const SectionTitle = styled(Typography)(({ theme }) => ({
   fontWeight: 'bold',
   color: '#6f65ac',
 }));
+
+interface Availability {
+  start_datetime: string;
+  end_datetime: string;
+  all_day: boolean;
+}
 
 interface BrandAmbassador {
   id: number;
@@ -33,7 +47,9 @@ interface BrandAmbassador {
   expenses: boolean;
   mileageExpense: boolean;
   avatar_url?: string;
+  availability?: Availability[];
 }
+
 
 interface CreateEventDateProps {
   onEventCreation: () => void;
@@ -59,6 +75,10 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
   const [preEventInstructions, setPreEventInstructions] = useState<string>('');
   const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [selectedWholesaler, setSelectedWholesaler] = useState<string>('');
+  const [includeUnavailableBas, setIncludeUnavailableBas] = useState<boolean>(false);
+  const [isUnavailableSelected, setIsUnavailableSelected] = useState<boolean>(false);
+  const [unavailableBa, setUnavailableBa] = useState<BrandAmbassador | null>(null);
+
   const apiUrl = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
@@ -69,22 +89,38 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
         const venuesResponse = await fetch(`${apiUrl}/venues`);
         const teamsResponse = await fetch(`${apiUrl}/teams`);
         const basResponse = await fetch(`${apiUrl}/ambassadors/getAmbassadors`);
-
+  
         const campaignsData = await campaignsResponse.json();
         const venuesData = await venuesResponse.json();
         const teamsData = await teamsResponse.json();
         const basData = await basResponse.json();
-        console.log(basData);
-
+  
         setCampaigns(campaignsData.map((campaign: any) => campaign.name));
         setVenues(venuesData.map((venue: any) => `${venue.name} // ${venue.address}`));
         setTeams(teamsData.map((team: any) => team.name));
-        setAvailableBas(basData); // Set available brand ambassadors
+  
+        // Process availability data
+        const processedBas = basData.map((ba: any) => {
+          let availability: Availability[] = [];
+          if (ba.availability) {
+            availability = ba.availability.split('||').map((entry: string) => {
+              const [start_datetime_str, end_datetime_str, all_day_str] = entry.split('|');
+              return {
+                start_datetime: dayjs.utc(start_datetime_str),
+                end_datetime: dayjs.utc(end_datetime_str),
+                all_day: all_day_str === '1',
+              };
+            });
+          }
+          return { ...ba, availability };
+        });
+  
+        setAvailableBas(processedBas);
       } catch (error) {
         console.error('Error fetching data:', error);
       }
     };
-
+  
     fetchData();
   }, []);
 
@@ -98,18 +134,67 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
 
   const handleAddBa = () => {
     if (selectedBa && !brandAmbassadors.some((ba) => ba.id === selectedBa.id)) {
-      const newBa = {
-        ...selectedBa,
-        inventory: brandAmbassadors.length === 0,
-        qa: brandAmbassadors.length === 0,
-        photos: true,
-        expenses: true,
-        mileageExpense: false,
-      };
-      setBrandAmbassadors((prev) => [...prev, newBa]);
-      setSelectedBa(null);
+      let isAvailable = true;
+  
+      // Check availability if the "Show Unavailable Ambassadors" switch is OFF
+      if (startDateTime && whoSchedules === 'Specific Date') {
+        const eventStartUTC = startDateTime.utc();
+        const eventEndUTC = startDateTime
+          .add(durationHours, 'hour')
+          .add(durationMinutes, 'minute')
+          .utc();
+  
+        isAvailable = selectedBa.availability?.some((availability) => {
+          const availStart = dayjs.utc(availability.start_datetime);
+          const availEnd = dayjs.utc(availability.end_datetime);
+  
+          return availStart.isSameOrBefore(eventStartUTC) && availEnd.isSameOrAfter(eventEndUTC);
+        }) || false;
+      }
+  
+      // Logic for when includeUnavailableBas is true
+      if (includeUnavailableBas) {
+        if (!isAvailable) {
+          setIsUnavailableSelected(true); // Show warning
+          setUnavailableBa(selectedBa);   // Track the unavailable ambassador
+        } else {
+          setIsUnavailableSelected(false); // No warning
+          setUnavailableBa(null);          // Reset the unavailable ambassador
+        }
+  
+        // Add the ambassador regardless of availability
+        const newBa = {
+          ...selectedBa,
+          inventory: brandAmbassadors.length === 0,
+          qa: brandAmbassadors.length === 0,
+          photos: true,
+          expenses: true,
+          mileageExpense: false,
+        };
+        setBrandAmbassadors((prev) => [...prev, newBa]);
+        setSelectedBa(null); // Clear the selection
+      }
+      // Logic for when includeUnavailableBas is false (strictly only available ambassadors)
+      else {
+        if (isAvailable) {
+          setIsUnavailableSelected(false); // No warning
+          setUnavailableBa(null);          // Reset the unavailable ambassador
+  
+          const newBa = {
+            ...selectedBa,
+            inventory: brandAmbassadors.length === 0,
+            qa: brandAmbassadors.length === 0,
+            photos: true,
+            expenses: true,
+            mileageExpense: false,
+          };
+          setBrandAmbassadors((prev) => [...prev, newBa]);
+          setSelectedBa(null); // Clear the selection
+        }
+      }
     }
-  };
+  };  
+  
 
   const handleRemoveBa = () => {
     if (editBaId !== null) {
@@ -229,6 +314,37 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
     }
   };
 
+  const filterBasByAvailability = (bas: BrandAmbassador[]): BrandAmbassador[] => {
+    if (!startDateTime || whoSchedules !== 'Specific Date') {
+      return bas;
+    }
+  
+    const eventStartUTC = startDateTime.utc();
+    const eventEndUTC = startDateTime
+      .add(durationHours, 'hour')
+      .add(durationMinutes, 'minute')
+      .utc();
+  
+    return bas.filter((ba) => {
+      if (!ba.availability || ba.availability.length === 0) {
+        return includeUnavailableBas; // Include or exclude based on the switch
+      }
+  
+      const isAvailable = ba.availability.some((availability) => {
+        const availStart = dayjs.utc(availability.start_datetime); // Parse string to dayjs
+        const availEnd = dayjs.utc(availability.end_datetime); // Parse string to dayjs
+  
+        return (
+          availStart.isSameOrBefore(eventStartUTC) &&
+          availEnd.isSameOrAfter(eventEndUTC)
+        );
+      });
+  
+      return isAvailable || includeUnavailableBas;
+    });
+  };
+  
+  
   return (
     <div className="container" style={{ color: 'black', padding: '20px' }}>
       <h1>Create event by date or range</h1>
@@ -236,8 +352,9 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
         <Section>
           <Autocomplete
             options={campaigns}
-            value={selectedCampaign}
+            value={selectedCampaign || null}
             onChange={handleCampaignChange}
+            isOptionEqualToValue={(option, value) => option === value}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -249,7 +366,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           />
           <Autocomplete
             options={venues}
-            value={selectedVenue}
+            value={selectedVenue || null}
+            isOptionEqualToValue={(option, value) => option.split(' // ')[0] === value}
             onChange={(_event, value) => {
               const name = value?.split(' // ')[0] || ''; // Extract the name
               setSelectedVenue(name); // Store only the name
@@ -265,7 +383,8 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           />
           <Autocomplete
             options={teams}
-            value={selectedTeam}
+            value={selectedTeam || null}
+            isOptionEqualToValue={(option, value) => option === value}
             onChange={(_event, value) => setSelectedTeam(value ?? '')}
             renderInput={(params) => (
               <TextField
@@ -380,10 +499,11 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
           />
           <Typography variant="h6" style={{ marginTop: '16px' }}>Brand ambassadors</Typography>
           <Autocomplete
-            options={availableBas}
+            options={filterBasByAvailability(availableBas)}
             getOptionLabel={(option) => `${option.name} / ${option.email}`}
             value={selectedBa}
             onChange={(_event, value) => setSelectedBa(value)}
+            isOptionEqualToValue={(option, value) => option?.id === value?.id}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -393,9 +513,24 @@ const CreateEventDate: React.FC<CreateEventDateProps> = ({ onEventCreation }) =>
               />
             )}
           />
+          {isUnavailableSelected && unavailableBa && (
+            <Typography color="error" variant="body2" style={{ marginTop: '8px' }}>
+              Ambassador {unavailableBa.name} is unavailable for the selected time.
+            </Typography>
+          )}
           <Button onClick={handleAddBa} variant="contained" color="primary" style={{ marginTop: '8px' }}>
             Add Brand Ambassador
           </Button>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={includeUnavailableBas}
+                onChange={(e) => setIncludeUnavailableBas(e.target.checked)}
+              />
+            }
+            style = {{margin: '15px'}}
+            label="Show Unavailable Ambassadors"
+          />
           <Box mt={2}>
             <Table>
               <TableHead>

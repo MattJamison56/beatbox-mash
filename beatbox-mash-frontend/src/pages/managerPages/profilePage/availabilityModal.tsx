@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
+
+// Need to fix UTC and local time issues
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
@@ -9,8 +13,7 @@ import {
   DialogActions,
   Button,
   CircularProgress,
-  Box,
-  TextField,
+  Box
 } from '@mui/material';
 import FullCalendar from '@fullcalendar/react';
 import {
@@ -30,10 +33,12 @@ import {
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import utc from 'dayjs/plugin/utc';
-import IconButton from '@mui/material/IconButton';
-import DeleteIcon from '@mui/icons-material/Delete';
+import timezone from 'dayjs/plugin/timezone';
+
+const apiUrl = import.meta.env.VITE_API_URL;
 
 dayjs.extend(utc);
+dayjs.extend(timezone);
 
 interface AvailabilityModalProps {
   open: boolean;
@@ -56,72 +61,112 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
     null
   );
 
-  // New state for multiple time ranges
   const [timeRanges, setTimeRanges] = useState<
     { startTime: Dayjs | null; endTime: Dayjs | null }[]
   >([{ startTime: null, endTime: null }]);
 
-  // UseRef for currentMonth to prevent infinite loops
   const currentMonthRef = useRef(dayjs());
 
-  // Fetch availability data when modal opens
   useEffect(() => {
     if (open && userId) {
       fetchAvailability();
     }
   }, [open, userId]);
 
+  // In the fetchAvailability function, ensure fetched UTC dates are converted to local:
   const fetchAvailability = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/users/${userId}/availability`);
+      console.log("Fetching availability data from server...");
+      const response = await fetch(`${apiUrl}/users/${userId}/availability`);
       if (!response.ok) {
         throw new Error(
           `Failed to fetch availability: ${response.status} ${response.statusText}`
         );
       }
+
       const data: EventInput[] = await response.json();
-      setAvailability(data);
+      console.log("Received availability data from server:", data);
+
+      const parsedData = data.map((event) => {
+        // @ts-ignore
+        const startUtc = dayjs.utc(event.start);  // Start time in UTC
+        // @ts-ignore
+        const endUtc = dayjs.utc(event.end);      // End time in UTC
+
+        const startLocal = startUtc.local();  // Convert to local time for display
+        const endLocal = endUtc.local();      // Convert to local time for display
+
+        let title = event.title;
+        if (!title) {
+          if (event.allDay) {
+            title = 'Available All Day';
+          } else {
+            title = `${startLocal.format('h:mm A')} - ${endLocal.format('h:mm A')}`;
+          }
+        }
+
+        return {
+          ...event,
+          start: startLocal.toDate(),  // Display local time
+          end: endLocal.toDate(),      // Display local time
+          className: 'availability-event',
+          backgroundColor: 'lightgreen',
+          borderColor: 'lightgreen',
+          display: event.allDay ? 'background' : 'auto',
+          title,
+        };
+      });
+
+      setAvailability(parsedData);
     } catch (error) {
       console.error('Error fetching availability:', error);
-      // Optionally, handle the error in the UI
     }
     setLoading(false);
   };
 
   const handleDateSelect = (arg: DateSelectArg) => {
-    if (!arg.start) return; // Ensure arg.start is defined
+    if (!arg.start) return;
 
-    const dateStr = dayjs(arg.start).format('YYYY-MM-DD');
-    const existingEvents = availability.filter((event) => {
-      if (!event.start) return false; // Ensure event.start is defined
+    try {
+      const selectedDateUtc = dayjs(arg.start).startOf('day').utc();
+      const currentDateUtc = dayjs.utc().startOf('day');
 
-      // Type assertion to acceptable type for dayjs()
-      const eventStart = event.start as string | number | Date | Dayjs;
-      const eventDateStr = dayjs(eventStart).format('YYYY-MM-DD');
-      return eventDateStr === dateStr;
-    });
+      if (selectedDateUtc.isAfter(currentDateUtc, 'month')) {
+        const dateStr = selectedDateUtc.format('YYYY-MM-DD');
 
-    if (existingEvents.length === 0) {
-      // First click: Set date as available all day and light up square
-      const endDateStr = dayjs(dateStr).add(1, 'day').format('YYYY-MM-DD');
-      setAvailability((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          start: dateStr,
-          end: endDateStr,
-          allDay: true,
-          display: 'background',
-          backgroundColor: 'lightgreen',
-          borderColor: 'lightgreen',
-          className: 'availability-event',
-        },
-      ]);
-    } else {
-      // Second click: Open modal with options
-      setSelectedDate(dayjs(arg.start));
-      setAvailabilityOptionsOpen(true);
+        const existingEvents = availability.filter((event) => {
+          if (!event.start) return false;
+          // @ts-ignore
+          const eventStart = dayjs.utc(event.start).startOf('day');
+          const eventDateStr = eventStart.format('YYYY-MM-DD');
+          return eventDateStr === dateStr;
+        });
+
+        if (existingEvents.length === 0) {
+          const endDateUtc = selectedDateUtc.add(1, 'day');
+          setAvailability((prev) => [
+            ...prev,
+            {
+              id: Date.now().toString(),
+              start: selectedDateUtc.toISOString(),
+              end: endDateUtc.toISOString(),
+              allDay: true,
+              display: 'background',
+              backgroundColor: 'lightgreen',
+              borderColor: 'lightgreen',
+              className: 'availability-event',
+            },
+          ]);
+        } else {
+          setSelectedDate(selectedDateUtc);
+          setAvailabilityOptionsOpen(true);
+        }
+      } else {
+        alert('You can only add availability in future months.');
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
     }
   };
 
@@ -132,22 +177,20 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
 
   const handleRemoveAvailability = () => {
     if (!selectedDate) return;
-    const dateStr = selectedDate.format('YYYY-MM-DD');
+    const dateStr = selectedDate.utc().format('YYYY-MM-DD');
 
-    // Remove availability for the date
     setAvailability((prev) =>
       prev.filter((event) => {
-        if (!event.start) return true; // Keep event if no start date
-
-        const eventStart = event.start as string | number | Date | Dayjs;
-        const eventDateStr = dayjs(eventStart).format('YYYY-MM-DD');
+        if (!event.start) return true;
+        // @ts-ignore
+        const eventStartUtc = dayjs(event.start).utc().startOf('day');
+        const eventDateStr = eventStartUtc.format('YYYY-MM-DD');
         return eventDateStr !== dateStr;
       })
     );
     setAvailabilityOptionsOpen(false);
   };
 
-  // Handle changes in time ranges
   const handleTimeRangeChange = (
     index: number,
     field: 'startTime' | 'endTime',
@@ -160,12 +203,10 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
     });
   };
 
-  // Add a new time range
   const handleAddTimeRange = () => {
     setTimeRanges((prev) => [...prev, { startTime: null, endTime: null }]);
   };
 
-  // Remove a time range
   const handleRemoveTimeRange = (index: number) => {
     setTimeRanges((prev) => prev.filter((_, i) => i !== index));
   };
@@ -175,22 +216,28 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
       alert('No date selected.');
       return;
     }
-
-    const selectedDateStr = selectedDate.format('YYYY-MM-DD');
-
+  
+    // Work with local time for display and convert to UTC for storage
+    const selectedDateLocal = dayjs(selectedDate).local(); 
+    console.log("Selected Date (Local):", selectedDateLocal.format());
+  
+    const selectedDateUtc = selectedDateLocal.utc();
+    console.log("Selected Date (UTC):", selectedDateUtc.format());
+  
     // Remove existing availability for the date
     setAvailability((prev) =>
       prev.filter((event) => {
         if (!event.start) return true;
-
-        const eventStart = event.start as string | number | Date | Dayjs;
-        const eventDateStr = dayjs(eventStart).format('YYYY-MM-DD');
+        // @ts-ignore
+        const eventStartUtc = dayjs(event.start).utc().startOf('day');
+        const eventDateStr = eventStartUtc.format('YYYY-MM-DD');
+        const selectedDateStr = selectedDateUtc.format('YYYY-MM-DD');
         return eventDateStr !== selectedDateStr;
       })
     );
-
+  
     const newEvents: EventInput[] = [];
-
+  
     for (const range of timeRanges) {
       const { startTime, endTime } = range;
       if (startTime && endTime) {
@@ -198,116 +245,158 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
           alert('End time must be after start time.');
           return;
         }
-
-        const startDateTime = selectedDate
+  
+        // Local times based on user input
+        const startDateTimeLocal = selectedDateLocal
           .hour(startTime.hour())
           .minute(startTime.minute())
           .second(0)
           .millisecond(0);
-
-        const endDateTime = selectedDate
+        console.log("Start DateTime (Local):", startDateTimeLocal.format());
+  
+        const endDateTimeLocal = selectedDateLocal
           .hour(endTime.hour())
           .minute(endTime.minute())
           .second(0)
           .millisecond(0);
-
+        console.log("End DateTime (Local):", endDateTimeLocal.format());
+  
+        // Convert to UTC for storage
+        const startDateTimeUtc = startDateTimeLocal.utc();
+        const endDateTimeUtc = endDateTimeLocal.utc();
+        console.log("Start DateTime (UTC):", startDateTimeUtc.format());
+        console.log("End DateTime (UTC):", endDateTimeUtc.format());
+  
+        // Store UTC times, but display local times
         newEvents.push({
           id: Date.now().toString() + Math.random(),
-          start: startDateTime.toISOString(),
-          end: endDateTime.toISOString(),
+          start: startDateTimeUtc.toISOString(), // Store in UTC
+          end: endDateTimeUtc.toISOString(),     // Store in UTC
           allDay: false,
           display: 'block',
           backgroundColor: 'lightgreen',
           borderColor: 'lightgreen',
           className: 'availability-event',
-          title: `${startDateTime.format('h:mm A')} - ${endDateTime.format('h:mm A')}`,
+          textColor: 'black',
+          title: `${startDateTimeLocal.format('h:mm A')} - ${endDateTimeLocal.format('h:mm A')}`, // Display local time
         });
       } else {
         alert('Please select both start and end times for all time ranges.');
         return;
       }
     }
-
+  
+    console.log("New events to be saved:", newEvents);
     setAvailability((prev) => [...prev, ...newEvents]);
-
+  
     setTimeDialogOpen(false);
     setSelectedDate(null);
     setTimeRanges([{ startTime: null, endTime: null }]);
-  };
+  };  
 
-  // Update the current month when the calendar view changes
   const handleDatesSet = (arg: DatesSetArg) => {
     currentMonthRef.current = dayjs(arg.start);
   };
 
-  // Prevent selection of days not in the current month
   const selectAllow = (selectInfo: DateSelectArg) => {
-    const selectedDate = dayjs(selectInfo.start);
-    return (
-      selectedDate.month() === currentMonthRef.current.month() &&
-      selectedDate.year() === currentMonthRef.current.year()
-    );
+    const selectedDateUtc = dayjs(selectInfo.start).startOf('day').utc();
+    const currentDateUtc = dayjs().startOf('day').utc();
+    return selectedDateUtc.isAfter(currentDateUtc, 'month');
   };
 
-  // Render event content
-  const renderEventContent = (eventInfo: EventContentArg) => {
-    if (eventInfo.event.allDay) {
+  const eventAllow = (dropInfo: any, draggedEvent: any) => {
+    const eventStart = dayjs(draggedEvent.start).startOf('day');
+    const currentDate = dayjs().startOf('day');
+    return eventStart.isAfter(currentDate, 'month');
+  };
+
+  const parseDate = (dateInput: any): Date | null => {
+    if (!dateInput) {
+      console.error('Invalid date input:', dateInput);
       return null;
     }
+
+    const date = dayjs.utc(dateInput);
+    if (!date.isValid()) {
+      console.error('Invalid date input:', dateInput);
+      return null;
+    }
+    return date.toDate();
+  };
+
+  const renderEventContent = (eventInfo: EventContentArg) => {
+    const eventStartLocal = dayjs(eventInfo.event.start).local().format('h:mm A');
+    const eventEndLocal = dayjs(eventInfo.event.end).local().format('h:mm A');
 
     return (
       <div className="fc-event-main-frame">
         <div className="fc-event-title-container">
-          <div className="fc-event-title fc-sticky">{eventInfo.event.title}</div>
+          <div className="fc-event-title fc-sticky">
+            {`${eventStartLocal} - ${eventEndLocal}`}
+          </div>
         </div>
       </div>
     );
   };
 
-  // CSS styles for the calendar and availability events
   const calendarStyles = `
-    /* Remove default event styles for background events */
     .fc-event {
       border: none;
     }
 
-    /* Style for day cells */
     .fc-daygrid-day-frame {
       position: relative;
     }
 
-    /* Make availability events fill the day cell for all-day events */
     .availability-event.fc-daygrid-block-event.fc-event-today, 
     .availability-event.fc-daygrid-block-event.fc-event {
       background-color: lightgreen !important;
       border: none !important;
-      color: black;
+      color: black !important;
     }
 
-    /* Style for time-specific events */
     .availability-event {
       background-color: lightgreen !important;
       border: none !important;
-      color: black;
+      textColor: black !important;
+    }
+
+    .fc-header-title {
+      textColor: black;
+    }
+
+    .availability-event.past-event {
+      opacity: 0.6;
+      pointer-events: none;
     }
   `;
 
-  // Save availability to backend
   const saveAvailability = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/users/${userId}/availability`, {
+      const availabilityData = availability.map((event) => ({
+        id: event.id,
+        start: event.start,
+        end: event.end,
+        allDay: event.allDay,
+      }));
+
+      console.log("Saving availability data to server:", availabilityData);
+
+      const response = await fetch(`${apiUrl}/users/${userId}/availability`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(availability),
+        body: JSON.stringify(availabilityData),
       });
-      if (!response.ok) {
-        throw new Error('Failed to save availability');
+
+      if (response.ok) {
+        console.log("Successfully saved availability data.");
+      } else {
+        console.error('Failed to save availability:', response.statusText);
       }
       handleClose();
     } catch (error) {
       console.error('Error saving availability:', error);
-      // Optionally, handle the error in the UI
     }
     setLoading(false);
   };
@@ -332,9 +421,13 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
               eventContent={renderEventContent}
               timeZone="local"
               eventDisplay="auto"
+              editable={true}
+              eventStartEditable={true}
+              eventDurationEditable={true}
+              eventAllow={eventAllow}
               validRange={{
-                start: DateTime.now().plus({ weeks: 2 }).startOf('month').toISODate(),
-                end: DateTime.now().plus({ months: 2 }).endOf('month').toISODate(),
+                start: DateTime.now().minus({ months: 1 }).startOf('month').toISODate(),
+                end: DateTime.now().plus({ months: 3 }).endOf('month').toISODate(),
               }}
               headerToolbar={{
                 left: 'prev,next today',
@@ -354,7 +447,6 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
         </Button>
       </DialogActions>
 
-      {/* Availability Options Modal */}
       {availabilityOptionsOpen && (
         <Dialog
           open={availabilityOptionsOpen}
@@ -383,7 +475,6 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({
         </Dialog>
       )}
 
-      {/* Time Selection Modal */}
       {timeDialogOpen && (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <Dialog open={timeDialogOpen} onClose={() => setTimeDialogOpen(false)}>

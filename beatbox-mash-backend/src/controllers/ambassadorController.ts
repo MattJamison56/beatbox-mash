@@ -32,15 +32,35 @@ export const getAmbassadorsWithTeams = async (req: Request, res: Response) => {
         Users.address, 
         Users.phone_number, 
         Users.avatar_url, 
-        COALESCE(STRING_AGG(Teams.name, ', '), '') AS teams, 
+        COALESCE(
+          (
+            SELECT STRING_AGG(T.name, ', ')
+            FROM (
+              SELECT DISTINCT Teams.name
+              FROM Teams
+              INNER JOIN UserTeams ON Teams.id = UserTeams.team_id
+              WHERE UserTeams.user_id = Users.id
+            ) T
+          ), 
+          ''
+        ) AS teams, 
         Users.wage, 
-        Users.date_of_last_request
+        Users.date_of_last_request,
+        COALESCE(
+          STRING_AGG(
+            CONCAT(
+              CAST(UserAvailability.start_datetime AS VARCHAR(33)), '|', 
+              CAST(UserAvailability.end_datetime AS VARCHAR(33)), '|', 
+              CAST(UserAvailability.all_day AS VARCHAR(1))
+            ), 
+            '||'
+          ), 
+          ''
+        ) AS availability
       FROM 
         Users
       LEFT JOIN 
-        UserTeams ON Users.id = UserTeams.user_id
-      LEFT JOIN 
-        Teams ON UserTeams.team_id = Teams.id
+        UserAvailability ON Users.id = UserAvailability.user_id
       WHERE 
         Users.role = 'ambassador' AND Users.is_deleted = 0
       GROUP BY 
@@ -55,10 +75,11 @@ export const getAmbassadorsWithTeams = async (req: Request, res: Response) => {
     `);
     res.status(200).json(result.recordset);
   } catch (error) {
-    console.error('Error fetching ambassadors with teams:', error);
-    res.status(500).json({ message: 'Error fetching ambassadors with teams' });
+    console.error('Error fetching ambassadors with availability:', error);
+    res.status(500).json({ message: 'Error fetching ambassadors with availability' });
   }
 };
+
 
 export const createAmbassadors = async (req: Request, res: Response) => {
   try {
