@@ -22,6 +22,7 @@ import path from 'path';
 import paymentRoutes from './routes/paymentRoutes';
 import statsRoutes from './routes/statsRoutes';
 import dataRoutes from './routes/dataRoutes';
+import trainingRoutes from './routes/trainingRoutes';
 
 //vars deployed4
 
@@ -83,6 +84,8 @@ app.use('/payments', paymentRoutes);
 app.use('/stats', statsRoutes);
 
 app.use('/data', dataRoutes);
+
+app.use('/training', trainingRoutes);
 
 app.get('/', (req, res) => res.send('API is running'));
 

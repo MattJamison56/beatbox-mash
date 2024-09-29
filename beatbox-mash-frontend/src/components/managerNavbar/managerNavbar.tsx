@@ -283,7 +283,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSubcategoryChange }) => {
                     <ContentPasteIcon sx={{ marginRight: '8px' }} fontSize='medium'/>
                     Assets
                 </Typography>
-                <button className="subcat" style={{ width: '100%' }}>Training Materials</button>
+                <button className="subcat" style={{ width: '100%' }} onClick={() => handleSubcatClick('Training Materials')}>Training Materials</button>
                 <button className="subcat" style={{ width: '100%' }}>Required Docs</button>
             </Box>
             </>

@@ -88,7 +88,7 @@ export const createAmbassadors = async (req: Request, res: Response) => {
 
     await transaction.begin();
 
-    const { ambassadors } = req.body;
+    const { ambassadors, requiredDocs } = req.body;
 
     for (const ambassador of ambassadors) {
       const token = crypto.randomBytes(20).toString('hex');
@@ -97,12 +97,12 @@ export const createAmbassadors = async (req: Request, res: Response) => {
       const requestUser = new sql.Request(transaction);
 
       const result = await requestUser
-        .input('name', sql.VarChar, `${ambassador.firstName} ${ambassador.lastName}`)
-        .input('email', sql.VarChar, ambassador.email)
+        .input('name', sql.NVarChar, `${ambassador.firstName} ${ambassador.lastName}`)
+        .input('email', sql.NVarChar, ambassador.email)
         .input('role', sql.NVarChar, 'ambassador')
         .input('wage', sql.Decimal(10, 2), ambassador.wage)
-        .input('password_hash', sql.VarChar, tokenHash)
-        .input('reset_token', sql.VarChar, token)
+        .input('password_hash', sql.NVarChar, tokenHash)
+        .input('reset_token', sql.NVarChar, token)
         .query(`
           INSERT INTO Users (name, email, role, wage, password_hash, reset_token, date_of_last_request, avatar_url, phone_number, address, created_at, updated_at)
           OUTPUT INSERTED.id
@@ -111,11 +111,12 @@ export const createAmbassadors = async (req: Request, res: Response) => {
 
       const userId = result.recordset[0].id;
 
+      // Assign teams to the user
       for (const teamName of ambassador.teams) {
         const requestTeam = new sql.Request(transaction);
 
         const teamResult = await requestTeam
-          .input('teamName', sql.VarChar, teamName)
+          .input('teamName', sql.NVarChar, teamName)
           .query(`
             SELECT id FROM Teams WHERE name = @teamName
           `);
@@ -137,6 +138,32 @@ export const createAmbassadors = async (req: Request, res: Response) => {
         }
       }
 
+      // Assign trainings to the user
+      for (const trainingId of ambassador.trainingIds) {
+        const requestUserTrainings = new sql.Request(transaction);
+
+        await requestUserTrainings
+          .input('userId', sql.Int, userId)
+          .input('trainingMaterialId', sql.Int, trainingId)
+          .query(`
+            INSERT INTO UserTrainings (user_id, training_material_id, is_completed, assigned_at)
+            VALUES (@userId, @trainingMaterialId, 0, GETDATE())
+          `);
+      }
+
+      // Assign required documents to the user
+      for (const docType of requiredDocs) {
+        const requestUserDocs = new sql.Request(transaction);
+
+        await requestUserDocs
+          .input('userId', sql.Int, userId)
+          .input('documentType', sql.NVarChar, docType)
+          .query(`
+            INSERT INTO UserRequiredDocuments (user_id, document_type, is_uploaded)
+            VALUES (@userId, @documentType, 0)
+          `);
+      }
+
       // Send account creation email
       await sendAccountCreationEmail(ambassador.email, token);
     }
@@ -145,8 +172,7 @@ export const createAmbassadors = async (req: Request, res: Response) => {
     res.status(200).json({ message: 'Ambassadors created successfully' });
   } catch (error) {
     console.error('Error creating ambassadors:', error);
-    const err = error as Error;
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Error creating ambassadors' });
   }
 };
 

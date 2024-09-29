@@ -9,7 +9,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   TextField, Button, MenuItem, Typography, Box, Checkbox, Autocomplete, Divider, IconButton, Table, TableBody,
-  TableCell, TableHead, TableRow, Avatar, Menu, ListItemIcon
+  TableCell, TableHead, TableRow, Avatar, Menu, ListItemIcon,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -19,12 +21,25 @@ import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Dayjs } from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 import { filter } from 'lodash';
+import utc from 'dayjs/plugin/utc';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+dayjs.extend(utc);
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
 
 const localizer = momentLocalizer(moment); // Initialize localizer for Calendar
 
 const apiUrl = import.meta.env.VITE_API_URL;
+
+interface Availability {
+  start_datetime: string;
+  end_datetime: string;
+  all_day: boolean;
+}
 
 interface BrandAmbassador {
   id: number;
@@ -38,6 +53,7 @@ interface BrandAmbassador {
   mileageExpense?: boolean;
   avatar_url: string;
   status: string;
+  availability?: Availability[];
 }
 
 interface Event {
@@ -82,6 +98,11 @@ const CreateEventCalendar: React.FC<CreateEventCalendarProps> = ({ onEventCreati
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [eventType, setEventType] = useState<string | ''>('');
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const [isUnavailableSelected, setIsUnavailableSelected] = useState<boolean>(false);
+  const [unavailableBa, setUnavailableBa] = useState<BrandAmbassador | null>(null);
+  const [includeUnavailableBas, setIncludeUnavailableBas] = useState<boolean>(false); // New state for unavailable ambassadors
+
+  // Rest of your initial code for fetching data, etc...
 
   // Fetching data (campaigns, venues, teams, brand ambassadors)
   useEffect(() => {
@@ -97,10 +118,26 @@ const CreateEventCalendar: React.FC<CreateEventCalendarProps> = ({ onEventCreati
         const teamsData = await teamsResponse.json();
         const basData = await basResponse.json();
 
+        // Process availability data
+        const processedBas = basData.map((ba: any) => {
+          let availability: Availability[] = [];
+          if (ba.availability) {
+            availability = ba.availability.split('||').map((entry: string) => {
+              const [start_datetime_str, end_datetime_str, all_day_str] = entry.split('|');
+              return {
+                start_datetime: dayjs.utc(start_datetime_str),
+                end_datetime: dayjs.utc(end_datetime_str),
+                all_day: all_day_str === '1',
+              };
+            });
+          }
+          return { ...ba, availability };
+        });
+
         setTeams(teamsData.map((team: any) => team.name));
         setCampaigns(campaignsData.map((campaign: any) => campaign.name));
         setVenues(venuesData.map((venue: any) => venue.name));
-        setAvailableBas(basData);
+        setAvailableBas(processedBas);
       } catch (error) {
         console.error('Error fetching data:', error);
       }
@@ -118,18 +155,66 @@ const CreateEventCalendar: React.FC<CreateEventCalendarProps> = ({ onEventCreati
 
   const handleAddBa = () => {
     if (selectedBa && !brandAmbassadors.some((ba) => ba.id === selectedBa.id)) {
-      const newBa = {
-        ...selectedBa,
-        inventory: brandAmbassadors.length === 0,
-        qa: brandAmbassadors.length === 0,
-        photos: true,
-        expenses: true,
-        mileageExpense: false,
-      };
-      setBrandAmbassadors((prev) => [...prev, newBa]);
-      setSelectedBa(null);
+      let isAvailable = true;
+  
+      // Check availability if startDateTime is set
+      if (startDateTime) {
+        const eventStartUTC = startDateTime.utc();
+        const eventEndUTC = startDateTime
+          .add(durationHours, 'hour')
+          .add(durationMinutes, 'minute')
+          .utc();
+  
+        isAvailable = selectedBa.availability?.some((availability) => {
+          const availStart = dayjs.utc(availability.start_datetime);
+          const availEnd = dayjs.utc(availability.end_datetime);
+  
+          return availStart.isSameOrBefore(eventStartUTC) && availEnd.isSameOrAfter(eventEndUTC);
+        }) || false;
+      }
+  
+      // Logic for when includeUnavailableBas is true
+      if (includeUnavailableBas) {
+        if (!isAvailable) {
+          setIsUnavailableSelected(true); // Show warning
+          setUnavailableBa(selectedBa);   // Track the unavailable ambassador
+        } else {
+          setIsUnavailableSelected(false); // No warning
+          setUnavailableBa(null);          // Reset the unavailable ambassador
+        }
+  
+        // Add the ambassador regardless of availability
+        const newBa = {
+          ...selectedBa,
+          inventory: brandAmbassadors.length === 0,
+          qa: brandAmbassadors.length === 0,
+          photos: true,
+          expenses: true,
+          mileageExpense: false,
+        };
+        setBrandAmbassadors((prev) => [...prev, newBa]);
+        setSelectedBa(null); // Clear the selection
+      }
+      // Logic for when includeUnavailableBas is false (only available ambassadors)
+      else {
+        if (isAvailable) {
+          setIsUnavailableSelected(false); // No warning
+          setUnavailableBa(null);          // Reset the unavailable ambassador
+  
+          const newBa = {
+            ...selectedBa,
+            inventory: brandAmbassadors.length === 0,
+            qa: brandAmbassadors.length === 0,
+            photos: true,
+            expenses: true,
+            mileageExpense: false,
+          };
+          setBrandAmbassadors((prev) => [...prev, newBa]);
+          setSelectedBa(null);
+        }
+      }
     }
-  };
+  };  
 
   const handleCampaignChange = async (_event: React.ChangeEvent<{}>, value: string | null) => {
     setSelectedCampaign(value ?? '');
@@ -416,6 +501,37 @@ const CreateEventCalendar: React.FC<CreateEventCalendarProps> = ({ onEventCreati
     }
   };
 
+  const filterBasByAvailability = (bas: BrandAmbassador[]): BrandAmbassador[] => {
+    if (!startDateTime) {
+      return bas;
+    }
+  
+    const eventStartUTC = startDateTime.utc();
+    const eventEndUTC = startDateTime
+      .add(durationHours, 'hour')
+      .add(durationMinutes, 'minute')
+      .utc();
+  
+    return bas.filter((ba) => {
+      if (!ba.availability || ba.availability.length === 0) {
+        return includeUnavailableBas; // Include or exclude based on the switch
+      }
+  
+      const isAvailable = ba.availability.some((availability) => {
+        const availStart = dayjs.utc(availability.start_datetime);
+        const availEnd = dayjs.utc(availability.end_datetime);
+  
+        return (
+          availStart.isSameOrBefore(eventStartUTC) &&
+          availEnd.isSameOrAfter(eventEndUTC)
+        );
+      });
+  
+      return isAvailable || includeUnavailableBas;
+    });
+  };
+
+  
   return (
     <Box display="flex" flexDirection="column" sx={{ padding: '20px' }}>
       
@@ -462,10 +578,11 @@ const CreateEventCalendar: React.FC<CreateEventCalendarProps> = ({ onEventCreati
               <h3 style={{ color: "black", marginBottom: '0px' }}>Brand Ambassadors</h3>
               {/* <Typography variant="h5" sx={{ marginTop: '20px', color: 'black' }}>Brand Ambassadors</Typography> */}
               <Autocomplete
-                options={availableBas}
+                options={filterBasByAvailability(availableBas)}
                 getOptionLabel={(option) => `${option.name} / ${option.email}`}
                 value={selectedBa}
                 onChange={(_event, value) => setSelectedBa(value)}
+                isOptionEqualToValue={(option, value) => option?.id === value?.id}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -478,6 +595,21 @@ const CreateEventCalendar: React.FC<CreateEventCalendarProps> = ({ onEventCreati
               <Button onClick={handleAddBa} variant="contained" color="primary" sx={{ marginTop: '8px' }}>
                 Add Brand Ambassador
               </Button>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={includeUnavailableBas}
+                    onChange={(e) => setIncludeUnavailableBas(e.target.checked)}
+                  />
+                }
+                label="Show Unavailable Ambassadors"
+                style={{ margin: '15px' }}
+              />
+              {isUnavailableSelected && unavailableBa && (
+                <Typography color="error" variant="body2" style={{ marginTop: '8px' }}>
+                  Ambassador {unavailableBa.name} is unavailable for the selected time.
+                </Typography>
+              )}
             </Box>
             
             <Divider sx={{ margin: '20px 0' }} />
