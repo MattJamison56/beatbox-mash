@@ -174,3 +174,103 @@ export const getMaterials = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching materials' });
   }
 };
+
+export const getMyTrainings = async (req: Request, res: Response) => {
+  const { ba_id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT 
+        tm.id AS materialId,
+        tm.title AS title,
+        tm.description AS description,
+        tm.type AS type,
+        tm.file_url AS fileUrl,
+        tm.video_duration AS videoDuration,
+        tf.id AS folderId,
+        tf.name AS folderName,
+        ut.is_completed AS isCompleted,
+        ut.assigned_at AS assignedAt,
+        ut.completed_at AS completedAt
+      FROM 
+        UserTrainings ut
+      JOIN 
+        TrainingMaterials tm ON ut.training_material_id = tm.id
+      JOIN
+        TrainingFolders tf ON tm.folder_id = tf.id
+      WHERE 
+        ut.user_id = @ba_id
+
+      `);
+
+    const trainings = result.recordset;
+
+    console.log('Fetched training materials:', result.recordset);
+
+    // Group the materials by folder
+    const groupedTrainings = trainings.reduce((acc: any, curr: any) => {
+      const folderId = curr.folderId;
+      if (!acc[folderId]) {
+        acc[folderId] = {
+          folderId: curr.folderId,
+          folderName: curr.folderName,
+          materials: []
+        };
+      }
+      acc[folderId].materials.push({
+        materialId: curr.materialId,
+        title: curr.title,
+        description: curr.description,
+        type: curr.type,
+        fileUrl: curr.fileUrl,
+        videoDuration: curr.videoDuration,
+        isCompleted: curr.isCompleted,
+        assignedAt: curr.assignedAt,
+        completedAt: curr.completedAt
+      });
+      return acc;
+    }, {});
+
+    const groupedTrainingsArray = Object.values(groupedTrainings);
+
+    console.log(groupedTrainingsArray);
+  
+    res.status(200).json(groupedTrainingsArray);
+  } catch (error) {
+    console.error('Error fetching assigned trainings:', error);
+    res.status(500).json({ message: 'Error fetching assigned trainings' });
+  }
+};
+
+export const markTrainingAsCompleted = async (req: Request, res: Response) => {
+  const { userId, trainingMaterialId } = req.body;
+
+  if (!userId || !trainingMaterialId) {
+    return res.status(400).json({ message: 'User ID and Training Material ID are required' });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('userId', userId)
+      .input('trainingMaterialId', trainingMaterialId)
+      .query(`
+        UPDATE UserTrainings
+        SET is_completed = 1, completed_at = GETDATE()
+        WHERE user_id = @userId AND training_material_id = @trainingMaterialId
+      `);
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: 'Training material not found or already completed' });
+    }
+
+    res.status(200).json({ message: 'Training marked as completed successfully' });
+  } catch (error) {
+    console.error('Error marking training as completed:', error);
+    res.status(500).json({ message: 'Error marking training as completed' });
+  }
+};

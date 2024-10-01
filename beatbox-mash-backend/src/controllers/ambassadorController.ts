@@ -139,31 +139,31 @@ export const createAmbassadors = async (req: Request, res: Response) => {
       }
 
       // Assign trainings to the user
-      for (const trainingId of ambassador.trainingIds) {
-        const requestUserTrainings = new sql.Request(transaction);
-
-        await requestUserTrainings
-          .input('userId', sql.Int, userId)
-          .input('trainingMaterialId', sql.Int, trainingId)
+      for (const folderId of ambassador.trainingIds) {
+        const requestMaterials = new sql.Request(transaction);
+      
+        // Fetch all training materials in the folder
+        const materialsResult = await requestMaterials
+          .input('folderId', sql.Int, folderId)
           .query(`
-            INSERT INTO UserTrainings (user_id, training_material_id, is_completed, assigned_at)
-            VALUES (@userId, @trainingMaterialId, 0, GETDATE())
+            SELECT id FROM TrainingMaterials WHERE folder_id = @folderId
           `);
+      
+        const materials = materialsResult.recordset;
+      
+        for (const material of materials) {
+          const requestUserTrainings = new sql.Request(transaction);
+      
+          await requestUserTrainings
+            .input('userId', sql.Int, userId)
+            .input('trainingMaterialId', sql.Int, material.id)
+            .query(`
+              INSERT INTO UserTrainings (user_id, training_material_id, is_completed, assigned_at)
+              VALUES (@userId, @trainingMaterialId, 0, GETDATE())
+            `);
+        }
       }
-
-      // Assign required documents to the user
-      for (const docType of requiredDocs) {
-        const requestUserDocs = new sql.Request(transaction);
-
-        await requestUserDocs
-          .input('userId', sql.Int, userId)
-          .input('documentType', sql.NVarChar, docType)
-          .query(`
-            INSERT INTO UserRequiredDocuments (user_id, document_type, is_uploaded)
-            VALUES (@userId, @documentType, 0)
-          `);
-      }
-
+      
       // Send account creation email
       await sendAccountCreationEmail(ambassador.email, token);
     }

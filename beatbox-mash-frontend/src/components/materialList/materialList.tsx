@@ -125,7 +125,9 @@ const MaterialList: React.FC<MaterialListProps> = ({ materials }) => {
       <Dialog open={openViewer} onClose={() => setOpenViewer(false)} maxWidth="lg" fullWidth>
         <DialogContent style={{ padding: 0 }}>
           {isVideo ? (
-            <VideoPlayer videoUrl={mediaUrl} />
+            <VideoPlayer videoUrl={mediaUrl} onComplete={function (): void {
+              throw new Error('Function not implemented.');
+            } } />
           ) : (
             <div style={{ height: '90vh', width: '100%' }}>
               <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.0.279/build/pdf.worker.js">
