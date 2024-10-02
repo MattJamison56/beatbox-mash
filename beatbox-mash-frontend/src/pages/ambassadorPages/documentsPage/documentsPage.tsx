@@ -20,7 +20,7 @@ import {
 import UploadIcon from '@mui/icons-material/Upload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import axios from 'axios';
-import MaterialList from '../../components/ambassadorMaterialList/ambassadorMaterialList';
+import MaterialList from '../../../components/ambassadorMaterialList/ambassadorMaterialList';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -210,14 +210,12 @@ const Documents: React.FC = () => {
                 <Box key={folder.folderId} mb={4}>
                   <Typography variant="h5" gutterBottom>
                     {folder.folderName}{' '}
-                    {allMaterialsCompleted && (
-                      <CheckCircleIcon color="primary" />
-                    )}
+                    {allMaterialsCompleted && <CheckCircleIcon color="primary" />}
                   </Typography>
                   <MaterialList
                     materials={folder.materials}
                     userId={ba_id!}
-                    onTrainingCompleted={handleTrainingCompleted} 
+                    onTrainingCompleted={handleTrainingCompleted}
                   />
                 </Box>
               );

@@ -15,8 +15,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl, onComplete }) => {
   }, [videoUrl]);
 
   return (
-    <div>
-      <video ref={videoRef} controls width="640" height="360" onEnded={onComplete}>
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <video
+        ref={videoRef}
+        controls
+        onEnded={onComplete}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+      >
         Your browser does not support the video tag.
       </video>
     </div>

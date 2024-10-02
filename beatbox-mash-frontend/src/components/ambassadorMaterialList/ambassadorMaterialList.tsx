@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable react-hooks/exhaustive-deps */
 // MaterialList.tsx
@@ -7,13 +8,15 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  Box,
-  Button,
   Typography,
+  Button,
+  Grid,
+  Card,
+  CardActionArea,
+  CardActions,
+  CardContent,
+  CardMedia,
+  Box,
   MobileStepper,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -60,16 +63,12 @@ interface MaterialListProps {
 }
 
 const MaterialList: React.FC<MaterialListProps> = ({
-  materials: initialMaterials,
+  materials,
   userId,
-  onTrainingCompleted
+  onTrainingCompleted,
 }) => {
-  const [materials, setMaterials] = useState<Material[]>(initialMaterials);
   const [openViewer, setOpenViewer] = useState<boolean>(false);
   const [currentMaterial, setCurrentMaterial] = useState<Material | null>(null);
-  const [pdfPreviewUrls, setPdfPreviewUrls] = useState<{
-    [key: number]: string;
-  }>({});
   const [activeStep, setActiveStep] = useState<number>(0);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [userResponses, setUserResponses] = useState<{ [key: number]: number }>({});
@@ -98,32 +97,13 @@ const MaterialList: React.FC<MaterialListProps> = ({
   const handleMaterialCompleted = async () => {
     if (currentMaterial) {
       try {
-        await axios.post(`${apiUrl}/training/complete`, {
-          userId: userId,
-          trainingMaterialId: currentMaterial.materialId,
-        });
-
-        // Update the isCompleted status locally
-        setMaterials((prevMaterials) =>
-          prevMaterials.map((material) =>
-            material.materialId === currentMaterial.materialId
-              ? { ...material, isCompleted: true }
-              : material
-          )
-        );
-
-        // Trigger refetch after completion
-        if (onTrainingCompleted) {
-          onTrainingCompleted();  // <-- Trigger refetch here
-        }
-
         // Fetch questions for the material
-        fetchQuestions(currentMaterial.materialId);
+        await fetchQuestions(currentMaterial.materialId);
 
         // Move to the next step (questions)
         setActiveStep((prevStep) => prevStep + 1);
       } catch (error) {
-        console.error('Error marking training as completed:', error);
+        console.error('Error after material completion:', error);
       }
     }
   };
@@ -157,18 +137,32 @@ const MaterialList: React.FC<MaterialListProps> = ({
 
   const submitResponses = async () => {
     if (currentMaterial) {
-      const responsesToSubmit = Object.entries(userResponses).map(([questionId, selectedOptionId]) => ({
-        questionId: Number(questionId),
-        selectedOptionId,
-      }));
+      const responsesToSubmit = Object.entries(userResponses).map(
+        ([questionId, selectedOptionId]) => ({
+          questionId: Number(questionId),
+          selectedOptionId,
+        })
+      );
 
       try {
+        // Submit the user's responses
         await axios.post(`${apiUrl}/training/submit-responses`, {
           userId: userId,
           responses: responsesToSubmit,
         });
+
+        // Now mark the training as completed
+        await axios.post(`${apiUrl}/training/complete`, {
+          userId: userId,
+          trainingMaterialId: currentMaterial.materialId,
+        });
+
+        // Trigger refetch after completion
+        if (onTrainingCompleted) {
+          onTrainingCompleted();
+        }
+
         // Handle successful submission (e.g., show a message or close the dialog)
-        alert('Responses submitted successfully!');
         handleCloseViewer();
       } catch (error) {
         console.error('Error submitting responses:', error);
@@ -176,107 +170,21 @@ const MaterialList: React.FC<MaterialListProps> = ({
     }
   };
 
-  // Function to generate a PDF preview
-  const generatePdfPreview = async (material: Material) => {
-    try {
-      const pdf = await pdfjsLib.getDocument(material.fileUrl).promise;
-    
-      const page = await pdf.getPage(1);
-      const scale = 0.2; // Adjust scale to create a thumbnail
-      const viewport = page.getViewport({ scale });
-    
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d') as CanvasRenderingContext2D;
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
-    
-      const renderContext = {
-        canvasContext: context,
-        viewport,
-      };
-  
-      // Make sure to use the render() function properly and explicitly handle the Promise
-      await new Promise<void>((resolve, reject) => {
-        const renderTask = page.render(renderContext);
-        renderTask.onRenderContinue = () => resolve(); // Resolve the promise when rendering is complete
-        renderTask.promise.then(resolve).catch(reject);
-      });
-  
-      const previewUrl = canvas.toDataURL();
-  
-      setPdfPreviewUrls((prev) => ({
-        ...prev,
-        [material.materialId]: previewUrl,
-      }));
-    } catch (error) {
-      console.error(`Error generating PDF preview for material ID: ${material.materialId}`, error);
-    }
-  };
+  const totalSteps = currentMaterial ? 1 + questions.length : 0;
 
   useEffect(() => {
-    materials
-      .filter((material) => material.type === 'document')
-      .forEach((material) => {
-        if (!pdfPreviewUrls[material.materialId]) {
-          generatePdfPreview(material);
-        }
-      });
-  }, [materials]);
-
-  const totalSteps = currentMaterial ? 1 + questions.length : 0;
+    console.log('Updated questions:', questions);
+  }, [questions]);
 
   return (
     <>
-      <List>
+      <Grid container spacing={2}>
         {materials.map((material) => (
-          <ListItem key={material.materialId}>
-            <Box display="flex" alignItems="center" width="100%">
-              {material.type === 'video' ? (
-                <video
-                  src={material.fileUrl}
-                  preload="metadata"
-                  width={120}
-                  style={{ marginRight: '16px' }}
-                >
-                  Your browser does not support the video tag.
-                </video>
-              ) : (
-                <img
-                  src={pdfPreviewUrls[material.materialId] || ''}
-                  alt={`PDF Preview for material ${material.materialId}`}
-                  width={120}
-                  style={{ marginRight: '16px' }}
-                  onError={() =>
-                    console.log(
-                      `Failed to load preview for material ID: ${material.materialId}`
-                    )
-                  }
-                />
-              )}
-              <ListItemText
-                primary={material.title}
-                secondary={material.description}
-                style={{ color: 'black' }}
-              />
-              <ListItemSecondaryAction>
-                {material.isCompleted ? (
-                  <IconButton onClick={() => handleStartClick(material)}>
-                    <CheckCircleIcon color="primary" />
-                  </IconButton>
-                ) : (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleStartClick(material)}
-                  >
-                    Start
-                  </Button>
-                )}
-              </ListItemSecondaryAction>
-            </Box>
-          </ListItem>
+          <Grid item xs={12} sm={6} md={2.8} key={material.materialId}>
+            <MaterialCard material={material} onStartClick={handleStartClick} />
+          </Grid>
         ))}
-      </List>
+      </Grid>
 
       {currentMaterial && (
         <Dialog
@@ -285,8 +193,8 @@ const MaterialList: React.FC<MaterialListProps> = ({
           maxWidth="lg"
           fullWidth={currentMaterial?.type !== 'video'}
           fullScreen
-        >      
-          <DialogTitle>
+        >
+          <DialogTitle sx={{ background: '#fdfcf3', textAlign: 'center' }}>
             {currentMaterial.title}
             <IconButton
               aria-label="close"
@@ -300,7 +208,16 @@ const MaterialList: React.FC<MaterialListProps> = ({
               <CloseIcon />
             </IconButton>
           </DialogTitle>
-          <DialogContent sx={{ padding: 0 }}>
+          <DialogContent
+            sx={{
+              padding: 0,
+              background: '#fdfcf3',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flexDirection: 'column',
+            }}
+          >
             <Box
               sx={{
                 maxWidth: { xs: '100%', sm: '600px', md: '800px' },
@@ -309,6 +226,7 @@ const MaterialList: React.FC<MaterialListProps> = ({
               }}
             >
               <MobileStepper
+                sx={{ background: '#fdfcf3', marginTop: '-50px' }}
                 variant="progress"
                 steps={totalSteps}
                 position="static"
@@ -318,7 +236,8 @@ const MaterialList: React.FC<MaterialListProps> = ({
                     size="small"
                     onClick={handleNext}
                     disabled={
-                      activeStep === totalSteps - 1 || (activeStep === 0 && !currentMaterial.isCompleted)
+                      activeStep === totalSteps - 1 ||
+                      (activeStep === 0 && !currentMaterial.isCompleted)
                     }
                   >
                     Next
@@ -338,7 +257,7 @@ const MaterialList: React.FC<MaterialListProps> = ({
                   <Typography
                     variant="body2"
                     color="textSecondary"
-                    style={{ padding: '16px' }}
+                    style={{ padding: '16px', textAlign: 'center' }}
                   >
                     If you leave this page, the training will reset.
                   </Typography>
@@ -377,6 +296,9 @@ const MaterialList: React.FC<MaterialListProps> = ({
                         maxWidth: '800px',
                         margin: '0 auto',
                         position: 'relative',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
                       }}
                     >
                       <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.0.279/build/pdf.worker.js">
@@ -405,6 +327,7 @@ const MaterialList: React.FC<MaterialListProps> = ({
                     margin: '0 auto',
                     width: '100%',
                     padding: 3,
+                    textAlign: 'center',
                   }}
                 >
                   <Typography variant="h6">
@@ -423,7 +346,7 @@ const MaterialList: React.FC<MaterialListProps> = ({
                       }
                       color="primary"
                       fullWidth
-                      style={{ marginBottom: '8px', textAlign: 'left' }}
+                      style={{ marginBottom: '8px', textAlign: 'center' }}
                       onClick={() =>
                         !userResponses[questions[activeStep - 1].questionId] &&
                         handleOptionSelect(questions[activeStep - 1].questionId, option.optionId!)
@@ -445,7 +368,7 @@ const MaterialList: React.FC<MaterialListProps> = ({
                           ? 'green'
                           : 'red'
                       }
-                      style={{ marginTop: '16px' }}
+                      style={{ marginTop: '16px', textAlign: 'center' }}
                     >
                       {questions[activeStep - 1].options.find(
                         (option) =>
@@ -480,6 +403,185 @@ const MaterialList: React.FC<MaterialListProps> = ({
       )}
     </>
   );
+};
+
+interface MaterialCardProps {
+  material: Material;
+  onStartClick: (material: Material) => void;
+}
+
+interface MaterialCardProps {
+  material: Material;
+  onStartClick: (material: Material) => void;
+}
+
+const videoPlaceholder = 'https://via.placeholder.com/200x150?text=Video+Preview'; // Replace with your placeholder image URL or path
+
+const MaterialCard: React.FC<MaterialCardProps> = ({ material, onStartClick }) => {
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (material.type === 'document') {
+      generatePdfPreview(material.fileUrl).then((url) => {
+        setPreviewUrl(url);
+      });
+    } else if (material.type === 'video') {
+      setPreviewUrl(videoPlaceholder);
+    } else {
+      setPreviewUrl(''); // Handle other types if necessary
+    }
+  }, [material]);
+
+  const handleCardClick = () => {
+    setIsFlipped(!isFlipped);
+  };
+
+  return (
+    <Card
+      sx={{
+        width: 300,
+        height: 340,
+        borderRadius: 2,
+        boxShadow: 3,
+        position: 'relative',
+        perspective: '1000px',
+        cursor: 'pointer',
+        margin: '0 auto',
+        background: '#6f65ac',
+        color: 'white',
+      }}
+      onClick={handleCardClick}
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          width: '100%',
+          height: '100%',
+          textAlign: 'center',
+          transition: 'transform 0.6s',
+          transformStyle: 'preserve-3d',
+          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        }}
+      >
+        {/* Front Side */}
+        <Box
+          sx={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            backfaceVisibility: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <CardContent>
+            <Typography gutterBottom variant="h6" component="div">
+              {material.title}
+            </Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: 210, // Increased height for larger image
+              }}
+            >
+              <img
+                src={previewUrl}
+                alt={material.title}
+                style={{ maxHeight: '100%', maxWidth: '100%' }}
+              />
+            </Box>
+          </CardContent>
+          <CardActions
+            sx={{ justifyContent: 'center' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {material.isCompleted ? (
+              <IconButton onClick={() => onStartClick(material)}>
+                <CheckCircleIcon sx={{ color: 'white' }} />
+              </IconButton>
+            ) : (
+              <Button
+                variant="contained"
+                sx={{ backgroundColor: 'white', color: 'black' }}
+                onClick={() => onStartClick(material)}
+              >
+                Start
+              </Button>
+            )}
+          </CardActions>
+        </Box>
+        {/* Back Side */}
+        <Box
+          sx={{
+            position: 'absolute',
+            width: '100%',
+            height: '100%',
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CardContent>
+            <Typography variant="body2" color="white">
+              {material.description}
+            </Typography>
+          </CardContent>
+          <CardActions
+            sx={{ justifyContent: 'center' }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {material.isCompleted ? (
+              <IconButton onClick={() => onStartClick(material)}>
+                <CheckCircleIcon sx={{ color: 'white' }} />
+              </IconButton>
+            ) : (
+              <Button
+                variant="contained"
+                sx={{ backgroundColor: 'white', color: 'black' }}
+                onClick={() => onStartClick(material)}
+              >
+                Start
+              </Button>
+            )}
+          </CardActions>
+        </Box>
+      </Box>
+    </Card>
+  );
+};
+
+// Function to generate PDF preview thumbnails
+const generatePdfPreview = async (fileUrl: string): Promise<string> => {
+  try {
+    const pdf = await pdfjsLib.getDocument(fileUrl).promise;
+    const page = await pdf.getPage(1);
+    const scale = 0.2;
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d') as CanvasRenderingContext2D;
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    const renderContext = {
+      canvasContext: context,
+      viewport,
+    };
+
+    await page.render(renderContext).promise;
+    return canvas.toDataURL();
+  } catch (error) {
+    console.error('Error generating PDF preview:', error);
+    return '';
+  }
 };
 
 export default MaterialList;

@@ -53,7 +53,7 @@ export const uploadTrainingMaterial = async (req: Request, res: Response) => {
   const { folderId, title, description, type } = req.body;
   let files = req.files?.file;
 
-  console.log('Received upload request:', { folderId, title, description, type });
+  // console.log('Received upload request:', { folderId, title, description, type });
 
   if (!files) {
     console.error('No files were uploaded.');
@@ -86,13 +86,13 @@ export const uploadTrainingMaterial = async (req: Request, res: Response) => {
     }
     
      //@ts-ignore
-    console.log('Processing file:', file.name);
+    //console.log('Processing file:', file.name);
     
      //@ts-ignore
     const fileName = uuidv4() + path.extname(file.name); // Generate a unique file name
     const filePath = path.join('/tmp', fileName); // Temporary directory to store file locally
 
-    console.log('Writing file to temporary path:', filePath);
+    // console.log('Writing file to temporary path:', filePath);
      //@ts-ignore
     fs.writeFileSync(filePath, file.data); // Save file to temporary location
 
@@ -447,7 +447,7 @@ export const getQuestionsByMaterial = async (req: Request, res: Response) => {
       });
       return acc;
     }, {});
-
+  
     res.status(200).json(Object.values(questions));
   } catch (error) {
     console.error('Error fetching questions:', error);
