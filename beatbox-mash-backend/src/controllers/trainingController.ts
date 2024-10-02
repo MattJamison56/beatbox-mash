@@ -274,3 +274,230 @@ export const markTrainingAsCompleted = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error marking training as completed' });
   }
 };
+
+
+// QUESTION SECTION
+
+
+// Create a new question
+export const createQuestion = async (req: Request, res: Response) => {
+  const { materialId } = req.params;
+  const { questionText, options } = req.body;
+
+  if (!questionText || !options || options.length < 2) {
+    return res.status(400).json({ message: 'Question text and at least two options are required.' });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const transaction = pool.transaction();
+
+    await transaction.begin();
+
+    // Insert the question
+    const questionResult = await transaction.request()
+      .input('training_material_id', sql.Int, materialId)
+      .input('question_text', sql.NVarChar, questionText)
+      .query(`
+        INSERT INTO TrainingQuestions (training_material_id, question_text, created_at)
+        OUTPUT INSERTED.id
+        VALUES (@training_material_id, @question_text, GETDATE())
+      `);
+
+    const questionId = questionResult.recordset[0].id;
+
+    // Insert the options
+    for (const option of options) {
+      const isCorrectValue = option.isCorrect ? 1 : 0; // Ensure it's 1 or 0
+    
+      await transaction.request()
+        .input('question_id', sql.Int, questionId)
+        .input('option_text', sql.NVarChar, option.optionText)
+        .input('is_correct', sql.Bit, isCorrectValue)
+        .query(`
+          INSERT INTO TrainingQuestionOptions (question_id, option_text, is_correct, created_at)
+          VALUES (@question_id, @option_text, @is_correct, GETDATE())
+        `);
+    }
+
+    await transaction.commit();
+    res.status(201).json({ message: 'Question created successfully.' });
+  } catch (error) {
+    console.error('Error creating question:', error);
+    res.status(500).json({ message: 'Error creating question.' });
+  }
+};
+
+// Edit an existing question
+export const editQuestion = async (req: Request, res: Response) => {
+  const { questionId } = req.params;
+  const { questionText, options } = req.body;
+
+  if (!questionText || !options || options.length < 2) {
+    return res.status(400).json({ message: 'Question text and at least two options are required.' });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const transaction = pool.transaction();
+
+    await transaction.begin();
+
+    // Update the question text
+    await transaction.request()
+      .input('questionId', sql.Int, questionId)
+      .input('question_text', sql.NVarChar, questionText)
+      .query(`
+        UPDATE TrainingQuestions
+        SET question_text = @question_text, updated_at = GETDATE()
+        WHERE id = @questionId
+      `);
+
+    // Delete existing options
+    await transaction.request()
+      .input('questionId', sql.Int, questionId)
+      .query(`
+        DELETE FROM TrainingQuestionOptions WHERE question_id = @questionId
+      `);
+
+    // Insert the new options
+    for (const option of options) {
+      const isCorrectValue = option.isCorrect ? 1 : 0; // Ensure it's 1 or 0
+    
+      await transaction.request()
+        .input('question_id', sql.Int, questionId)
+        .input('option_text', sql.NVarChar, option.optionText)
+        .input('is_correct', sql.Bit, isCorrectValue)
+        .query(`
+          INSERT INTO TrainingQuestionOptions (question_id, option_text, is_correct, created_at)
+          VALUES (@question_id, @option_text, @is_correct, GETDATE())
+        `);
+    }
+
+    await transaction.commit();
+    res.status(200).json({ message: 'Question updated successfully.' });
+  } catch (error) {
+    console.error('Error updating question:', error);
+    res.status(500).json({ message: 'Error updating question.' });
+  }
+};
+
+// Delete a question
+export const deleteQuestion = async (req: Request, res: Response) => {
+  const { questionId } = req.params;
+
+  try {
+    const pool = await poolPromise;
+    const transaction = pool.transaction();
+
+    await transaction.begin();
+
+    // Delete options first due to foreign key constraint
+    await transaction.request()
+      .input('questionId', sql.Int, questionId)
+      .query(`
+        DELETE FROM TrainingQuestionOptions WHERE question_id = @questionId
+      `);
+
+    // Delete the question
+    await transaction.request()
+      .input('questionId', sql.Int, questionId)
+      .query(`
+        DELETE FROM TrainingQuestions WHERE id = @questionId
+      `);
+
+    await transaction.commit();
+    res.status(200).json({ message: 'Question deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting question:', error);
+    res.status(500).json({ message: 'Error deleting question.' });
+  }
+};
+
+// Get all questions for a training material
+export const getQuestionsByMaterial = async (req: Request, res: Response) => {
+  const { materialId } = req.params;
+
+  try {
+    const pool = await poolPromise;
+
+    const result = await pool.request()
+      .input('materialId', sql.Int, materialId)
+      .query(`
+        SELECT q.id AS questionId, q.question_text, o.id AS optionId, o.option_text, o.is_correct
+        FROM TrainingQuestions q
+        JOIN TrainingQuestionOptions o ON q.id = o.question_id
+        WHERE q.training_material_id = @materialId
+        ORDER BY q.id
+      `);
+
+    const questions = result.recordset.reduce((acc: any, row: any) => {
+      const { questionId, question_text, optionId, option_text, is_correct } = row;
+      if (!acc[questionId]) {
+        acc[questionId] = {
+          questionId,
+          questionText: question_text,
+          options: [],
+        };
+      }
+      acc[questionId].options.push({
+        optionId,
+        optionText: option_text,
+        isCorrect: is_correct ? true : false, // Ensure isCorrect is boolean
+      });
+      return acc;
+    }, {});
+
+    res.status(200).json(Object.values(questions));
+  } catch (error) {
+    console.error('Error fetching questions:', error);
+    res.status(500).json({ message: 'Error fetching questions.' });
+  }
+};
+
+
+// Submit user responses
+export const submitResponses = async (req: Request, res: Response) => {
+  const { userId, responses } = req.body;
+
+  if (!userId || !responses || !Array.isArray(responses)) {
+    return res.status(400).json({ message: 'Invalid data.' });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const transaction = pool.transaction();
+
+    await transaction.begin();
+
+    for (const response of responses) {
+      const { questionId, selectedOptionId } = response;
+
+      // Check if the selected option is correct
+      const optionResult = await transaction.request()
+        .input('selectedOptionId', sql.Int, selectedOptionId)
+        .query(`
+          SELECT is_correct FROM TrainingQuestionOptions WHERE id = @selectedOptionId
+        `);
+
+      const isCorrect = optionResult.recordset[0]?.is_correct;
+
+      // Insert the response
+      await transaction.request()
+        .input('userId', sql.Int, userId)
+        .input('questionId', sql.Int, questionId)
+        .input('selectedOptionId', sql.Int, selectedOptionId)
+        .input('isCorrect', sql.Bit, isCorrect)
+        .query(`
+          INSERT INTO UserTrainingResponses (user_id, question_id, selected_option_id, is_correct, answered_at)
+          VALUES (@userId, @questionId, @selectedOptionId, @isCorrect, GETDATE())
+        `);
+    }
+
+    await transaction.commit();
+    res.status(200).json({ message: 'Responses submitted successfully.' });
+  } catch (error) {
+    console.error('Error submitting responses:', error);
+    res.status(500).json({ message: 'Error submitting responses.' });
+  }
+};

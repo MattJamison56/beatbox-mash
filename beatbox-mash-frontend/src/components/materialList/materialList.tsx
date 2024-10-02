@@ -1,12 +1,23 @@
 /* eslint-disable react-hooks/exhaustive-deps */
+// components/materialList/materialList.tsx
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, List, ListItem, ListItemText, Box } from '@mui/material';
+import {
+  Dialog,
+  DialogContent,
+  List,
+  ListItem,
+  ListItemText,
+  Box,
+  IconButton,
+} from '@mui/material';
 import VideoPlayer from '../videoPlayer/videoPlayer';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import * as pdfjsLib from 'pdfjs-dist';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import EditIcon from '@mui/icons-material/Edit';
 
 interface Material {
   id: number;
@@ -18,9 +29,10 @@ interface Material {
 
 interface MaterialListProps {
   materials: Material[];
+  onMaterialSelect: (materialId: number) => void;
 }
 
-const MaterialList: React.FC<MaterialListProps> = ({ materials }) => {
+const MaterialList: React.FC<MaterialListProps> = ({ materials, onMaterialSelect }) => {
   const [openViewer, setOpenViewer] = useState<boolean>(false);
   const [mediaUrl, setMediaUrl] = useState<string>('');
   const [isVideo, setIsVideo] = useState<boolean>(true); // Track if it's a video or PDF
@@ -28,10 +40,14 @@ const MaterialList: React.FC<MaterialListProps> = ({ materials }) => {
 
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
-  const handleItemClick = (material: Material) => {
+  const handleViewClick = (material: Material) => {
     setMediaUrl(material.file_url);
     setIsVideo(material.type === 'video');
     setOpenViewer(true);
+  };
+
+  const handleEditQuestionsClick = (material: Material) => {
+    onMaterialSelect(material.id);
   };
 
   // Function to generate a PDF preview
@@ -88,7 +104,7 @@ const MaterialList: React.FC<MaterialListProps> = ({ materials }) => {
     <>
       <List>
         {materials.map((material) => (
-          <ListItem key={material.id} button onClick={() => handleItemClick(material)}>
+          <ListItem key={material.id}>
             <Box display="flex" alignItems="center" width="100%">
               {material.type === 'video' ? (
                 <video
@@ -96,10 +112,6 @@ const MaterialList: React.FC<MaterialListProps> = ({ materials }) => {
                   preload="metadata"
                   width={120}
                   style={{ marginRight: '16px' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleItemClick(material);
-                  }}
                 >
                   Your browser does not support the video tag.
                 </video>
@@ -109,7 +121,9 @@ const MaterialList: React.FC<MaterialListProps> = ({ materials }) => {
                   alt={`PDF Preview for material ${material.id}`}
                   width={120}
                   style={{ marginRight: '16px' }}
-                  onError={() => console.log(`Failed to load preview for material ID: ${material.id}`)}
+                  onError={() =>
+                    console.log(`Failed to load preview for material ID: ${material.id}`)
+                  }
                 />
               )}
               <ListItemText
@@ -117,23 +131,48 @@ const MaterialList: React.FC<MaterialListProps> = ({ materials }) => {
                 secondary={material.description}
                 style={{ color: 'black' }}
               />
+              {/* View Button */}
+              <IconButton onClick={() => handleViewClick(material)}>
+                <VisibilityIcon />
+              </IconButton>
+              {/* Add/Edit Questions Button */}
+              <IconButton onClick={() => handleEditQuestionsClick(material)}>
+                <EditIcon />
+              </IconButton>
             </Box>
           </ListItem>
         ))}
       </List>
 
-      <Dialog open={openViewer} onClose={() => setOpenViewer(false)} maxWidth="lg" fullWidth>
-        <DialogContent style={{ padding: 0 }}>
+      {/* Viewer Dialog */}
+      <Dialog 
+        open={openViewer} 
+        onClose={() => setOpenViewer(false)} 
+        maxWidth="lg" 
+        fullWidth={!isVideo}  // Conditionally apply fullWidth only if it's not a video (i.e., it's a PDF)
+      >
+        <DialogContent sx={{ padding: 0 }}>
           {isVideo ? (
-            <VideoPlayer videoUrl={mediaUrl} onComplete={function (): void {
-              throw new Error('Function not implemented.');
-            } } />
+            <Box
+              sx={{
+                margin: '0 auto', // Center horizontally
+                padding: 1, // Optional padding
+              }}
+            >
+              <VideoPlayer
+                videoUrl={mediaUrl}
+                onComplete={() => {
+                  // Handle completion, e.g., close viewer or mark as complete
+                  setOpenViewer(false);
+                }}
+              />
+            </Box>
           ) : (
-            <div style={{ height: '90vh', width: '100%' }}>
+            <Box sx={{ height: '90vh', width: '100%' }}>
               <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.0.279/build/pdf.worker.js">
                 <Viewer fileUrl={mediaUrl} plugins={[defaultLayoutPluginInstance]} />
               </Worker>
-            </div>
+            </Box>
           )}
         </DialogContent>
       </Dialog>

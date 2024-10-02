@@ -104,7 +104,7 @@ const Documents: React.FC = () => {
           });
   
           // Refresh the documents list after upload
-          fetchDocuments();
+          fetchDocuments();  // <-- Trigger refetch
         }
       };
       fileInput.click();
@@ -113,8 +113,9 @@ const Documents: React.FC = () => {
     }
   };
 
-  const handleTrainingMaterialClick = (material: TrainingMaterial) => {
-    // Implement functionality to view/start the training material
+  // Pass this callback to MaterialList so that it can refetch data after completing training
+  const handleTrainingCompleted = () => {
+    fetchTrainings(); // Refetch trainings after material is marked as completed
   };
 
   // Maps document types to user-friendly names and instructions
@@ -194,37 +195,38 @@ const Documents: React.FC = () => {
       )}
 
       {tabIndex === 1 && (
-              <Box mt={2}>
-                {loading ? (
-                  <CircularProgress />
-                ) : trainings.length === 0 ? (
-                  <Typography>No trainings assigned.</Typography>
-                ) : (
-                  trainings.map((folder) => {
-                    const allMaterialsCompleted = folder.materials.every(
-                      (material) => material.isCompleted
-                    );
+        <Box mt={2}>
+          {loading ? (
+            <CircularProgress />
+          ) : trainings.length === 0 ? (
+            <Typography>No trainings assigned.</Typography>
+          ) : (
+            trainings.map((folder) => {
+              const allMaterialsCompleted = folder.materials.every(
+                (material) => material.isCompleted
+              );
 
-                    return (
-                      <Box key={folder.folderId} mb={4}>
-                        <Typography variant="h5" gutterBottom>
-                          {folder.folderName}{' '}
-                          {allMaterialsCompleted && (
-                            <CheckCircleIcon color="primary" />
-                          )}
-                        </Typography>
-                        <MaterialList
-                          materials={folder.materials}
-                          userId={ba_id!}
-                        />
-                      </Box>
-                    );
-                  })
-                )}
-              </Box>
-            )}
-          </div>
-        );
-      };
+              return (
+                <Box key={folder.folderId} mb={4}>
+                  <Typography variant="h5" gutterBottom>
+                    {folder.folderName}{' '}
+                    {allMaterialsCompleted && (
+                      <CheckCircleIcon color="primary" />
+                    )}
+                  </Typography>
+                  <MaterialList
+                    materials={folder.materials}
+                    userId={ba_id!}
+                    onTrainingCompleted={handleTrainingCompleted} 
+                  />
+                </Box>
+              );
+            })
+          )}
+        </Box>
+      )}
+    </div>
+  );
+};
 
 export default Documents;

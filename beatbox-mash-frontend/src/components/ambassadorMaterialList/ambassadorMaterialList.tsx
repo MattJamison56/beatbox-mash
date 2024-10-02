@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable react-hooks/exhaustive-deps */
 // MaterialList.tsx
 import React, { useState, useEffect } from 'react';
@@ -13,6 +14,7 @@ import {
   Box,
   Button,
   Typography,
+  MobileStepper,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -23,10 +25,24 @@ import axios from 'axios';
 import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
+import KeyboardArrowLeft from '@mui/icons-material/KeyboardArrowLeft';
+import KeyboardArrowRight from '@mui/icons-material/KeyboardArrowRight';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+interface Option {
+  optionId?: number;
+  optionText: string;
+  isCorrect?: boolean; // We'll use this when displaying the correct answer
+}
+
+interface Question {
+  questionId: number;
+  questionText: string;
+  options: Option[];
+}
 
 interface Material {
   materialId: number;
@@ -40,11 +56,13 @@ interface Material {
 interface MaterialListProps {
   materials: Material[];
   userId: string;
+  onTrainingCompleted: () => void;
 }
 
 const MaterialList: React.FC<MaterialListProps> = ({
   materials: initialMaterials,
   userId,
+  onTrainingCompleted
 }) => {
   const [materials, setMaterials] = useState<Material[]>(initialMaterials);
   const [openViewer, setOpenViewer] = useState<boolean>(false);
@@ -52,17 +70,29 @@ const MaterialList: React.FC<MaterialListProps> = ({
   const [pdfPreviewUrls, setPdfPreviewUrls] = useState<{
     [key: number]: string;
   }>({});
+  const [activeStep, setActiveStep] = useState<number>(0);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [userResponses, setUserResponses] = useState<{ [key: number]: number }>({});
+  const [showFeedback, setShowFeedback] = useState<boolean>(false);
 
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
   const handleStartClick = (material: Material) => {
     setCurrentMaterial(material);
     setOpenViewer(true);
+    setActiveStep(0);
+    setQuestions([]); // Reset questions when opening new material
+    setUserResponses({});
+    setShowFeedback(false);
   };
 
   const handleCloseViewer = () => {
     setOpenViewer(false);
     setCurrentMaterial(null);
+    setActiveStep(0);
+    setQuestions([]);
+    setUserResponses({});
+    setShowFeedback(false);
   };
 
   const handleMaterialCompleted = async () => {
@@ -82,10 +112,66 @@ const MaterialList: React.FC<MaterialListProps> = ({
           )
         );
 
-        // Close the viewer
-        handleCloseViewer();
+        // Trigger refetch after completion
+        if (onTrainingCompleted) {
+          onTrainingCompleted();  // <-- Trigger refetch here
+        }
+
+        // Fetch questions for the material
+        fetchQuestions(currentMaterial.materialId);
+
+        // Move to the next step (questions)
+        setActiveStep((prevStep) => prevStep + 1);
       } catch (error) {
         console.error('Error marking training as completed:', error);
+      }
+    }
+  };
+
+  const fetchQuestions = async (materialId: number) => {
+    try {
+      const response = await axios.get(`${apiUrl}/training/materials/${materialId}/questions`);
+      setQuestions(response.data);
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+    }
+  };
+
+  const handleOptionSelect = (questionId: number, optionId: number) => {
+    setUserResponses((prevResponses) => ({
+      ...prevResponses,
+      [questionId]: optionId,
+    }));
+    setShowFeedback(true);
+  };
+
+  const handleNext = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    setShowFeedback(false);
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+    setShowFeedback(false);
+  };
+
+  const submitResponses = async () => {
+    if (currentMaterial) {
+      const responsesToSubmit = Object.entries(userResponses).map(([questionId, selectedOptionId]) => ({
+        questionId: Number(questionId),
+        selectedOptionId,
+      }));
+
+      try {
+        await axios.post(`${apiUrl}/training/submit-responses`, {
+          userId: userId,
+          responses: responsesToSubmit,
+        });
+        // Handle successful submission (e.g., show a message or close the dialog)
+        alert('Responses submitted successfully!');
+        handleCloseViewer();
+      } catch (error) {
+        console.error('Error submitting responses:', error);
       }
     }
   };
@@ -126,8 +212,6 @@ const MaterialList: React.FC<MaterialListProps> = ({
       console.error(`Error generating PDF preview for material ID: ${material.materialId}`, error);
     }
   };
-  
-  
 
   useEffect(() => {
     materials
@@ -138,6 +222,8 @@ const MaterialList: React.FC<MaterialListProps> = ({
         }
       });
   }, [materials]);
+
+  const totalSteps = currentMaterial ? 1 + questions.length : 0;
 
   return (
     <>
@@ -197,9 +283,9 @@ const MaterialList: React.FC<MaterialListProps> = ({
           open={openViewer}
           onClose={handleCloseViewer}
           maxWidth="lg"
-          fullWidth
+          fullWidth={currentMaterial?.type !== 'video'}
           fullScreen
-        >
+        >      
           <DialogTitle>
             {currentMaterial.title}
             <IconButton
@@ -214,37 +300,181 @@ const MaterialList: React.FC<MaterialListProps> = ({
               <CloseIcon />
             </IconButton>
           </DialogTitle>
-          <DialogContent style={{ padding: 0 }}>
-            <Typography
-              variant="body2"
-              color="textSecondary"
-              style={{ padding: '16px' }}
+          <DialogContent sx={{ padding: 0 }}>
+            <Box
+              sx={{
+                maxWidth: { xs: '100%', sm: '600px', md: '800px' },
+                margin: '0 auto',
+                width: '100%',
+              }}
             >
-              If you leave this page, the training will reset.
-            </Typography>
-            {currentMaterial.type === 'video' ? (
-              <VideoPlayer
-                videoUrl={currentMaterial.fileUrl}
-                onComplete={handleMaterialCompleted}
+              <MobileStepper
+                variant="progress"
+                steps={totalSteps}
+                position="static"
+                activeStep={activeStep}
+                nextButton={
+                  <Button
+                    size="small"
+                    onClick={handleNext}
+                    disabled={
+                      activeStep === totalSteps - 1 || (activeStep === 0 && !currentMaterial.isCompleted)
+                    }
+                  >
+                    Next
+                    <KeyboardArrowRight />
+                  </Button>
+                }
+                backButton={
+                  <Button size="small" onClick={handleBack} disabled={activeStep === 0}>
+                    <KeyboardArrowLeft />
+                    Back
+                  </Button>
+                }
               />
-            ) : (
-              <div style={{ height: '90vh', width: '100%', position: 'relative' }}>
-                <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.0.279/build/pdf.worker.js">
-                  <Viewer
-                    fileUrl={currentMaterial.fileUrl}
-                    plugins={[defaultLayoutPluginInstance]}
-                  />
-                </Worker>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleMaterialCompleted}
-                  style={{ position: 'absolute', bottom: '16px', right: '16px' }}
+
+              {activeStep === 0 && (
+                <>
+                  <Typography
+                    variant="body2"
+                    color="textSecondary"
+                    style={{ padding: '16px' }}
+                  >
+                    If you leave this page, the training will reset.
+                  </Typography>
+                  {currentMaterial.type === 'video' ? (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: 'auto',
+                        position: 'relative',
+                        paddingTop: '56.25%', // 16:9 aspect ratio
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: '100%',
+                          height: '100%',
+                          maxWidth: { xs: '100%', sm: '600px', md: '800px' },
+                        }}
+                      >
+                        <VideoPlayer
+                          videoUrl={currentMaterial.fileUrl}
+                          onComplete={handleMaterialCompleted}
+                        />
+                      </Box>
+                    </Box>
+                  ) : (
+                    <div
+                      style={{
+                        height: '80vh',
+                        width: '100%',
+                        maxWidth: '800px',
+                        margin: '0 auto',
+                        position: 'relative',
+                      }}
+                    >
+                      <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.0.279/build/pdf.worker.js">
+                        <Viewer
+                          fileUrl={currentMaterial.fileUrl}
+                          plugins={[defaultLayoutPluginInstance]}
+                        />
+                      </Worker>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleMaterialCompleted}
+                        style={{ position: 'absolute', bottom: '16px', right: '16px' }}
+                      >
+                        Mark as Completed
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {activeStep > 0 && activeStep <= questions.length && (
+                <Box
+                  sx={{
+                    maxWidth: { xs: '100%', sm: '600px', md: '800px' },
+                    margin: '0 auto',
+                    width: '100%',
+                    padding: 3,
+                  }}
                 >
-                  Mark as Completed
-                </Button>
-              </div>
-            )}
+                  <Typography variant="h6">
+                    Question {activeStep} of {questions.length}
+                  </Typography>
+                  <Typography variant="subtitle1" gutterBottom>
+                    {questions[activeStep - 1].questionText}
+                  </Typography>
+                  {questions[activeStep - 1].options.map((option) => (
+                    <Button
+                      key={option.optionId}
+                      variant={
+                        userResponses[questions[activeStep - 1].questionId] === option.optionId
+                          ? 'contained'
+                          : 'outlined'
+                      }
+                      color="primary"
+                      fullWidth
+                      style={{ marginBottom: '8px', textAlign: 'left' }}
+                      onClick={() =>
+                        !userResponses[questions[activeStep - 1].questionId] &&
+                        handleOptionSelect(questions[activeStep - 1].questionId, option.optionId!)
+                      }
+                      disabled={!!userResponses[questions[activeStep - 1].questionId]}
+                    >
+                      {option.optionText}
+                    </Button>
+                  ))}
+                  {showFeedback && userResponses[questions[activeStep - 1].questionId] && (
+                    <Typography
+                      variant="subtitle1"
+                      color={
+                        questions[activeStep - 1].options.find(
+                          (option) =>
+                            option.optionId ===
+                            userResponses[questions[activeStep - 1].questionId]
+                        )?.isCorrect
+                          ? 'green'
+                          : 'red'
+                      }
+                      style={{ marginTop: '16px' }}
+                    >
+                      {questions[activeStep - 1].options.find(
+                        (option) =>
+                          option.optionId ===
+                          userResponses[questions[activeStep - 1].questionId]
+                      )?.isCorrect
+                        ? 'Correct!'
+                        : 'Incorrect.'}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              {activeStep === totalSteps - 1 && activeStep > 0 && (
+                <Box
+                  sx={{
+                    maxWidth: { xs: '100%', sm: '600px', md: '800px' },
+                    margin: '0 auto',
+                    width: '100%',
+                    padding: 3,
+                    textAlign: 'center',
+                  }}
+                >
+                  <Button variant="contained" color="primary" onClick={submitResponses}>
+                    Submit All Responses
+                  </Button>
+                </Box>
+              )}
+            </Box>
           </DialogContent>
         </Dialog>
       )}
