@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
 import sql from 'mssql';
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import path from 'path';
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import s3 from '../awsConfig';
 
 export const getUsers = async (req: Request, res: Response) => {
   try {
@@ -188,3 +193,129 @@ export const updateUserAvailability = async (req: Request, res: Response) => {
   }
 };
 
+export const getMyDocuments = async (req: Request, res: Response) => {
+  const { ba_id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT 
+          urd.document_type AS documentType,
+          urd.is_uploaded AS isUploaded,
+          urd.uploaded_at AS uploadedAt
+        FROM 
+          UserRequiredDocuments urd
+        WHERE 
+          urd.user_id = @ba_id
+      `);
+
+    res.status(200).json(result.recordset);
+  } catch (error) {
+    console.error('Error fetching required documents:', error);
+    res.status(500).json({ message: 'Error fetching required documents' });
+  }
+};
+
+export const uploadDocument = async (req: Request, res: Response) => {
+  const { userId, documentType } = req.body;
+  let file = req.files?.file;
+
+  if (!file) {
+    return res.status(400).json({ message: 'No file was uploaded.' });
+  }
+
+  if (!process.env.AWS_S3_DOCUMENTS_BUCKET_NAME) {
+    return res.status(500).json({ message: 'AWS S3 bucket name is not defined.' });
+  }
+
+  let transaction: sql.Transaction | undefined;
+
+  try {
+    const pool = await poolPromise;
+    transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    // Fetch the current document file name from the database
+    const request = new sql.Request(transaction);
+    const result = await request
+      .input('userId', sql.Int, userId)
+      .input('documentType', sql.NVarChar, documentType)
+      .query('SELECT file_name FROM UserRequiredDocuments WHERE user_id = @userId AND document_type = @documentType');
+
+    const currentFileName = result.recordset[0]?.file_name;
+
+    // If there's an existing file, delete it from S3
+    if (currentFileName) {
+      const key = `documents/${userId}/${documentType}/${currentFileName}`;
+
+      const deleteParams = {
+        Bucket: process.env.AWS_S3_DOCUMENTS_BUCKET_NAME!,
+        Key: key,
+      };
+
+      const deleteCommand = new DeleteObjectCommand(deleteParams);
+      await s3.send(deleteCommand); // Delete the current file from S3
+    }
+    
+    // Ensure /tmp directory exists
+    const tmpDir = path.join(__dirname, 'tmp');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir);
+    }
+
+    //@ts-ignore
+    const fileName = uuidv4() + path.extname(file.name); // Generate unique file name
+    const filePath = path.join(tmpDir, fileName);
+
+    // Save file to temporary location
+    //@ts-ignore
+    fs.writeFileSync(filePath, file.data);
+
+    const fileContent = fs.readFileSync(filePath);
+
+    // Prepare S3 upload parameters
+    const key = `documents/${userId}/${documentType}/${fileName}`;
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_DOCUMENTS_BUCKET_NAME!,
+      Key: key,
+      Body: fileContent,
+      //@ts-ignore
+      ContentType: file.mimetype,
+    };
+
+    const uploadCommand = new PutObjectCommand(uploadParams);
+    await s3.send(uploadCommand);
+
+    // Remove the file from the local system after successful upload
+    fs.unlinkSync(filePath);
+
+    // Construct the S3 file URL
+    const fileUrl = `https://${process.env.AWS_S3_DOCUMENTS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+    // Update the UserRequiredDocuments table
+    await request
+      .input('fileName', sql.NVarChar, fileName)
+      .input('fileUrl', sql.NVarChar, fileUrl)
+      .query(`
+        UPDATE UserRequiredDocuments
+        SET is_uploaded = 1, uploaded_at = GETDATE(), file_name = @fileName, file_url = @fileUrl
+        WHERE user_id = @userId AND document_type = @documentType
+      `);
+
+    // Commit the transaction
+    await transaction.commit();
+
+    res.status(200).json({ message: 'Document uploaded successfully', fileUrl });
+  } catch (error) {
+    console.error('Error uploading document:', error);
+
+    // Rollback the transaction if there's an error
+    if (transaction) {
+      await transaction.rollback();
+    }
+
+    res.status(500).json({ message: 'Error uploading document' });
+  }
+};

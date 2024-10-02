@@ -225,9 +225,11 @@ export const uploadUserAvatar = async (req: Request, res: Response) => {
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir);
     }
+    
     //@ts-ignore
     const fileName = uuidv4() + path.extname(file.name); // Generate a unique file name
     const filePath = path.join(tmpDir, fileName); // Save file to created tmp folder
+    
     //@ts-ignore
     fs.writeFileSync(filePath, file.data); // Save file to temporary location
 
