@@ -9,6 +9,8 @@ const config: sql.config = {
   server: process.env.DB_SERVER!,
   port: parseInt(process.env.DB_PORT!, 10),
   database: process.env.DB_NAME!,
+  connectionTimeout: 30000,
+  requestTimeout: 60000,
   options: {
     encrypt: true, // For Azure
     trustServerCertificate: true // For local development

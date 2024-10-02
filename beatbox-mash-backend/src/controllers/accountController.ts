@@ -174,7 +174,7 @@ export const uploadUserAvatar = async (req: Request, res: Response) => {
   if (!files) {
     return res.status(400).json({ message: 'No files were uploaded.' });
   }
-  
+
   if (!Array.isArray(files)) {
     files = [files]; // Normalize to an array
   }
@@ -214,15 +214,21 @@ export const uploadUserAvatar = async (req: Request, res: Response) => {
         await s3.send(deleteCommand); // Delete the current avatar from S3
       }
     }
-
-
+    
+    //@ts-ignore
     if (!file || !file.name) {
       throw new Error('Invalid file object');
     }
 
+    // Ensure /tmp directory exists
+    const tmpDir = path.join(__dirname, 'tmp');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir);
+    }
+    //@ts-ignore
     const fileName = uuidv4() + path.extname(file.name); // Generate a unique file name
-    const filePath = path.join('/tmp', fileName); // Temporary directory to store file locally
-
+    const filePath = path.join(tmpDir, fileName); // Save file to created tmp folder
+    //@ts-ignore
     fs.writeFileSync(filePath, file.data); // Save file to temporary location
 
     const fileContent = fs.readFileSync(filePath); // Read file content from local storage
