@@ -4,6 +4,9 @@ import nodemailer from 'nodemailer';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 import sql from 'mssql';
+import s3 from '../awsConfig';
+import { v4 as uuidv4 } from 'uuid';
+import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 
 dotenv.config();
 
@@ -1107,5 +1110,150 @@ export const getEventDetails = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching event details:', error);
     res.status(500).json({ message: 'Error fetching event details' });
+  }
+};
+
+export const checkIn = async (req: Request, res: Response) => {
+  const { eventId, ba_id, latitude, longitude } = req.body;
+  let file = req.files?.photo;
+
+  if (!file) {
+    return res.status(400).json({ message: 'No photo uploaded' });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    // Validate that the BA is assigned to the event and has accepted
+    const assignedEvent = await pool.request()
+      .input('eventId', sql.Int, eventId)
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT status, e.start_date_time
+        FROM EventBrandAmbassadors eba
+        JOIN Events e ON e.event_id = eba.event_id
+        WHERE eba.event_id = @eventId AND eba.ba_id = @ba_id
+      `);
+
+    if (assignedEvent.recordset.length === 0 || assignedEvent.recordset[0].status !== 'accepted') {
+      return res.status(403).json({ message: 'You are not authorized to check in for this event.' });
+    }
+
+    // Validate the time window (15 minutes before or after event start time)
+    const eventStartTime = new Date(assignedEvent.recordset[0].start_date_time);
+    const now = new Date();
+    const diffInMinutes = Math.abs((now.getTime() - eventStartTime.getTime()) / (1000 * 60));
+
+    if (diffInMinutes > 15) {
+      return res.status(400).json({ message: 'You can only check in within 15 minutes of the event start time.' });
+    }
+
+    // Save the photo and data
+    // ... (Same as your existing upload logic, with modifications)
+
+    // Insert into EventPhotos with photo_type = 'check-in'
+    const fileName = uuidv4() + path.extname(file.name);
+    const filePath = path.join(uploadDir, fileName);
+
+    await file.mv(filePath);
+
+    const fileContent = fs.readFileSync(filePath);
+
+    const params = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME!,
+      Key: fileName,
+      Body: fileContent,
+      ContentType: file.mimetype,
+    };
+
+    const command = new PutObjectCommand(params);
+    await s3.send(command);
+
+    fs.unlinkSync(filePath);
+
+    await pool.request()
+      .input('event_id', sql.Int, eventId)
+      .input('ba_id', sql.Int, ba_id)
+      .input('file_name', sql.NVarChar, file.name)
+      .input('file_path', sql.NVarChar, `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`)
+      .input('photo_type', sql.VarChar, 'check-in')
+      .input('latitude', sql.Float, latitude)
+      .input('longitude', sql.Float, longitude)
+      .query(`
+        INSERT INTO EventPhotos (event_id, ba_id, file_name, file_path, upload_timestamp, photo_type, latitude, longitude)
+        VALUES (@event_id, @ba_id, @file_name, @file_path, GETDATE(), @photo_type, @latitude, @longitude)
+      `);
+
+    res.status(200).json({ message: 'Check-in successful' });
+  } catch (error) {
+    console.error('Error during check-in:', error);
+    res.status(500).json({ message: 'Error during check-in' });
+  }
+};
+
+export const checkOut = async (req: Request, res: Response) => {
+  const { eventId, ba_id, latitude, longitude } = req.body;
+  let file = req.files?.photo;
+
+  if (!file) {
+    return res.status(400).json({ message: 'No photo uploaded.' });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    // Validate that the BA has checked in
+    const checkInPhoto = await pool.request()
+      .input('eventId', sql.Int, eventId)
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT * FROM EventPhotos
+        WHERE event_id = @eventId AND ba_id = @ba_id AND photo_type = 'check-in'
+      `);
+
+    if (checkInPhoto.recordset.length === 0) {
+      return res.status(400).json({ message: 'You must check in before checking out.' });
+    }
+
+    // Save the photo and data
+    // ... (Same as check-in logic)
+
+    // Insert into EventPhotos with photo_type = 'check-out'
+    const fileName = uuidv4() + path.extname(file.name);
+    const filePath = path.join(uploadDir, fileName);
+
+    await file.mv(filePath);
+
+    const fileContent = fs.readFileSync(filePath);
+
+    const params = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME!,
+      Key: fileName,
+      Body: fileContent,
+      ContentType: file.mimetype,
+    };
+
+    const command = new PutObjectCommand(params);
+    await s3.send(command);
+
+    fs.unlinkSync(filePath);
+
+    await pool.request()
+      .input('event_id', sql.Int, eventId)
+      .input('ba_id', sql.Int, ba_id)
+      .input('file_name', sql.NVarChar, file.name)
+      .input('file_path', sql.NVarChar, `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`)
+      .input('photo_type', sql.VarChar, 'check-out')
+      .input('latitude', sql.Float, latitude)
+      .input('longitude', sql.Float, longitude)
+      .query(`
+        INSERT INTO EventPhotos (event_id, ba_id, file_name, file_path, upload_timestamp, photo_type, latitude, longitude)
+        VALUES (@event_id, @ba_id, @file_name, @file_path, GETDATE(), @photo_type, @latitude, @longitude)
+      `);
+
+    res.status(200).json({ message: 'Check-out successful' });
+  } catch (error) {
+    console.error('Error during check-out:', error);
+    res.status(500).json({ message: 'Error during check-out' });
   }
 };

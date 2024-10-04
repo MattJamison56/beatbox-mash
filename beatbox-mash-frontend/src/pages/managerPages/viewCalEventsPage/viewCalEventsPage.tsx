@@ -60,15 +60,20 @@ const eventStyleGetter = (event: Event) => {
       // Some ambassadors have declined or pending
       borderColor = "#FFA500"; // Orange
     }
-  } else if (event.eventStatus === 'Completed') {
-    if (event.paid) {
-      // Event is paid
-      borderColor = "#32CD32"; // Green
-    } else {
-      // Event is not paid yet
-      borderColor = "#FFA500"; // Orange
+    } else if (event.eventStatus === 'Completed') {
+      if (event.acceptedAmbassadorsCount > 0) {
+        if (event.paid) {
+          // Event is paid
+          borderColor = "#32CD32"; // Green
+        } else {
+          // Event is not paid yet
+          borderColor = "#FFA500"; // Orange
+        }
+      } else {
+        // Event had no ambassadors accepting, stays red
+        borderColor = "#FF6347"; // Red
+      }
     }
-  }
 
   return {
     style: {

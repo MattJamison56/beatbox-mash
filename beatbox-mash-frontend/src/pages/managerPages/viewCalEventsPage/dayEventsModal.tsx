@@ -221,17 +221,22 @@ const DayEventsModal: React.FC<DayEventsModalProps> = ({ open, handleClose, even
                     let statusColor = '';
 
                     if (selectedEvent.eventStatus === 'Completed') {
-                      if (selectedEvent.paid) {
-                        displayedStatus = 'Payment Sent';
-                        statusColor = getStatusColor(displayedStatus);
+                      if (ambassador.status === 'accepted') {
+                        if (selectedEvent.paid) {
+                          displayedStatus = 'Payment Sent';
+                          statusColor = getStatusColor(displayedStatus);
+                        } else {
+                          displayedStatus = 'Payment Due';
+                          statusColor = getStatusColor(displayedStatus);
+                        }
                       } else {
-                        displayedStatus = 'Payment Due';
-                        statusColor = getStatusColor(displayedStatus);
+                        displayedStatus = capitalizeFirstLetter(ambassador.status);
+                        statusColor = getStatusColor(ambassador.status);
                       }
                     } else {
                       displayedStatus = capitalizeFirstLetter(ambassador.status);
                       statusColor = getStatusColor(ambassador.status);
-                    }
+                    }                                    
 
                     return (
                       <Box
