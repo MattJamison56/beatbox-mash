@@ -180,7 +180,7 @@ const MaterialList: React.FC<MaterialListProps> = ({
     <>
       <Grid container spacing={2}>
         {materials.map((material) => (
-          <Grid item xs={12} sm={6} md={2.8} key={material.materialId}>
+          <Grid item xs={12} sm={6} md={6} lg={4} xl={2.3} key={material.materialId}>
             <MaterialCard material={material} onStartClick={handleStartClick} />
           </Grid>
         ))}
@@ -417,17 +417,17 @@ interface MaterialCardProps {
 
 const videoPlaceholder = 'https://via.placeholder.com/200x150?text=Video+Preview'; // Replace with your placeholder image URL or path
 
+
 const MaterialCard: React.FC<MaterialCardProps> = ({ material, onStartClick }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
 
   useEffect(() => {
-    if (material.type === 'document') {
+    const materialType = material.type.toLowerCase();
+    if (materialType === 'document') {
       generatePdfPreview(material.fileUrl).then((url) => {
         setPreviewUrl(url);
       });
-    } else if (material.type === 'video') {
-      setPreviewUrl(videoPlaceholder);
     } else {
       setPreviewUrl(''); // Handle other types if necessary
     }
@@ -486,14 +486,28 @@ const MaterialCard: React.FC<MaterialCardProps> = ({ material, onStartClick }) =
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                height: 210, // Increased height for larger image
+                height: 210,
               }}
             >
-              <img
-                src={previewUrl}
-                alt={material.title}
-                style={{ maxHeight: '100%', maxWidth: '100%' }}
-              />
+              {material.type.toLowerCase() === 'video' ? (
+                <video
+                  src={material.fileUrl}
+                  preload="metadata"
+                  width="100%"
+                  style={{ maxHeight: '100%', maxWidth: '100%' }}
+                >
+                  Your browser does not support the video tag.
+                </video>
+              ) : material.type.toLowerCase() === 'document' ? (
+                <img
+                  src={previewUrl}
+                  alt={material.title}
+                  style={{ maxHeight: '100%', maxWidth: '100%' }}
+                />
+              ) : (
+                // Handle other material types or display a default placeholder
+                <Typography variant="body2">No preview available</Typography>
+              )}
             </Box>
           </CardContent>
           <CardActions
