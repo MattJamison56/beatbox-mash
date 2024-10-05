@@ -218,7 +218,7 @@ const Events = () => {
     const startTime = new Date(startDateTime);
     const now = new Date();
     const diffInMinutes = (now.getTime() - startTime.getTime()) / (1000 * 60);
-    return Math.abs(diffInMinutes) <= 15;
+    return Math.abs(diffInMinutes) <= 30;
   };
 
   const eventHasStarted = (startDateTime: string): boolean => {
@@ -242,12 +242,44 @@ const Events = () => {
   const handleCapturePhoto = (photoData: string) => {
     setCapturedPhoto(photoData);
     setWebcamOpen(false);
-    if (currentAction === 'checkin') {
-      uploadCheckInOutPhoto(selectedEvent!, 'checkin', photoData);
-    } else if (currentAction === 'checkout') {
-      uploadCheckInOutPhoto(selectedEvent!, 'checkout', photoData);
+  
+    const action = currentAction;
+  
+    if (action === 'checkin') {
+      uploadCheckInOutPhoto(selectedEvent!, 'checkin', photoData)
+        .then(() => {
+          // Update the event's status directly or re-fetch events
+          const updatedEvents = events.map((event) => {
+            if (event.id === selectedEvent!.id) {
+              return {
+                ...event,
+                hasCheckedIn: true, // Update the hasCheckedIn flag
+              };
+            }
+            return event;
+          });
+          setEvents(updatedEvents);
+          fetchEvents(); // Optionally re-fetch events to get the latest status from the server
+        });
+    } else if (action === 'checkout') {
+      uploadCheckInOutPhoto(selectedEvent!, 'checkout', photoData)
+        .then(() => {
+          // Update the event's status directly or re-fetch events
+          const updatedEvents = events.map((event) => {
+            if (event.id === selectedEvent!.id) {
+              return {
+                ...event,
+                hasCheckedOut: true, // Update the hasCheckedOut flag
+              };
+            }
+            return event;
+          });
+          setEvents(updatedEvents);
+          fetchEvents(); // Optionally re-fetch events to get the latest status from the server
+        });
     }
   };
+  
 
   const uploadCheckInOutPhoto = async (event: Event, action: 'checkin' | 'checkout', photoData: string) => {
     try {

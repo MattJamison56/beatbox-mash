@@ -6,7 +6,7 @@ declare namespace Express {
       role: string;
     };
     files?: {
-      [fieldname: string]: Express.Multer.File[];
+      [fieldname: string]: UploadedFile | UploadedFile[]; 
     };
   }
 }

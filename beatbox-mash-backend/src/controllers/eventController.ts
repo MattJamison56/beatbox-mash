@@ -7,6 +7,8 @@ import sql from 'mssql';
 import s3 from '../awsConfig';
 import { v4 as uuidv4 } from 'uuid';
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
 
@@ -270,7 +272,28 @@ export const getMyEvents = async (req: Request, res: Response) => {
           eba.photos,
           eba.expenses,
           eba.personal_report_submitted,
-          eba.status AS ambassadorStatus -- Renamed here
+          eba.status AS ambassadorStatus,
+          
+          -- Check if there are any check-in photos for this event and ba_id
+          CASE 
+            WHEN EXISTS (
+              SELECT 1 FROM EventPhotos ep
+              WHERE ep.event_id = e.event_id
+              AND ep.ba_id = eba.ba_id
+              AND ep.photo_type = 'check-in'
+            ) THEN 1 ELSE 0
+          END AS hasCheckedIn,
+
+          -- Check if there are any check-out photos for this event and ba_id
+          CASE 
+            WHEN EXISTS (
+              SELECT 1 FROM EventPhotos ep
+              WHERE ep.event_id = e.event_id
+              AND ep.ba_id = eba.ba_id
+              AND ep.photo_type = 'check-out'
+            ) THEN 1 ELSE 0
+          END AS hasCheckedOut
+          
         FROM 
           Events e
         JOIN 
@@ -295,6 +318,7 @@ export const getMyEvents = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error fetching events' });
   }
 };
+
 
 export const getPendingEventsForApproval = async (req: Request, res: Response) => {
   try {
@@ -1113,8 +1137,15 @@ export const getEventDetails = async (req: Request, res: Response) => {
   }
 };
 
+const uploadDir = path.join(__dirname, '..', 'uploads');
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 export const checkIn = async (req: Request, res: Response) => {
   const { eventId, ba_id, latitude, longitude } = req.body;
+  console.log('Received files:', req.files);
   let file = req.files?.photo;
 
   if (!file) {
@@ -1139,26 +1170,43 @@ export const checkIn = async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'You are not authorized to check in for this event.' });
     }
 
-    // Validate the time window (15 minutes before or after event start time)
+    // Validate the time window (30 minutes before or after event start time)
     const eventStartTime = new Date(assignedEvent.recordset[0].start_date_time);
     const now = new Date();
-    const diffInMinutes = Math.abs((now.getTime() - eventStartTime.getTime()) / (1000 * 60));
+    const diffInMinutes = (now.getTime() - eventStartTime.getTime()) / (1000 * 60);
 
-    if (diffInMinutes > 15) {
-      return res.status(400).json({ message: 'You can only check in within 15 minutes of the event start time.' });
+    if (Math.abs(diffInMinutes) > 30) {
+      return res.status(400).json({ message: 'You can only check in within 30 minutes of the event start time.' });
+    }
+
+    // Check if the BA has already checked in
+    const existingCheckIn = await pool.request()
+      .input('eventId', sql.Int, eventId)
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT * FROM EventPhotos
+        WHERE event_id = @eventId AND ba_id = @ba_id AND photo_type = 'check-in'
+      `);
+
+    if (existingCheckIn.recordset.length > 0) {
+      return res.status(400).json({ message: 'You have already checked in for this event.' });
     }
 
     // Save the photo and data
-    // ... (Same as your existing upload logic, with modifications)
-
-    // Insert into EventPhotos with photo_type = 'check-in'
     const fileName = uuidv4() + path.extname(file.name);
     const filePath = path.join(uploadDir, fileName);
 
+    // Ensure the uploads directory exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Move the file to the upload directory
     await file.mv(filePath);
 
     const fileContent = fs.readFileSync(filePath);
 
+    // Upload to S3
     const params = {
       Bucket: process.env.AWS_S3_BUCKET_NAME!,
       Key: fileName,
@@ -1169,19 +1217,22 @@ export const checkIn = async (req: Request, res: Response) => {
     const command = new PutObjectCommand(params);
     await s3.send(command);
 
+    // Delete the local file
     fs.unlinkSync(filePath);
 
+    // Insert into EventPhotos with photo_type = 'check-in'
     await pool.request()
       .input('event_id', sql.Int, eventId)
       .input('ba_id', sql.Int, ba_id)
-      .input('file_name', sql.NVarChar, file.name)
+      .input('file_name', sql.NVarChar, fileName)
       .input('file_path', sql.NVarChar, `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`)
+      .input('upload_timestamp', sql.DateTime, new Date())
       .input('photo_type', sql.VarChar, 'check-in')
       .input('latitude', sql.Float, latitude)
       .input('longitude', sql.Float, longitude)
       .query(`
         INSERT INTO EventPhotos (event_id, ba_id, file_name, file_path, upload_timestamp, photo_type, latitude, longitude)
-        VALUES (@event_id, @ba_id, @file_name, @file_path, GETDATE(), @photo_type, @latitude, @longitude)
+        VALUES (@event_id, @ba_id, @file_name, @file_path, @upload_timestamp, @photo_type, @latitude, @longitude)
       `);
 
     res.status(200).json({ message: 'Check-in successful' });
@@ -1215,17 +1266,34 @@ export const checkOut = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'You must check in before checking out.' });
     }
 
-    // Save the photo and data
-    // ... (Same as check-in logic)
+    // Check if the BA has already checked out
+    const existingCheckOut = await pool.request()
+      .input('eventId', sql.Int, eventId)
+      .input('ba_id', sql.Int, ba_id)
+      .query(`
+        SELECT * FROM EventPhotos
+        WHERE event_id = @eventId AND ba_id = @ba_id AND photo_type = 'check-out'
+      `);
 
-    // Insert into EventPhotos with photo_type = 'check-out'
+    if (existingCheckOut.recordset.length > 0) {
+      return res.status(400).json({ message: 'You have already checked out for this event.' });
+    }
+
+    // Save the photo and data
     const fileName = uuidv4() + path.extname(file.name);
     const filePath = path.join(uploadDir, fileName);
 
+    // Ensure the uploads directory exists
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Move the file to the upload directory
     await file.mv(filePath);
 
     const fileContent = fs.readFileSync(filePath);
 
+    // Upload to S3
     const params = {
       Bucket: process.env.AWS_S3_BUCKET_NAME!,
       Key: fileName,
@@ -1236,19 +1304,22 @@ export const checkOut = async (req: Request, res: Response) => {
     const command = new PutObjectCommand(params);
     await s3.send(command);
 
+    // Delete the local file
     fs.unlinkSync(filePath);
 
+    // Insert into EventPhotos with photo_type = 'check-out'
     await pool.request()
       .input('event_id', sql.Int, eventId)
       .input('ba_id', sql.Int, ba_id)
-      .input('file_name', sql.NVarChar, file.name)
+      .input('file_name', sql.NVarChar, fileName)
       .input('file_path', sql.NVarChar, `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`)
+      .input('upload_timestamp', sql.DateTime, new Date())
       .input('photo_type', sql.VarChar, 'check-out')
       .input('latitude', sql.Float, latitude)
       .input('longitude', sql.Float, longitude)
       .query(`
         INSERT INTO EventPhotos (event_id, ba_id, file_name, file_path, upload_timestamp, photo_type, latitude, longitude)
-        VALUES (@event_id, @ba_id, @file_name, @file_path, GETDATE(), @photo_type, @latitude, @longitude)
+        VALUES (@event_id, @ba_id, @file_name, @file_path, @upload_timestamp, @photo_type, @latitude, @longitude)
       `);
 
     res.status(200).json({ message: 'Check-out successful' });
