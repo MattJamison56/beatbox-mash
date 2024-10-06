@@ -1,8 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { Box, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import {
+  Box,
+  Tabs,
+  Tab,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+} from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import { ChartData } from 'chart.js';
+import { saveAs } from 'file-saver';
+import html2canvas from 'html2canvas';
+
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const ProductSubTabContent: React.FC = () => {
@@ -27,10 +42,10 @@ const ProductSubTabContent: React.FC = () => {
     setSubTabValue(newValue);
   };
 
-  const getChartData = (): ChartData<'bar', number[], string> => {
+  const getChartData = (tabIndex: number): ChartData<'bar', number[], string> => {
     const labels = productData.map((item) => item.ProductName);
-    
-    switch (subTabValue) {
+
+    switch (tabIndex) {
       case 0: // Units Sold
         return {
           labels,
@@ -80,31 +95,88 @@ const ProductSubTabContent: React.FC = () => {
     }
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const images: string[] = [];
+
+      for (let i = 0; i <= 3; i++) {
+        // Capture the chart as an image
+        const chartElement = document.getElementById(`product-chart-${i}`);
+        if (!chartElement) {
+          throw new Error(`Chart element product-chart-${i} not found`);
+        }
+
+        const canvas = await html2canvas(chartElement);
+        const imageData = canvas.toDataURL('image/png');
+        images.push(imageData);
+      }
+
+      const response = await fetch(`${apiUrl}/data/export-product-data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageDataArray: images }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export data');
+      }
+
+      const blob = await response.blob();
+      saveAs(blob, 'ProductData.xlsx');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+    }
+  };
+
   return (
     <Box>
+      {/* Export to Excel button */}
+      <Box display="flex" justifyContent="flex-end" mb={2}>
+        <Button variant="contained" color="primary" onClick={handleExportToExcel}>
+          Export to Excel
+        </Button>
+      </Box>
+
       {/* Subtabs for Product */}
-      <Tabs value={subTabValue} onChange={handleSubTabChange} aria-label="product subtabs" sx={{ marginBottom: 2 }}>
+      <Tabs
+        value={subTabValue}
+        onChange={handleSubTabChange}
+        aria-label="product subtabs"
+        sx={{ marginBottom: 2 }}
+      >
         <Tab label="Units Sold" />
         <Tab label="Average Sales" />
         <Tab label="# Demos by Product" />
         <Tab label="Percent Not Sold at Demo" />
       </Tabs>
 
-      {/* Chart Section */}
-      <Box sx={{ width: '100%', height: 300 }}>
-        <Bar
-          data={getChartData()}
-          options={{
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              y: {
-                beginAtZero: true,
-              },
-            },
+      {/* Render all charts */}
+      {[0, 1, 2, 3].map((tabIndex) => (
+        <Box
+          key={tabIndex}
+          id={`product-chart-${tabIndex}`}
+          sx={{
+            width: '100%',
+            height: 300,
+            display: subTabValue === tabIndex ? 'block' : 'none',
           }}
-        />
-      </Box>
+        >
+          <Bar
+            data={getChartData(tabIndex)}
+            options={{
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                },
+              },
+            }}
+          />
+        </Box>
+      ))}
 
       {/* Table Section */}
       <Box sx={{ marginTop: 3 }}>
@@ -128,7 +200,7 @@ const ProductSubTabContent: React.FC = () => {
                   <TableCell align="right">{product.unitsSold}</TableCell>
                   <TableCell align="right">{product.totalDollarSales}</TableCell>
                   <TableCell align="right">{product.avgSalesPerDemo}</TableCell>
-                  <TableCell align="right">{product.percentNotSoldAtDemo}</TableCell>
+                  <TableCell align="right">{product.percentNotSoldAtDemo}%</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -349,7 +349,7 @@ const ReportForm: React.FC<ReportFormProps> = ({
           startTime={startTime}
           onComplete={handleExpenseComplete}
           mileageAllowed={mileageAllowed}
-          ba_id={localStorage.getItem('ba_id')}
+          ba_id={localStorage.getItem('user_id')}
         />
       </Paper>
     </Modal>

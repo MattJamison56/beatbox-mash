@@ -16,7 +16,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onTabChange }) => {
   const [eventCount, setEventCount] = useState<number>(0);
   const [documentCount, setDocumentCount] = useState<number>(0);
 
-  const ba_id = localStorage.getItem('ba_id'); // Get ba_id from localStorage
+  const ba_id = Number(localStorage.getItem('user_id')); // Get ba_id from localStorage
 
   useEffect(() => {
     fetchEventCount();

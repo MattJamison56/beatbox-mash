@@ -33,8 +33,9 @@ const LoginPage: React.FC = () => {
       const data = await response.json();
   
       // Use login from the context to update the state
-      login(data.role, data.token, data.avatar_url);
-      localStorage.setItem('ba_id', data.ba_id); // This can stay in localStorage
+      login(data.role, data.token, data.avatar_url, data.user_id);
+      localStorage.setItem('ba_id', data.user_id); // This can stay in localStorage
+      localStorage.setItem('user_id', data.user_id);
       localStorage.setItem('avatar_url', data.avatar_url); // Store the avatar URL in localStorage
   
       navigate('/');

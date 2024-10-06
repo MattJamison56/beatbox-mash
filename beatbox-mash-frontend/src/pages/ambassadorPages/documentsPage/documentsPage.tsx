@@ -50,7 +50,7 @@ const Documents: React.FC = () => {
   const [tabIndex, setTabIndex] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const ba_id = localStorage.getItem('ba_id');
+  const ba_id = localStorage.getItem('user_id');
 
   useEffect(() => {
     fetchDocuments();

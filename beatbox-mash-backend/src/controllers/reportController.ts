@@ -191,7 +191,7 @@ export const saveReportQuestionsData = async (req: Request, res: Response) => {
 };
 
 export const uploadPhotos = async (req: Request, res: Response) => {
-  const { eventId } = req.body;
+  const { eventId, ba_id } = req.body;
   let files = req.files?.files;
 
   if (!files) {
@@ -242,11 +242,12 @@ export const uploadPhotos = async (req: Request, res: Response) => {
       const request = new sql.Request(transaction!);
       await request
         .input('event_id', sql.Int, eventId)
+        .input('ba_id', sql.Int, Number(ba_id))
         .input('file_name', sql.NVarChar, file.name)
         .input('file_path', sql.NVarChar, `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`)
         .query(`
-          INSERT INTO EventPhotos (event_id, file_name, file_path)
-          VALUES (@event_id, @file_name, @file_path)
+          INSERT INTO EventPhotos (event_id, ba_id, file_name, file_path)
+          VALUES (@event_id, @ba_id, @file_name, @file_path)
         `);
     }
 
@@ -460,16 +461,40 @@ export const saveOtherExpense = async (req: Request, res: Response) => {
 
 const pipeline = util.promisify(stream.pipeline);
 
+// Fonts for pdfmake
+const fonts = {
+  Roboto: {
+    normal: path.join(__dirname, '../fonts/Roboto-Regular.ttf'),
+    bold: path.join(__dirname, '../fonts/Roboto-Bold.ttf'),
+  },
+};
+
+const PdfPrinter = require('pdfmake/src/printer') as any;
+
+const printer = new PdfPrinter(fonts);
+
 export const submitAndGenerateReport = async (req: Request, res: Response) => {
-  const { eventId, baId, inventoryFilled, questionsFilled, photosFilled, expensesFilled } = req.body;
+  const {
+    eventId,
+    baId,
+    inventoryFilled,
+    questionsFilled,
+    photosFilled,
+    expensesFilled,
+  } = req.body;
+  
   let transaction: sql.Transaction | null = null;
 
   try {
     const pool = await poolPromise;
     transaction = new sql.Transaction(pool);
     await transaction.begin();
+    
+    console.log(`Starting report submission for eventId: ${eventId}, baId: ${baId}`);
 
     if (inventoryFilled && questionsFilled && photosFilled && expensesFilled) {
+      console.log(`All sections completed, fetching event details for eventId: ${eventId}`);
+
       // Fetch event and ambassador details
       const result = await pool.request()
         .input('eventId', sql.Int, eventId)
@@ -497,30 +522,25 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
             erq.table_location,
             erq.swag,
             erq.customer_feedback,
-            erq.other_feedback,
-            ep.file_name,
-            ep.file_path
+            erq.other_feedback
           FROM 
-            Events e
+            dbo.Events e
           JOIN 
-            Venues v ON e.venue_id = v.id
+            dbo.Venues v ON e.venue_id = v.id
           JOIN 
-            Campaigns c ON e.campaign_id = c.id
+            dbo.Campaigns c ON e.campaign_id = c.id
           JOIN 
-            EventBrandAmbassadors eba ON e.event_id = eba.event_id
+            dbo.EventBrandAmbassadors eba ON e.event_id = eba.event_id
           JOIN 
-            Users u ON eba.ba_id = u.id
-          JOIN 
-            EventReportQuestions erq ON e.event_id = erq.event_id
+            dbo.Users u ON eba.ba_id = u.id
           LEFT JOIN 
-            EventPhotos ep ON e.event_id = ep.event_id
+            dbo.EventReportQuestions erq ON e.event_id = erq.event_id
           WHERE 
             e.event_id = @eventId
         `);
-      
-      console.log('Fetched event details:', result.recordset);
 
       const event = result.recordset[0];
+      console.log(`Fetched event details: ${JSON.stringify(event)}`);
 
       const inventoryResult = await pool.request()
         .input('eventId', sql.Int, eventId)
@@ -532,95 +552,142 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
             ei.ending_inventory,
             ei.sold
           FROM 
-            EventInventory ei
+            dbo.EventInventory ei
           JOIN 
-            Products p ON ei.product_id = p.ProductID
+            dbo.Products p ON ei.product_id = p.ProductID
           WHERE 
             ei.event_id = @eventId
         `);
 
-      console.log('Fetched inventory details:', inventoryResult.recordset);
+      console.log(`Fetched inventory details: ${JSON.stringify(inventoryResult.recordset)}`);
 
-      // Create a new PDF document
-      const doc = new PDFDocument();
-      const tempDirPath = path.join(__dirname, '../../temp');
-      const tempFilePath = path.join(tempDirPath, `${uuidv4()}.pdf`);
+      // Prepare the PDF content using pdfmake
+      const docDefinition: any = {
+        content: [],
+        styles: {
+          header: {
+            fontSize: 22,
+            bold: true,
+            alignment: 'center',
+            margin: [0, 20, 0, 10],
+          },
+          subheader: {
+            fontSize: 18,
+            bold: true,
+            margin: [0, 10, 0, 5],
+          },
+          sectionHeader: {
+            fontSize: 16,
+            bold: true,
+            decoration: 'underline',
+            margin: [0, 15, 0, 10],
+          },
+          tableHeader: {
+            bold: true,
+            fontSize: 13,
+            color: 'black',
+          },
+          tableData: {
+            fontSize: 12,
+          },
+          normalText: {
+            fontSize: 12,
+          },
+        },
+      };
 
-      // Ensure the temp directory exists
-      if (!fs.existsSync(tempDirPath)) {
-        fs.mkdirSync(tempDirPath, { recursive: true });
-        console.log(`Created temp directory: ${tempDirPath}`);
-      }
+      docDefinition.content.push({ text: 'Event Report', style: 'header' });
 
-      // Generate the PDF
-      const writeStream = fs.createWriteStream(tempFilePath);
-      doc.pipe(writeStream);
-      console.log('Started writing to PDF document');
+      // Event Details
+      docDefinition.content.push(
+        { text: `Event: ${event.eventName}`, style: 'subheader' },
+        {
+          columns: [
+            { text: `Date: ${new Date(event.startDateTime).toLocaleDateString()}`, style: 'normalText' },
+            { text: `Duration: ${event.duration_hours} hrs ${event.duration_minutes} min`, style: 'normalText' },
+          ],
+        },
+        {
+          columns: [
+            { text: `Campaign: ${event.campaign}`, style: 'normalText' },
+            { text: `Venue: ${event.venue}`, style: 'normalText' },
+          ],
+        },
+        { text: `Address: ${event.address}`, style: 'normalText' },
+        { text: `Brand Ambassador: ${event.brandAmbassador}`, style: 'normalText' }
+      );
 
-      doc.fontSize(20).text(`Event Report`, { align: 'center' });
-      doc.fontSize(16).text(`Event: ${event.eventName}`);
-      doc.text(`Date: ${new Date(event.startDateTime).toLocaleDateString()}`);
-      doc.text(`Duration: ${event.duration_hours} hrs ${event.duration_minutes} min`);
-      doc.text(`Campaign: ${event.campaign}`);
-      doc.text(`Venue: ${event.venue}`);
-      doc.text(`Address: ${event.address}`);
-      doc.text(`Brand Ambassador: ${event.brandAmbassador}`);
+      // Add a separator line
+      docDefinition.content.push({ canvas: [{ type: 'line', x1: 0, y1: 5, x2: 595 - 2 * 40, y2: 5, lineWidth: 1 }] });
 
-      doc.moveDown();
-      doc.fontSize(18).text(`Brand Ambassador Report`, { underline: true });
+      // Brand Ambassador Report Section
+      docDefinition.content.push({ text: 'Brand Ambassador Report', style: 'sectionHeader' });
 
-      // Add event report questions and answers
       const reportQuestions = [
-        'sampled_flavors', 'price', 'consumers_sampled', 'consumers_engaged', 'total_attendees',
-        'beatboxes_purchased', 'first_time_consumers', 'product_sampled_how', 'top_reason_bought',
-        'top_reason_didnt_buy', 'qr_scans', 'table_location', 'swag', 'customer_feedback', 'other_feedback'
+        'sampled_flavors',
+        'price',
+        'consumers_sampled',
+        'consumers_engaged',
+        'total_attendees',
+        'beatboxes_purchased',
+        'first_time_consumers',
+        'product_sampled_how',
+        'top_reason_bought',
+        'top_reason_didnt_buy',
+        'qr_scans',
+        'table_location',
+        'swag',
+        'customer_feedback',
+        'other_feedback',
       ];
 
-      reportQuestions.forEach(key => {
+      reportQuestions.forEach((key) => {
         if (event[key]) {
-          doc.fontSize(14).text(`${key.replace(/_/g, ' ')}: ${event[key]}`);
+          const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+          docDefinition.content.push({
+            columns: [
+              { width: '30%', text: `${formattedKey}:`, style: 'tableHeader' },
+              { width: '70%', text: `${event[key]}`, style: 'normalText' },
+            ],
+          });
         }
       });
 
+      // Inventory Report Section
       if (inventoryResult.recordset.length > 0) {
-        doc.moveDown();
-        doc.fontSize(18).text(`Inventory Report`, { underline: true });
-      
-        // Set column positions
-        const startX = 72;
-        const colWidths = {
-          productName: 180,
-          beginningInventory: 100,
-          endingInventory: 100,
-          sold: 100,
-          total: 120,
-        };
-      
-        // Create table header
-        doc.fontSize(14)
-          .text(`Product Name`, startX, doc.y)
-          .text(`Beginning Inventory`, startX + colWidths.productName, doc.y)
-          .text(`Ending Inventory`, startX + colWidths.productName + colWidths.beginningInventory, doc.y)
-          .text(`# Sold`, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory, doc.y)
-          .text(`Total (with Product Worth)`, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory + colWidths.sold, doc.y)
-          .moveDown();
-      
-        // Add inventory data
+        docDefinition.content.push({ text: 'Inventory Report', style: 'sectionHeader' });
+
+        const tableBody = [
+          [
+            { text: 'Product Name', style: 'tableHeader' },
+            { text: 'Beginning Inventory', style: 'tableHeader' },
+            { text: 'Ending Inventory', style: 'tableHeader' },
+            { text: '# Sold', style: 'tableHeader' },
+            { text: 'Total', style: 'tableHeader' },
+          ],
+        ];
+
         inventoryResult.recordset.forEach((item) => {
-          const totalSold = String(item.sold * item.ProductWorth)
-      
-          doc.fontSize(12)
-            .text(item.ProductName, startX, doc.y)
-            .text(item.beginning_inventory, startX + colWidths.productName, doc.y)
-            .text(item.ending_inventory, startX + colWidths.productName + colWidths.beginningInventory, doc.y)
-            .text(item.sold, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory, doc.y)
-            .text(totalSold, startX + colWidths.productName + colWidths.beginningInventory + colWidths.endingInventory + colWidths.sold, doc.y)
-            .moveDown();
+          tableBody.push([
+            { text: item.ProductName, style: 'tableData' },
+            { text: item.beginning_inventory.toString(), style: 'tableData' },
+            { text: item.ending_inventory.toString(), style: 'tableData' },
+            { text: item.sold.toString(), style: 'tableData' },
+            { text: (item.sold * item.ProductWorth).toFixed(2), style: 'tableData' },
+          ]);
         });
-        console.log('Inventory data added to PDF');
+
+        docDefinition.content.push({
+          table: {
+            headerRows: 1,
+            widths: ['*', 'auto', 'auto', 'auto', 'auto'],
+            body: tableBody,
+          },
+          layout: 'lightHorizontalLines',
+        });
       }
 
-      // Fetch and add event photos from all ambassadors
+      // Handle photos
       const photoResult = await pool.request()
         .input('eventId', sql.Int, eventId)
         .query(`
@@ -628,65 +695,63 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
             file_name,
             file_path
           FROM 
-            EventPhotos
+            dbo.EventPhotos
           WHERE 
             event_id = @eventId
         `);
+      
+      const uniquePhotos = new Set(photoResult.recordset.map((photo) => photo.file_path));
+      console.log(`Fetched photo paths: ${JSON.stringify([...uniquePhotos])}`);
 
-      console.log('Fetched event photos:', photoResult.recordset);
-
-      const uniquePhotos = new Set(photoResult.recordset.map(photo => photo.file_path));
-      if (uniquePhotos.size > 0) {
-        doc.addPage();
-        doc.fontSize(18).text(`Event Photos`, { underline: true });
-
-        let x = 72;
-        let y = doc.y + 20;
-        const imageHeight = 200;
-        const imageWidth = 250;
-        const margin = 20;
-
-        for (const filePath of uniquePhotos) {
-          const imagePath = path.join(tempDirPath, `${uuidv4()}${path.extname(filePath)}`);
-          const command = new GetObjectCommand({
-            Bucket: process.env.AWS_S3_BUCKET_NAME!,
-            Key: filePath.split('/').pop()
-          });
-
-          console.log('Downloading image from S3:', filePath);
-
-          const { Body } = await s3.send(command);
-          await pipeline(Body as stream.Readable, fs.createWriteStream(imagePath));
-          console.log('Downloaded image:', imagePath);
-
-          if (x + imageWidth > doc.page.width - margin) {
-            x = 72;
-            y += imageHeight + margin;
-            if (y + imageHeight > doc.page.height - margin) {
-              doc.addPage();
-              y = 72;
-            }
-          }
-
-          doc.image(imagePath, x, y, { fit: [imageWidth, imageHeight], align: 'center' });
-          x += imageWidth + margin;
-
-          console.log('Added image to PDF:', imagePath);
-
-          fs.unlinkSync(imagePath);
-          console.log('Deleted temporary image file:', imagePath);
-        }
+      const tempDirPath = path.join(__dirname, '../../temp');
+      if (!fs.existsSync(tempDirPath)) {
+        fs.mkdirSync(tempDirPath, { recursive: true });
       }
 
-      // Close the document and make sure it's fully written
-      doc.end();
+      if (uniquePhotos.size > 0) {
+        docDefinition.content.push({ text: 'Event Photos', style: 'sectionHeader' });
 
-      // Wait until the PDF is fully written before uploading
+        const photoPromises = [];
+        const imagePaths: string[] = [];
+
+        for (const filePath of uniquePhotos) {
+          const imageKey = filePath.split('/').pop();
+          const imagePath = path.join(tempDirPath, `${uuidv4()}${path.extname(filePath)}`);
+          imagePaths.push(imagePath);
+
+          const command = new GetObjectCommand({
+            Bucket: process.env.AWS_S3_BUCKET_NAME!,
+            Key: imageKey,
+          });
+
+          const photoPromise = s3.send(command).then(({ Body }) =>
+            pipeline(Body as stream.Readable, fs.createWriteStream(imagePath))
+          );
+          photoPromises.push(photoPromise);
+        }
+
+        await Promise.all(photoPromises);
+
+        const imageContent = imagePaths.map((imagePath) => ({
+          image: imagePath,
+          width: 200,
+          margin: [0, 5, 0, 5],
+        }));
+
+        docDefinition.content.push({ columns: imageContent });
+        docDefinition.imagesCleanup = imagePaths;
+      }
+
+      // Generate the PDF document
+      const pdfDoc = printer.createPdfKitDocument(docDefinition);
+      const tempFilePath = path.join(tempDirPath, `${uuidv4()}.pdf`);
+      const writeStream = fs.createWriteStream(tempFilePath);
+
+      pdfDoc.pipe(writeStream);
+      pdfDoc.end();
+
       writeStream.on('finish', async () => {
-        console.log('PDF generation completed:', tempFilePath);
-
-        // Upload to S3
-        console.log('Uploading PDF to S3...');
+        console.log('PDF generation completed, starting upload to S3');
         const pdfKey = `reports/${uuidv4()}.pdf`;
         const pdfContent = fs.readFileSync(tempFilePath);
         const uploadParams = {
@@ -696,50 +761,62 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
           ContentType: 'application/pdf',
         };
         await s3.send(new PutObjectCommand(uploadParams));
-        console.log('PDF uploaded to S3.');
 
-        // Store the PDF information in the database
         const reportName = `${event.eventName.replace(/ /g, '_')}_${eventId}.pdf`;
         const s3Path = `https://${process.env.AWS_S3_REPORT_BUCKET_NAME}.s3.amazonaws.com/${pdfKey}`;
+
+        console.log(`Report uploaded to S3: ${s3Path}`);
+
         if (transaction) {
+          console.log('Inserting report record into database');
           await transaction.request()
             .input('event_id', sql.Int, eventId)
             .input('report_name', sql.NVarChar, reportName)
             .input('s3_path', sql.NVarChar, s3Path)
             .query(`
-              INSERT INTO EventReports (event_id, report_name, s3_path)
+              INSERT INTO dbo.EventReports (event_id, report_name, s3_path)
               VALUES (@event_id, @report_name, @s3_path)
             `);
-  
-          // Update the event to mark the report as submitted
+
+          console.log('Marking event report as submitted');
           await transaction.request()
             .input('eventId', sql.Int, eventId)
             .query(`
-              UPDATE Events
+              UPDATE dbo.Events
               SET report_submitted = 1
               WHERE event_id = @eventId
             `);
-  
-          // Update the personal report submission for the ambassador
+
+          console.log('Marking personal report as submitted for baId:', baId);
           await transaction.request()
             .input('eventId', sql.Int, eventId)
             .input('baId', sql.Int, baId)
             .query(`
-              UPDATE EventBrandAmbassadors
+              UPDATE dbo.EventBrandAmbassadors
               SET personal_report_submitted = 1
               WHERE event_id = @eventId AND ba_id = @baId
             `);
-  
-          // Delete the temp file after uploading
+
           fs.unlinkSync(tempFilePath);
-          console.log('Temporary PDF file deleted.');
-  
+          if (docDefinition.imagesCleanup) {
+            docDefinition.imagesCleanup.forEach((imagePath: string) => {
+              fs.unlinkSync(imagePath);
+            });
+          }
+
           await transaction.commit();
-          res.status(200).json({ message: 'Report successfully submitted, PDF generated, and event marked as complete.' });
+          console.log('Transaction committed successfully');
+          res.status(200).json({
+            message:
+              'Report successfully submitted, PDF generated, and event marked as complete.',
+          });
         }
       });
     } else {
-      res.status(400).json({ message: 'All sections must be completed before submitting the report.' });
+      console.log('Not all sections are completed');
+      res.status(400).json({
+        message: 'All sections must be completed before submitting the report.',
+      });
     }
   } catch (error) {
     console.error('Error generating and submitting report:', error);
@@ -751,10 +828,6 @@ export const submitAndGenerateReport = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Error generating and submitting report.' });
   }
 };
-
-
-
-
 
 export const partialSubmit = async (req: Request, res: Response) => {
   const { eventId, baId, photosFilled, expensesFilled } = req.body;

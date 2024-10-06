@@ -75,6 +75,7 @@ const PhotoReportForm: React.FC<PhotoReportFormProps> = ({ open, handleClose, ev
       formData.append('files', file);
     });
     formData.append('eventId', String(eventId));
+    formData.append('ba_id', localStorage.getItem('user_id'));
 
     try {
       const response = await fetch(`${apiUrl}/reports/photos`, {

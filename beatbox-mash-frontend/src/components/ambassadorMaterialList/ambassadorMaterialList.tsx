@@ -180,7 +180,7 @@ const MaterialList: React.FC<MaterialListProps> = ({
     <>
       <Grid container spacing={2}>
         {materials.map((material) => (
-          <Grid item xs={12} sm={6} md={6} lg={4} xl={2.3} key={material.materialId}>
+          <Grid item xs={12} sm={6} md={6} lg={4} xl={2.6} key={material.materialId}>
             <MaterialCard material={material} onStartClick={handleStartClick} />
           </Grid>
         ))}

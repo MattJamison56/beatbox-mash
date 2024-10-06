@@ -20,6 +20,7 @@
     "beatbox-mash-backend": "file:",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "express-fileupload": "^1.5.1",
     "googleapis": "^140.0.1",
@@ -29,6 +30,7 @@
     "nodemailer": "^6.9.14",
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.15.0",
+    "pdfmake": "^0.2.13",
     "typescript": "^5.4.5",
     "xlsx": "^0.18.5"
   },

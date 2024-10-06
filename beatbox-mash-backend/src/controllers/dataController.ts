@@ -1,6 +1,7 @@
 // controllers/authController.ts
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
+import ExcelJS from 'exceljs';
 
 export const getProductData = async (req: Request, res: Response) => {
   try {
@@ -15,6 +16,7 @@ export const getProductData = async (req: Request, res: Response) => {
         ISNULL(SUM(CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN ei.sold 
             ELSE 0 END), 0) AS unitsSold,
 
@@ -22,6 +24,7 @@ export const getProductData = async (req: Request, res: Response) => {
         ISNULL(SUM(CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN ei.sold * p.MSRP 
             ELSE 0 END), 0) AS totalDollarSales,
 
@@ -29,10 +32,12 @@ export const getProductData = async (req: Request, res: Response) => {
         ISNULL(SUM(CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN ei.sold 
             ELSE 0 END) * 1.0 / NULLIF(COUNT(DISTINCT CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN e.event_id 
             ELSE NULL END), 0), 0) AS avgSalesPerDemo,
 
@@ -40,6 +45,7 @@ export const getProductData = async (req: Request, res: Response) => {
         COUNT(DISTINCT CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN e.event_id 
             ELSE NULL END) AS demosByProduct,
 
@@ -48,15 +54,18 @@ export const getProductData = async (req: Request, res: Response) => {
           WHEN SUM(CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN ei.beginning_inventory 
             ELSE 0 END) = 0 THEN 0
           ELSE ROUND(100 * (1 - (SUM(CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN ei.sold 
             ELSE 0 END) * 1.0 / SUM(CASE 
             WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
               AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1 -- Only include approved events
             THEN ei.beginning_inventory 
             ELSE 0 END))), 1)
         END AS percentNotSoldAtDemo
@@ -69,13 +78,13 @@ export const getProductData = async (req: Request, res: Response) => {
       ORDER BY p.ProductName;
     `);
 
+    console.log(result.recordset);
     res.status(200).json(result.recordset);
   } catch (error) {
     console.error('Error fetching product data:', error);
     res.status(500).json({ message: 'Error fetching product data' });
   }
 };
-
 
 
 export const getSalesSummary = async (req: Request, res: Response) => {
@@ -508,4 +517,164 @@ export const getQANumericalResults = async (req: Request, res: Response) => {
   }
 };
 
+export const exportProductDataToExcel = async (req: Request, res: Response) => {
+  try {
+    const { imageDataArray } = req.body; 
+    const pool = await poolPromise;
 
+    // Fetch product data
+    const result = await pool.request().query(`
+      SELECT
+        p.ProductID,
+        p.ProductName,
+        ISNULL(SUM(CASE 
+            WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+              AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1
+          THEN ei.sold 
+          ELSE 0 END), 0) AS unitsSold,
+        ISNULL(SUM(CASE 
+            WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+              AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1
+          THEN ei.sold * p.MSRP 
+          ELSE 0 END), 0) AS totalDollarSales,
+        ISNULL(SUM(CASE 
+            WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+              AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1
+          THEN ei.sold 
+          ELSE 0 END) * 1.0 / NULLIF(COUNT(DISTINCT CASE 
+          WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+            AND YEAR(e.start_date_time) = YEAR(GETDATE())
+            AND e.report_approved = 1
+          THEN e.event_id 
+          ELSE NULL END), 0), 0) AS avgSalesPerDemo,
+        COUNT(DISTINCT CASE 
+          WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+            AND YEAR(e.start_date_time) = YEAR(GETDATE())
+            AND e.report_approved = 1
+          THEN e.event_id 
+          ELSE NULL END) AS demosByProduct,
+        CASE 
+          WHEN SUM(CASE 
+            WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+              AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1
+            THEN ei.beginning_inventory 
+            ELSE 0 END) = 0 THEN 0
+          ELSE ROUND(100 * (1 - (SUM(CASE 
+            WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+              AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1
+            THEN ei.sold 
+            ELSE 0 END) * 1.0 / SUM(CASE 
+            WHEN MONTH(e.start_date_time) = MONTH(GETDATE()) 
+              AND YEAR(e.start_date_time) = YEAR(GETDATE())
+              AND e.report_approved = 1
+            THEN ei.beginning_inventory 
+            ELSE 0 END))), 1)
+        END AS percentNotSoldAtDemo
+      FROM Products p
+      LEFT JOIN EventInventory ei ON p.ProductID = ei.product_id
+      LEFT JOIN Events e ON ei.event_id = e.event_id
+      WHERE p.is_deleted = 0 AND e.is_deleted = 0
+      GROUP BY p.ProductID, p.ProductName, p.MSRP
+      ORDER BY p.ProductName;
+    `);
+
+    const productData = result.recordset;
+
+    // Create a new workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Product Data');
+  
+    let currentRow = 1;
+
+    // If imageDataArray is provided, add each image
+    if (imageDataArray && imageDataArray.length > 0) {
+      for (const imageData of imageDataArray) {
+        const base64Data = imageData.replace(/^data:image\/png;base64,/, '');
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+
+        const imageId = workbook.addImage({
+          buffer: imageBuffer,
+          extension: 'png',
+        });
+
+        worksheet.addImage(imageId, {
+          tl: { col: 0, row: currentRow - 1 },
+          ext: { width: 500, height: 300 },
+        });
+
+        // Adjust row heights to accommodate the image
+        for (let i = currentRow; i < currentRow + 15; i++) {
+          worksheet.getRow(i).height = 20;
+        }
+
+        // Move the currentRow pointer down
+        currentRow += 17; // Adjust as needed based on image size
+      }
+    }
+
+    // Define columns
+    worksheet.columns = [
+      { key: 'ProductName', width: 30 },
+      { key: 'demosByProduct', width: 15 },
+      { key: 'unitsSold', width: 15 },
+      { key: 'totalDollarSales', width: 20 },
+      { key: 'avgSalesPerDemo', width: 20 },
+      { key: 'percentNotSoldAtDemo', width: 20 },
+    ];
+    
+    // Add header row at the starting position
+    worksheet.spliceRows(currentRow, 0, [
+      'Product Name',
+      '# Demos',
+      '# Units Sold',
+      '$ Units Sold',
+      '$ Avg Sales per Demo',
+      '% Not Sold at Demo',
+    ]);
+    
+    // Style the header row
+    const headerRow = worksheet.getRow(currentRow);
+    headerRow.font = { bold: true };
+    
+    // Add data rows starting from the next row
+    productData.forEach((product) => {
+      worksheet.insertRow(currentRow, [
+        product.ProductName,
+        product.demosByProduct,
+        product.unitsSold,
+        product.totalDollarSales,
+        product.avgSalesPerDemo,
+        product.percentNotSoldAtDemo / 100, // Convert to fraction for percentage format
+      ]);
+      currentRow += 1;
+    });
+    
+    // Format currency columns
+    worksheet.getColumn(4).numFmt = '"$"#,##0.00;[Red]\\-"$"#,##0.00'; // Column 4: '$ Units Sold'
+    worksheet.getColumn(5).numFmt = '"$"#,##0.00;[Red]\\-"$"#,##0.00'; // Column 5: '$ Avg Sales per Demo'
+
+    // Format percentage column
+    worksheet.getColumn(6).numFmt = '0.00%'; // Column 6: '% Not Sold at Demo'
+
+    // Send the workbook to the client
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=' + 'ProductData.xlsx'
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error exporting product data to Excel:', error);
+    res.status(500).send('Error exporting product data to Excel');
+  }
+};
