@@ -16,7 +16,6 @@ import {
 import { Bar } from 'react-chartjs-2';
 import { ChartData } from 'chart.js';
 import { saveAs } from 'file-saver';
-import html2canvas from 'html2canvas';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -97,39 +96,24 @@ const ProductSubTabContent: React.FC = () => {
 
   const handleExportToExcel = async () => {
     try {
-      const images: string[] = [];
-
-      for (let i = 0; i <= 3; i++) {
-        // Capture the chart as an image
-        const chartElement = document.getElementById(`product-chart-${i}`);
-        if (!chartElement) {
-          throw new Error(`Chart element product-chart-${i} not found`);
-        }
-
-        const canvas = await html2canvas(chartElement);
-        const imageData = canvas.toDataURL('image/png');
-        images.push(imageData);
-      }
-
       const response = await fetch(`${apiUrl}/data/export-product-data`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         },
-        body: JSON.stringify({ imageDataArray: images }),
       });
-
+  
       if (!response.ok) {
         throw new Error('Failed to export data');
       }
-
+  
       const blob = await response.blob();
       saveAs(blob, 'ProductData.xlsx');
     } catch (error) {
       console.error('Error exporting data:', error);
     }
   };
-
+  
   return (
     <Box>
       {/* Export to Excel button */}

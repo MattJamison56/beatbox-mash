@@ -1,7 +1,9 @@
 // controllers/authController.ts
 import { Request, Response } from 'express';
 import { poolPromise } from '../database';
+import sql from 'mssql';
 import ExcelJS from 'exceljs';
+import { ChartJSNodeCanvas } from 'chartjs-node-canvas';
 
 export const getProductData = async (req: Request, res: Response) => {
   try {
@@ -519,7 +521,6 @@ export const getQANumericalResults = async (req: Request, res: Response) => {
 
 export const exportProductDataToExcel = async (req: Request, res: Response) => {
   try {
-    const { imageDataArray } = req.body; 
     const pool = await poolPromise;
 
     // Fetch product data
@@ -588,36 +589,35 @@ export const exportProductDataToExcel = async (req: Request, res: Response) => {
     // Create a new workbook and worksheet
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Product Data');
-  
+
     let currentRow = 1;
 
-    // If imageDataArray is provided, add each image
-    if (imageDataArray && imageDataArray.length > 0) {
-      for (const imageData of imageDataArray) {
-        const base64Data = imageData.replace(/^data:image\/png;base64,/, '');
-        const imageBuffer = Buffer.from(base64Data, 'base64');
+    // Generate charts on the backend
+    const chartConfigurations = getChartConfigurationsProduct(productData);
+    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width: 800, height: 600 });
 
-        const imageId = workbook.addImage({
-          buffer: imageBuffer,
-          extension: 'png',
-        });
+    for (const config of chartConfigurations) {
+      const imageBuffer = await chartJSNodeCanvas.renderToBuffer(config.chartConfig);
 
-        worksheet.addImage(imageId, {
-          tl: { col: 0, row: currentRow - 1 },
-          ext: { width: 500, height: 300 },
-        });
+      const imageId = workbook.addImage({
+        buffer: imageBuffer,
+        extension: 'png',
+      });
 
-        // Adjust row heights to accommodate the image
-        for (let i = currentRow; i < currentRow + 15; i++) {
-          worksheet.getRow(i).height = 20;
-        }
+      worksheet.addImage(imageId, {
+        tl: { col: 0, row: currentRow - 1 },
+        ext: { width: 600, height: 400 },
+      });
 
-        // Move the currentRow pointer down
-        currentRow += 17; // Adjust as needed based on image size
-      }
+      // Add chart title
+      worksheet.getCell(`A${currentRow}`).value = config.title;
+      worksheet.getCell(`A${currentRow}`).font = { bold: true };
+      worksheet.getRow(currentRow).height = 20;
+
+      currentRow += 22; // Adjust as needed based on image size
     }
 
-    // Define columns
+    // Define columns without headers
     worksheet.columns = [
       { key: 'ProductName', width: 30 },
       { key: 'demosByProduct', width: 15 },
@@ -626,8 +626,8 @@ export const exportProductDataToExcel = async (req: Request, res: Response) => {
       { key: 'avgSalesPerDemo', width: 20 },
       { key: 'percentNotSoldAtDemo', width: 20 },
     ];
-    
-    // Add header row at the starting position
+
+    // Insert header row at the current position
     worksheet.spliceRows(currentRow, 0, [
       'Product Name',
       '# Demos',
@@ -636,11 +636,13 @@ export const exportProductDataToExcel = async (req: Request, res: Response) => {
       '$ Avg Sales per Demo',
       '% Not Sold at Demo',
     ]);
-    
+
     // Style the header row
     const headerRow = worksheet.getRow(currentRow);
     headerRow.font = { bold: true };
-    
+
+    currentRow += 1;
+
     // Add data rows starting from the next row
     productData.forEach((product) => {
       worksheet.insertRow(currentRow, [
@@ -653,7 +655,7 @@ export const exportProductDataToExcel = async (req: Request, res: Response) => {
       ]);
       currentRow += 1;
     });
-    
+
     // Format currency columns
     worksheet.getColumn(4).numFmt = '"$"#,##0.00;[Red]\\-"$"#,##0.00'; // Column 4: '$ Units Sold'
     worksheet.getColumn(5).numFmt = '"$"#,##0.00;[Red]\\-"$"#,##0.00'; // Column 5: '$ Avg Sales per Demo'
@@ -668,13 +670,386 @@ export const exportProductDataToExcel = async (req: Request, res: Response) => {
     );
     res.setHeader(
       'Content-Disposition',
-      'attachment; filename=' + 'ProductData.xlsx'
+      'attachment; filename=ProductData.xlsx'
     );
 
     await workbook.xlsx.write(res);
-    res.end();
+    // Do not call res.end(), write() handles it
   } catch (error) {
     console.error('Error exporting product data to Excel:', error);
     res.status(500).send('Error exporting product data to Excel');
   }
 };
+
+// Helper function to generate chart configurations
+function getChartConfigurationsProduct(productData: any[]) {
+  const labels = productData.map((item: { ProductName: any; }) => item.ProductName);
+
+  return [
+    {
+      title: 'Units Sold',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Units Sold',
+              data: productData.map((item: { unitsSold: any; }) => item.unitsSold),
+              backgroundColor: 'rgba(75, 192, 192, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Units Sold',
+            },
+          },
+        },
+      },
+    },
+    {
+      title: 'Average Sales',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Average Sales',
+              data: productData.map((item: { avgSalesPerDemo: any; }) => item.avgSalesPerDemo),
+              backgroundColor: 'rgba(255, 159, 64, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Average Sales',
+            },
+          },
+        },
+      },
+    },
+    {
+      title: '# Demos by Product',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: '# Demos by Product',
+              data: productData.map((item: { demosByProduct: any; }) => item.demosByProduct),
+              backgroundColor: 'rgba(153, 102, 255, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '# Demos by Product',
+            },
+          },
+        },
+      },
+    },
+    {
+      title: '% Not Sold at Demo',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: '% Not Sold at Demo',
+              data: productData.map((item: { percentNotSoldAtDemo: any; }) => item.percentNotSoldAtDemo),
+              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: '% Not Sold at Demo',
+            },
+          },
+        },
+      },
+    },
+  ];
+}
+
+export const exportBrandAmbassadorsDataToExcel = async (req: Request, res: Response) => {
+  try {
+    const pool = await poolPromise;
+
+    // Fetch BA data
+    const result = await pool.request().query(`
+      WITH UniqueEventHours AS (
+          SELECT
+              U.id AS baId,
+              U.name AS baName,
+              U.avatar_url AS baAvatarUrl,
+              E.event_id AS eventId,
+              SUM(E.duration_hours + (E.duration_minutes / 60.0)) AS eventDurationInHours
+          FROM
+              Users U
+          JOIN
+              EventBrandAmbassadors EBA ON U.id = EBA.ba_id
+          JOIN
+              Events E ON EBA.event_id = E.event_id
+          WHERE
+              E.is_deleted = 0
+              AND E.report_approved = 1
+              AND MONTH(E.start_date_time) = MONTH(GETDATE())
+              AND YEAR(E.start_date_time) = YEAR(GETDATE())
+          GROUP BY
+              U.id, U.name, U.avatar_url, E.event_id
+      ),
+      EventSales AS (
+          SELECT
+              EI.event_id,
+              SUM(EI.sold) AS totalUnitsSold,
+              SUM(EI.sold * P.MSRP) AS totalDollarSales
+          FROM
+              EventInventory EI
+          LEFT JOIN
+              Products P ON EI.product_id = P.ProductID
+          GROUP BY
+              EI.event_id
+      )
+      SELECT
+          U.baId,
+          U.baName,
+          U.baAvatarUrl,
+          COUNT(DISTINCT U.eventId) AS demosLastMonth,
+          SUM(U.eventDurationInHours) AS totalHoursWorked,
+          SUM(ES.totalUnitsSold) AS totalUnitsSold,
+          SUM(ES.totalDollarSales) AS totalDollarSales,
+          CASE WHEN SUM(U.eventDurationInHours) > 0 THEN SUM(ES.totalUnitsSold) / SUM(U.eventDurationInHours) ELSE 0 END AS salesPerHour
+      FROM
+          UniqueEventHours U
+      LEFT JOIN
+          EventSales ES ON U.eventId = ES.event_id
+      GROUP BY
+          U.baId, U.baName, U.baAvatarUrl
+      ORDER BY
+          U.baName;
+    `);
+    
+    if (!result.recordset || result.recordset.length === 0) {
+      console.error('No data returned from the database.');
+      res.status(500).send('No data returned from the database.');
+      return;
+    }
+
+    const baData = result.recordset.map((ba) => ({
+      ...ba,
+      avgSalesPerDemo: ba.totalUnitsSold / ba.demosLastMonth || 0,
+      avgDollarSalesPerDemo: ba.totalDollarSales / ba.demosLastMonth || 0,
+      avgHoursPerDemo: ba.totalHoursWorked / ba.demosLastMonth || 0,
+      dollarSalesPerHour: ba.totalDollarSales / ba.totalHoursWorked || 0,
+    }));
+
+    // Create a new workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Brand Ambassadors Data');
+
+    let currentRow = 1;
+
+    // Generate charts on the backend
+    const chartConfigurations = getChartConfigurations(baData);
+    const chartJSNodeCanvas = new ChartJSNodeCanvas({ width: 800, height: 600 });
+
+    for (const config of chartConfigurations) {
+      const imageBuffer = await chartJSNodeCanvas.renderToBuffer(config.chartConfig);
+
+      const imageId = workbook.addImage({
+        buffer: imageBuffer,
+        extension: 'png',
+      });
+
+      worksheet.addImage(imageId, {
+        tl: { col: 0, row: currentRow - 1 },
+        ext: { width: 600, height: 400 },
+      });
+
+      // Add chart title
+      worksheet.getCell(`A${currentRow}`).value = config.title;
+      worksheet.getCell(`A${currentRow}`).font = { bold: true };
+      worksheet.getRow(currentRow).height = 20;
+
+      currentRow += 22; // Adjust as needed based on image size
+    }
+
+    // Define columns
+    worksheet.columns = [
+      { header: 'BA Name', key: 'baName', width: 30 },
+      { header: '# Demos', key: 'demosLastMonth', width: 15 },
+      { header: '# Total Sales', key: 'totalUnitsSold', width: 15 },
+      { header: '$ Total Sales', key: 'totalDollarSales', width: 20 },
+      { header: '# Avg Sales per Demo', key: 'avgSalesPerDemo', width: 20 },
+      { header: '$ Avg Sales per Demo', key: 'avgDollarSalesPerDemo', width: 20 },
+      { header: 'Total Hours', key: 'totalHoursWorked', width: 15 },
+      { header: 'Avg Hours per Demo', key: 'avgHoursPerDemo', width: 15 },
+      { header: '# Sales per Demo Hour', key: 'salesPerHour', width: 20 },
+      { header: '$ Sales per Demo Hour', key: 'dollarSalesPerHour', width: 20 },
+    ];
+
+    // Add data rows starting from the current row
+    baData.forEach((ba) => {
+      worksheet.addRow({
+        baName: ba.baName,
+        demosLastMonth: ba.demosLastMonth,
+        totalUnitsSold: ba.totalUnitsSold,
+        totalDollarSales: ba.totalDollarSales,
+        avgSalesPerDemo: ba.avgSalesPerDemo,
+        avgDollarSalesPerDemo: ba.avgDollarSalesPerDemo,
+        totalHoursWorked: ba.totalHoursWorked,
+        avgHoursPerDemo: ba.avgHoursPerDemo,
+        salesPerHour: ba.salesPerHour,
+        dollarSalesPerHour: ba.dollarSalesPerHour,
+      });
+    });
+
+    // Style the header row
+    const headerRow = worksheet.getRow(currentRow);
+    headerRow.font = { bold: true };
+
+    // Format currency columns
+    worksheet.getColumn('totalDollarSales').numFmt = '"$"#,##0.00';
+    worksheet.getColumn('avgDollarSalesPerDemo').numFmt = '"$"#,##0.00';
+    worksheet.getColumn('dollarSalesPerHour').numFmt = '"$"#,##0.00';
+
+    // Send the workbook to the client
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', 'attachment; filename=BrandAmbassadorsData.xlsx');
+
+    await workbook.xlsx.write(res);
+    // Do not call res.end(), write() handles it
+  } catch (error) {
+    console.error('Error exporting brand ambassadors data to Excel:', error);
+    res.status(500).send('Error exporting brand ambassadors data to Excel');
+  }
+};
+
+// Helper function to generate chart configurations
+function getChartConfigurations(baData) {
+  const labels = baData.map((item) => item.baName);
+
+  return [
+    {
+      title: 'Demos by BA',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Demos by BA',
+              data: baData.map((item) => item.demosLastMonth),
+              backgroundColor: 'rgba(75, 192, 192, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Demos by BA',
+            },
+          },
+        },
+      },
+    },
+    {
+      title: 'Sales per Hour',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Sales per Hour',
+              data: baData.map((item) => item.salesPerHour),
+              backgroundColor: 'rgba(255, 159, 64, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Sales per Hour',
+            },
+          },
+        },
+      },
+    },
+    {
+      title: 'Total Hours by BA',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Total Hours by BA',
+              data: baData.map((item) => item.totalHoursWorked),
+              backgroundColor: 'rgba(153, 102, 255, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Total Hours by BA',
+            },
+          },
+        },
+      },
+    },
+    {
+      title: 'Total Sales by BA',
+      chartConfig: {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Total Sales by BA',
+              data: baData.map((item) => item.totalDollarSales),
+              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            },
+          ],
+        },
+        options: {
+          responsive: false,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Total Sales by BA',
+            },
+          },
+        },
+      },
+    },
+  ];
+}

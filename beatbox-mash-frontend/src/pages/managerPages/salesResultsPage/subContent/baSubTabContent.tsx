@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { Box, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Box, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import { ChartData } from 'chart.js';
+import { saveAs } from 'file-saver';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -82,8 +83,35 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
     }
   };
 
+  const handleExportToExcel = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/data/export-ba-data`, {
+        method: 'GET',
+        headers: {
+          'Content-Type':
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export data');
+      }
+
+      const blob = await response.blob();
+      saveAs(blob, 'BrandAmbassadorsData.xlsx');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+    }
+  };
+
   return (
     <Box>
+      {/* Export to Excel button */}
+      <Box display="flex" justifyContent="flex-end" mb={2}>
+        <Button variant="contained" color="primary" onClick={handleExportToExcel}>
+          Export to Excel
+        </Button>
+      </Box>
       {/* Subtabs for Brand Ambassadors */}
       <Tabs value={subTabValue} onChange={handleSubTabChange} aria-label="BA subtabs" sx={{ marginBottom: 2 }}>
         <Tab label="Demos by BA" />
@@ -129,9 +157,9 @@ const BrandAmbassadorsSubTabContent: React.FC = () => {
                 <TableRow key={index}>
                   <TableCell>
                     <img
-                      src={ba.avatarUrl || 'https://via.placeholder.com/50'}
+                      src={ba.baAvatarUrl || 'https://via.placeholder.com/50'}
                       alt={`${ba.baName} avatar`}
-                      style={{ width: '40px', borderRadius: '50%', marginRight: '10px' }}
+                      style={{ width: '40px', height: '40px', borderRadius: '50%', marginRight: '10px' }}
                     />
                     {ba.baName}
                   </TableCell>
